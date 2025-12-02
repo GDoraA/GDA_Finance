@@ -158,9 +158,17 @@
 
     <!-- PWA service worker -->
     <script>
-        if ("serviceWorker" in navigator) {
-            navigator.serviceWorker.register("service-worker.js");
+        // Ellenőrzés: local file-ról fut-e?
+        const isLocal = window.location.protocol === "file:";
+
+        if (!isLocal && "serviceWorker" in navigator) {
+            navigator.serviceWorker.register("service-worker.js")
+                .then(() => console.log("Service Worker regisztrálva."))
+                .catch(err => console.log("SW hiba:", err));
+        } else {
+            console.log("Local futás – Service Worker kikapcsolva.");
         }
     </script>
+
 </body>
 </html>

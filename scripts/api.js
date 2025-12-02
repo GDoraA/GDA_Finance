@@ -4,7 +4,7 @@
    így teljesen CORS-mentes és működik file:// környezetben is.
 */
 
-const BACKEND_URL = "https://script.google.com/macros/s/AKfycbz7yR3FF8EJfNRCXbIbYlfRtdgEsBoBMl0mEJtt7el69bMPNJWbcaFgqaWXxaq3nvg/exec";  // ← ide tedd be a GAS WebApp URL-t
+const BACKEND_URL = "https://script.google.com/macros/s/AKfycbxyYASvUqLpe2cAZPQVwGEuhTaZPv8LvCYCNuHb7bs3H0jz4nd3cUcndwmOFA1PkWA/exec";  // ← ide tedd be a GAS WebApp URL-t
 
 /* ---------------------------------------------------------------
    Tranzakció mentése JSONP segítségével

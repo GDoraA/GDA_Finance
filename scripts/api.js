@@ -1,60 +1,66 @@
-/* --------------------------------------------------------------------------
-   GDA Finance – API modul (magyar kommentekkel)
-   --------------------------------------------------------------------------
-   Ez a modul kezeli a kommunikációt a Google Apps Script backend és a PWA között.
-   - saveTransaction(data)   → új tranzakció mentése
-   - fetchTransactions()     → tranzakciók lekérése
--------------------------------------------------------------------------- */
+/* GDA Finance – JSONP alapú API (local file:// támogatással)
+   ---------------------------------------------------------------
+   Ez a verzió NEM használ fetch-et, hanem JSONP script betöltést,
+   így teljesen CORS-mentes és működik file:// környezetben is.
+*/
 
-// A backend Web App URL-je (ezt a saját GAS alkalmazásod URL-jére kell cserélned!)
-const BACKEND_URL = "https://script.google.com/macros/s/AKfycbz1IEJ0bKLVz6XodyvJtgs1CiWsSwKKYsAzK7e8PjacewWiDfA4t-PubTjEMx3i1A/exec";
+const BACKEND_URL = "https://script.google.com/macros/s/AKfycbz7yR3FF8EJfNRCXbIbYlfRtdgEsBoBMl0mEJtt7el69bMPNJWbcaFgqaWXxaq3nvg/exec";  // ← ide tedd be a GAS WebApp URL-t
 
-/* --------------------------------------------------------------------------
-   Új tranzakció mentése a Google Sheetbe
--------------------------------------------------------------------------- */
-async function saveTransaction(data) {
-    const payload = {
-        table: "Transactions",
-        data: data
-    };
+/* ---------------------------------------------------------------
+   Tranzakció mentése JSONP segítségével
+--------------------------------------------------------------- */
+function saveTransaction(data) {
+    return new Promise((resolve, reject) => {
 
-    const response = await fetch(BACKEND_URL, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
+        const callbackName = "jsonp_callback_" + Math.random().toString(36).substr(2, 9);
+
+        // Globális callback definiálása
+        window[callbackName] = function(response) {
+            delete window[callbackName];
+            document.body.removeChild(script);
+            resolve(response);
+        };
+
+        // Script elem létrehozása JSONP híváshoz
+        const script = document.createElement("script");
+        script.src =
+            BACKEND_URL +
+            "?callback=" + callbackName +
+            "&table=Transactions" +
+            "&data=" + encodeURIComponent(JSON.stringify(data));
+
+        script.onerror = (err) => {
+            delete window[callbackName];
+            reject(err);
+        };
+
+        // Script beszúrása → ekkor indul a hívás
+        document.body.appendChild(script);
     });
-
-    const result = await response.json();
-
-    if (result.status !== "success") {
-        throw new Error("Hiba a tranzakció mentése során: " + JSON.stringify(result));
-    }
-
-    return result;
 }
 
-/* --------------------------------------------------------------------------
-   Tranzakciók lekérése
--------------------------------------------------------------------------- */
-async function fetchTransactions() {
-    const url = BACKEND_URL + "?table=Transactions";
+/* ---------------------------------------------------------------
+   Tranzakciók lekérése (GET) JSONP módszerrel
+--------------------------------------------------------------- */
+function fetchTransactions() {
+    return new Promise((resolve, reject) => {
 
-    const response = await fetch(url);
-    const result = await response.json();
+        const callbackName = "jsonp_callback_" + Math.random().toString(36).substr(2, 9);
 
-    if (result.status !== "success") {
-        throw new Error("Hiba a tranzakciók lekérése során: " + JSON.stringify(result));
-    }
+        window[callbackName] = function(response) {
+            delete window[callbackName];
+            document.body.removeChild(script);
+            resolve(response.rows || response);
+        };
 
-    return result.data.rows;
+        const script = document.createElement("script");
+        script.src =
+            BACKEND_URL +
+            "?callback=" + callbackName +
+            "&table=Transactions";
+
+        script.onerror = reject;
+
+        document.body.appendChild(script);
+    });
 }
-
-/* --------------------------------------------------------------------------
-   További API műveletek később:
-   - updateTransaction()
-   - deleteTransaction()
-   - fetchSharedExpenses()
-   - saveSharedExpense()
--------------------------------------------------------------------------- */

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- App neve -->
+    <title>GDA Finance</title>
+
+    <!-- Stílusok -->
+    <link rel="stylesheet" href="styles.css" />
+
+    <!-- PWA manifest -->
+    <link rel="manifest" href="manifest.json" />
+
+    <!-- iOS PWA támogatás -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="GDA Finance" />
+</head>
+
+<body>
+    <!-- APP HEADER -->
+    <header class="app-header">
+        <div class="app-header__brand">
+            <span class="app-header__logo">GDA</span>
+            <span class="app-header__title">GDA Finance</span>
+        </div>
+
+        <!-- később: dinamikus usernév -->
+        <div class="app-header__meta">Bejelentkezve: Dóri</div>
+    </header>
+
+    <!-- NAVIGÁCIÓ (fülek) -->
+    <nav class="app-nav">
+        <button class="app-nav__tab app-nav__tab--active" data-tab="transactions">Pénzmozgások</button>
+        <button class="app-nav__tab" data-tab="shared">Közös költségek</button>
+        <button class="app-nav__tab" data-tab="history">Számlatörténet</button>
+    </nav>
+
+    <!-- FŐ TARTALMI TERÜLET -->
+    <main class="app-main">
+        <!-- BAL PANEL – Tranzakció rögzítése -->
+        <section class="panel panel--form" id="panel-transactions">
+            <h2 class="panel__title">Új pénzmozgás rögzítése</h2>
+
+            <form id="transaction-form" class="form">
+                <!-- Dátum -->
+                <div class="form__row">
+                    <label class="form__label" for="date">Dátum</label>
+                    <input class="form__input" type="date" id="date" name="date" />
+                </div>
+
+                <!-- Összeg -->
+                <div class="form__row">
+                    <label class="form__label" for="amount">Összeg</label>
+                    <input class="form__input" type="number" step="0.01" id="amount" name="amount" placeholder="pl. -4500 vagy 12000" />
+                </div>
+
+                <!-- Jogcím -->
+                <div class="form__row">
+                    <label class="form__label" for="title">Jogcím</label>
+                    <input class="form__input" type="text" id="title" name="title" placeholder="pl. Élelmiszer, Fizetés, Bérlés..." />
+                </div>
+
+                <!-- Kategória -->
+                <div class="form__row">
+                    <label class="form__label" for="category">Kategória</label>
+                    <input class="form__input" type="text" id="category" name="category" placeholder="pl. Food, Utilities, Transport..." />
+                </div>
+
+                <!-- Fizetés módja + Kiadás/Bevétel -->
+                <div class="form__row form__row--inline">
+                    <div class="form__field">
+                        <label class="form__label" for="payment_type">Fizetés típusa</label>
+                        <select class="form__input" id="payment_type" name="payment_type">
+                            <option value="">Válassz...</option>
+                            <option value="cash">Készpénz</option>
+                            <option value="account">Számla</option>
+                        </select>
+                    </div>
+
+                    <div class="form__field">
+                        <label class="form__label" for="transaction_type">Jelleg</label>
+                        <select class="form__input" id="transaction_type" name="transaction_type">
+                            <option value="">Válassz...</option>
+                            <option value="expense">Kiadás</option>
+                            <option value="income">Bevétel</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Közös költség + Rögzítő -->
+                <div class="form__row form__row--inline">
+                    <div class="form__field form__field--checkbox">
+                        <input type="checkbox" id="is_shared" name="is_shared" class="form__checkbox" />
+                        <label class="form__label form__label--checkbox" for="is_shared">
+                            Közös költség
+                        </label>
+                    </div>
+
+                    <div class="form__field">
+                        <label class="form__label" for="created_by">Rögzítő</label>
+                        <select class="form__input" id="created_by" name="created_by">
+                            <option value="U1">Dóri</option>
+                            <option value="U2">Zsolti</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Számlatörténet tétel kapcsolása -->
+                <div class="form__row">
+                    <label class="form__label" for="statement_item">Számlatörténet ID</label>
+                    <input class="form__input" type="text" id="statement_item" name="statement_item" placeholder="opcionális" />
+                </div>
+
+                <!-- Gombok -->
+                <div class="form__row form__row--actions">
+                    <button class="btn btn--primary" type="submit">Mentés</button>
+                    <button class="btn btn--ghost" type="reset">Törlés</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- JOBB PANEL – Tranzakciók listája -->
+        <section class="panel panel--table">
+            <div class="panel__header">
+                <h2 class="panel__title">Pénzmozgások</h2>
+
+                <input type="search" class="form__input form__input--small" placeholder="Keresés..." />
+            </div>
+
+            <div class="table-wrapper">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Dátum</th>
+                            <th>Jogcím</th>
+                            <th>Kategória</th>
+                            <th>Összeg</th>
+                            <th>Jelleg</th>
+                            <th>Fizetés</th>
+                            <th>Közös</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        <!-- A PWA és az app.js tölti be később -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- Fő alkalmazás logika -->
+    <script src="utils/helpers.js"></script>
+    <script src="scripts/api.js"></script>
+    <script src="app.js"></script>
+
+    <!-- PWA service worker -->
+    <script>
+        if ("serviceWorker" in navigator) {
+            navigator.serviceWorker.register("service-worker.js");
+        }
+    </script>
+</body>
+</html>

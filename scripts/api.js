@@ -7,7 +7,7 @@
 -------------------------------------------------------------------------- */
 
 // A backend Web App URL-je (ezt a saját GAS alkalmazásod URL-jére kell cserélned!)
-const BACKEND_URL = "https://script.google.com/macros/s/AKfycbxMHZ8Qg2UaxBOUwdKnJ3PiQItJb5BLYKN3YNTI60f2FgTJdHLq7sSz9x_ofrBMTcQ/exec";
+const BACKEND_URL = "https://script.google.com/macros/s/AKfycbz1IEJ0bKLVz6XodyvJtgs1CiWsSwKKYsAzK7e8PjacewWiDfA4t-PubTjEMx3i1A/exec";
 
 /* --------------------------------------------------------------------------
    Új tranzakció mentése a Google Sheetbe

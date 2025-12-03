@@ -1,66 +1,36 @@
-/* GDA Finance – JSONP alapú API (local file:// támogatással)
-   ---------------------------------------------------------------
-   Ez a verzió NEM használ fetch-et, hanem JSONP script betöltést,
-   így teljesen CORS-mentes és működik file:// környezetben is.
-*/
+const API_BASE = "https://script.google.com/macros/s/AKfycbxkvmqQoWG83xNsQWMe_LgMXxv0ZEMJlPaboH2O7nTgi4rjpvieW_b29ldsAqgOLyI/exec";
 
-const BACKEND_URL = "https://script.google.com/macros/s/AKfycbxyYASvUqLpe2cAZPQVwGEuhTaZPv8LvCYCNuHb7bs3H0jz4nd3cUcndwmOFA1PkWA/exec";  // ← ide tedd be a GAS WebApp URL-t
+const api = {
 
-/* ---------------------------------------------------------------
-   Tranzakció mentése JSONP segítségével
---------------------------------------------------------------- */
-function saveTransaction(data) {
-    return new Promise((resolve, reject) => {
+    addItem(item) {
+        const params = new URLSearchParams({
+            action: "addItem",
+            ...item
+        });
+        return jsonp(`${API_BASE}?${params.toString()}`);
+    },
 
-        const callbackName = "jsonp_callback_" + Math.random().toString(36).substr(2, 9);
+    getList() {
+        return jsonp(`${API_BASE}?action=getList`);
+    },
 
-        // Globális callback definiálása
-        window[callbackName] = function(response) {
-            delete window[callbackName];
-            document.body.removeChild(script);
-            resolve(response);
-        };
+    updateItem(item) {
+        const params = new URLSearchParams({
+            action: "updateItem",
+            ...item
+        });
+        return jsonp(`${API_BASE}?${params.toString()}`);
+    },
 
-        // Script elem létrehozása JSONP híváshoz
-        const script = document.createElement("script");
-        script.src =
-            BACKEND_URL +
-            "?callback=" + callbackName +
-            "&table=Transactions" +
-            "&data=" + encodeURIComponent(JSON.stringify(data));
+    deleteItem(id) {
+        const params = new URLSearchParams({
+            action: "deleteItem",
+            id
+        });
+        return jsonp(`${API_BASE}?${params.toString()}`);
+    },
 
-        script.onerror = (err) => {
-            delete window[callbackName];
-            reject(err);
-        };
-
-        // Script beszúrása → ekkor indul a hívás
-        document.body.appendChild(script);
-    });
-}
-
-/* ---------------------------------------------------------------
-   Tranzakciók lekérése (GET) JSONP módszerrel
---------------------------------------------------------------- */
-function fetchTransactions() {
-    return new Promise((resolve, reject) => {
-
-        const callbackName = "jsonp_callback_" + Math.random().toString(36).substr(2, 9);
-
-        window[callbackName] = function(response) {
-            delete window[callbackName];
-            document.body.removeChild(script);
-            resolve(response.rows || response);
-        };
-
-        const script = document.createElement("script");
-        script.src =
-            BACKEND_URL +
-            "?callback=" + callbackName +
-            "&table=Transactions";
-
-        script.onerror = reject;
-
-        document.body.appendChild(script);
-    });
-}
+    getUniqueLists() {
+        return jsonp(`${API_BASE}?action=getUniqueLists`);
+    }
+};

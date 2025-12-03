@@ -1,118 +1,58 @@
-// -----------------------------------------------------------------------------
-// GDA Finance – Frontend alkalmazás logika (magyar kommentekkel)
-// app.js
-// -----------------------------------------------------------------------------
-//
-// Ez a fájl kezeli:
-//   • a tranzakció rögzítési űrlapot
-//   • az objektum létrehozását (id, month, created_at)
-//   • a tranzakció sor megjelenítését
-//   • a backend (Google Apps Script) meghívását
-//
-// A modul a következő külső fájlokat használja:
-//   • utils/helpers.js  → idGenerator, extractMonth, getTimestamp
-//   • scripts/api.js    → saveTransaction(), fetchTransactions()
-// -----------------------------------------------------------------------------
+document.addEventListener("DOMContentLoaded", async () => {
 
-// HTML elemek beolvasása
-const form = document.getElementById("transaction-form");
-const tableBody = document.querySelector(".table tbody");
+    loadTransactionList();
 
-// -----------------------------------------------------------------------------
-// ESEMÉNY: Űrlap elküldése
-// -----------------------------------------------------------------------------
+    document.getElementById("add-transaction-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
 
-form.addEventListener("submit", async function (e) {
-    e.preventDefault();
+        const item = {
+            month: getMonthString(document.getElementById("date").value),
+            date: document.getElementById("date").value,
+            amount: document.getElementById("amount").value,
+            title: document.getElementById("title").value,
+            category: document.getElementById("category").value,
+            payment_type: document.getElementById("payment_type").value,
+            transaction_type: document.getElementById("transaction_type").value,
+            is_shared: document.getElementById("is_shared").checked ? "true" : "false",
+            statement_item: document.getElementById("statement_item").value,
+            created_by: "dori",
+            created_at: getTimestamp()
+        };
 
-    // Form értékeinek kiolvasása
-    const formData = new FormData(form);
+        const result = await api.addItem(item);
 
-    const date = formData.get("date");
-    const amount = parseFloat(formData.get("amount") || 0);
-    const title = formData.get("title");
-    const category = formData.get("category");
-    const payment_type = formData.get("payment_type");
-    const transaction_type = formData.get("transaction_type");
-    const is_shared = formData.get("is_shared") === "on";
-    const statement_item = formData.get("statement_item");
-    const created_by = formData.get("created_by");
-
-    // -------------------------------------------------------------------------
-    // TRANZAKCIÓ OBJEKTUM FELÉPÍTÉSE
-    // -------------------------------------------------------------------------
-
-    const transaction = {
-        id: generateId(),            // helpers.js
-        month: extractMonth(date),   // helpers.js
-        date,
-        amount,
-        title,
-        category,
-        payment_type,
-        transaction_type,
-        is_shared,
-        statement_item: statement_item || "",
-        created_by,
-        created_at: getTimestamp()   // helpers.js
-    };
-
-    // -------------------------------------------------------------------------
-    // TRanzakció megjelenítése a táblázatban (frontend)
-    // -------------------------------------------------------------------------
-
-    appendTransactionToTable(transaction);
-
-    // -------------------------------------------------------------------------
-    // Mentés Google Sheets-be (backend)
-    // api.js → saveTransaction()
-    // -------------------------------------------------------------------------
-
-    try {
-        if (typeof saveTransaction === "function") {
-            await saveTransaction(transaction);
-            console.log("Tranzakció mentve a backendbe.");
+        if (result.success) {
+            alert("Mentve!");
+            loadTransactionList();
+            e.target.reset();
         } else {
-            console.warn("saveTransaction() még nincs definiálva. (api.js hiányzik?)");
+            alert("Hiba: " + (result.error || "Ismeretlen hiba"));
         }
-    } catch (err) {
-        console.error("Hiba a mentés során:", err);
-        alert("Hiba történt a mentés során.");
-    }
-
-    // Űrlap ürítése
-    form.reset();
+    });
 });
 
-// -----------------------------------------------------------------------------
-// MEGJELENÍTÉS: Új sor hozzáadása a táblázathoz
-// -----------------------------------------------------------------------------
+async function loadTransactionList() {
+    const container = document.getElementById("transaction-list");
+    container.innerHTML = "Betöltés...";
 
-function appendTransactionToTable(t) {
-    const tr = document.createElement("tr");
+    const list = await api.getList();
 
-    tr.innerHTML = `
-        <td>${t.date}</td>
-        <td>${t.title}</td>
-        <td>${t.category}</td>
-        <td class="${t.amount < 0 ? "table__cell--negative" : "table__cell--positive"}">
-            ${t.amount}
-        </td>
-        <td>${t.transaction_type}</td>
-        <td>${t.payment_type}</td>
-        <td>${t.is_shared ? "Igen" : "Nem"}</td>
-    `;
+    container.innerHTML = "";
 
-    // Legújabb legyen legfelül
-    tableBody.prepend(tr);
+    if (!list.success || !list.items) {
+        container.innerHTML = "<p>Hiba a lista betöltésekor.</p>";
+        return;
+    }
+
+    list.items.forEach(item => {
+        const div = document.createElement("div");
+        div.className = "transaction-item";
+
+        div.innerHTML = `
+            <strong>${item.title}</strong> – ${item.amount} Ft<br>
+            <small>${item.date} • ${item.category} • ${item.payment_type}</small>
+        `;
+
+        container.appendChild(div);
+    });
 }
-
-// -----------------------------------------------------------------------------
-// KÉSŐBBI BŐVÍTÉSEK:
-//
-//   • fetchTransactions() → API-ból betöltés induláskor
-//   • deleteTransaction() → sor törlése
-//   • updateTransaction() → módosítás támogatása
-//
-// A jelenlegi verzió a minimális működést biztosítja.
-// -----------------------------------------------------------------------------

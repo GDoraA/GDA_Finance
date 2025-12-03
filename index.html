@@ -1,54 +1,67 @@
 <!DOCTYPE html>
 <html lang="hu">
 <head>
-<meta charset="UTF-8">
-<title>GDA Finance – Local App</title>
-<style>
-body { font-family: Arial; padding: 20px; }
-iframe#gas-frame { display:none; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GDA Finance</title>
+
+    <!-- PWA manifest -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- App Styles -->
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- App Scripts -->
+    <script defer src="utils/helpers.js"></script>
+    <script defer src="scripts/api.js"></script>
+    <script defer src="app.js"></script>
 </head>
+
 <body>
 
-<h2>GDA Finance – Local (file://) mód</h2>
+    <header>
+        <h1>GDA Finance</h1>
+    </header>
 
-<form id="transactionForm">
-  <label>Dátum: <input type="date" name="date" required></label><br><br>
-  <label>Összeg: <input type="number" name="amount" step="0.01" required></label><br><br>
-  <label>Jogcím: <input type="text" name="title" required></label><br><br>
-  <button type="submit">Mentés</button>
-</form>
+    <main>
+        <!-- Új tétel felvétele -->
+        <section id="add-transaction-section">
+            <h2>Új tranzakció</h2>
 
-<div id="result"></div>
+            <form id="add-transaction-form">
 
-<!-- HIDDEN IFRAME – a GAS backend kommunikációhoz -->
-<iframe id="gas-frame"
-        src="https://script.google.com/macros/s/AKfycbz7yR3FF8EJfNRCXbIbYlfRtdgEsBoBMl0mEJtt7el69bMPNJWbcaFgqaWXxaq3nvg/exec"
-        ></iframe>
+                <input type="date" id="date" required>
+                <input type="number" id="amount" placeholder="Összeg" required>
+                <input type="text" id="title" placeholder="Megnevezés" required>
 
-<script>
-// Parent → Iframe kommunikáció (local file:// alatt MŰKÖDIK)
-const iframe = document.getElementById("gas-frame").contentWindow;
+                <input type="text" id="category" placeholder="Kategória">
+                <select id="payment_type">
+                    <option value="cash">Készpénz</option>
+                    <option value="card">Kártya</option>
+                    <option value="transfer">Utalás</option>
+                </select>
 
-// Fogadjuk a GAS-ből visszajövő üzeneteket
-window.addEventListener("message", (event) => {
-    document.getElementById("result").innerText = "Válasz: " + event.data;
-});
+                <select id="transaction_type">
+                    <option value="expense">Kiadás</option>
+                    <option value="income">Bevétel</option>
+                </select>
 
-// Form küldése postMessage-en keresztül
-document.getElementById("transactionForm").addEventListener("submit", function(e){
-    e.preventDefault();
+                <label>
+                    <input type="checkbox" id="is_shared"> Megosztott?
+                </label>
 
-    const formData = new FormData(e.target);
-    formData.append("action", "save_transaction");
+                <input type="text" id="statement_item" placeholder="Kivonat hivatkozás">
 
-    // Form-data objektum sima JS objektummá alakítása
-    const payload = {};
-    formData.forEach((v,k)=>payload[k]=v);
+                <button type="submit">Mentés</button>
+            </form>
+        </section>
 
-    iframe.postMessage(payload, "*");
-});
-</script>
+        <!-- Tétel lista -->
+        <section id="list-section">
+            <h2>Tranzakciók</h2>
+            <div id="transaction-list"></div>
+        </section>
+    </main>
 
 </body>
 </html>

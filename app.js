@@ -114,10 +114,12 @@ function fillDatalist(listId, values) {
 
 async function loadTransactions() {
     const result = await api.getTransactions();
+    const tbody = document.getElementById("transactionsBody");
 
-    const list = document.getElementById("transactionsList");
     if (!result || !result.success) {
-        list.innerHTML = "Hiba a betöltéskor.";
+        tbody.innerHTML = `
+            <tr><td colspan="6">Hiba a betöltéskor.</td></tr>
+        `;
         return;
     }
 
@@ -136,17 +138,28 @@ async function loadTransactions() {
         return true;
     });
 
-    let html = "";
+    if (filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr><td colspan="6">Nincs megjeleníthető adat.</td></tr>
+        `;
+        return;
+    }
+
+    let rows = "";
 
     filtered.forEach(tx => {
-        html += `
-            <div class="tx-item">
-                <div><strong>${tx.title}</strong> (${tx.amount})</div>
-                <div>${tx.date} • ${tx.category} • ${tx.transaction_type}</div>
-                <div class="tx-id">ID: ${tx.id}</div>
-            </div>
+        rows += `
+            <tr>
+                <td>${tx.date}</td>
+                <td>${tx.title}</td>
+                <td>${tx.category}</td>
+                <td>${tx.transaction_type}</td>
+                <td>${tx.amount}</td>
+                <td class="tx-id">${tx.id}</td>
+            </tr>
         `;
     });
 
-    list.innerHTML = html || "Nincs megjeleníthető adat.";
+    tbody.innerHTML = rows;
 }
+

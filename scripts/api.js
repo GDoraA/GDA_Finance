@@ -1,6 +1,6 @@
 // ----------- API KONFIG -------------
 
-const API_URL = "https://script.google.com/macros/s/AKfycbzy-PUNWRaZImC5elAYnR5GAnPzvhD21Utf-T89bPw-QQVn1qfCQkAuvq6MYaigQJM/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxVp1XxBcvjqP9sLoXxP74Dl8Gxf2ZCjhpWyAuWSDJlaCLxeHe4Xqd2vZC_d-GmLqU/exec";
 
 
 // ----------- JSONP HÍVÓ FUNKCIÓ -------------
@@ -34,7 +34,14 @@ const api = {
     addTransaction(data) {
         return jsonp("addTransaction", data);
     },
+
     getTransactions() {
         return jsonp("getTransactions");
+    },
+
+    // <<< IDE KELL BESZÚRNI >>>
+    getValueSets() {
+        return jsonp("getValueSets");
     }
 };
+

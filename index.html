@@ -1,95 +1,114 @@
 <!DOCTYPE html>
 <html lang="hu">
 <head>
-  <meta charset="UTF-8" />
-  <title>GDA Finance</title>
+    <meta charset="UTF-8" />
+    <title>GDA Finance</title>
 
-  <link rel="stylesheet" href="styles.css">
-  <link rel="manifest" href="manifest.json">
- 
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+    <link rel="stylesheet" href="styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 
 <body>
-  <div class="container">
 
-    <h2>Új tranzakció</h2>
+<div class="container">
 
-    <div class="card">
-      <form id="txForm">
+    <!-- Új tranzakció gomb -->
+    <button id="openModalBtn" class="primary">+ Új tranzakció</button>
 
-        <label>Dátum</label>
-        <input name="date" type="date">
 
-        <label>Hónap (auto)</label>
-        <input name="month" placeholder="YYYYMM">
 
-        <label>Összeg</label>
-        <input name="amount" placeholder="0">
+    <!-- ==============================
+         MODAL – ÚJ TR. FELVÉTELE
+         ============================== -->
+    <div id="modalOverlay" class="modal-overlay"></div>
 
-        <label>Megnevezés</label>
-        <input name="title">
+    <div id="txModal" class="modal">
+        <div class="modal-content">
 
-        <label>Kategória</label>
-        <input name="category">
+            <h2>Új tranzakció</h2>
 
-        <label>Fizetési mód</label>
-        <input name="payment_type">
+            <form id="txForm">
 
-        <label>Típus</label>
-        <select name="transaction_type">
-          <option value="income">Bevétel</option>
-          <option value="expense">Kiadás</option>
-        </select>
+                <label>Dátum</label>
+                <input type="date" name="date">
 
-        <label>Megosztott?</label>
-        <select name="is_shared">
-          <option value="false">Nem</option>
-          <option value="true">Igen</option>
-        </select>
+                <label>Hónap (YYYYMM)</label>
+                <input name="month" placeholder="YYYYMM">
 
-        <label>Kivonat sor</label>
-        <input name="statement_item">
+                <label>Összeg</label>
+                <input name="amount" placeholder="0">
 
-        <button type="submit">Mentés</button>
+                <label>Megnevezés</label>
+                <input list="titlesList" name="title">
+                <datalist id="titlesList"></datalist>
 
-        <div id="successMsg" class="msg success">Sikeresen mentve!</div>
-        <div id="errorMsg" class="msg error">Hiba történt.</div>
-      </form>
+                <label>Kategória</label>
+                <input list="categoriesList" name="category">
+                <datalist id="categoriesList"></datalist>
+
+                <label>Fizetési mód</label>
+                <input list="paymentTypesList" name="payment_type">
+                <datalist id="paymentTypesList"></datalist>
+
+                <label>Típus</label>
+                <input list="transactionTypesList" name="transaction_type">
+                <datalist id="transactionTypesList"></datalist>
+
+
+                <label>Megosztott?</label>
+                <select name="is_shared">
+                    <option value="false">Nem</option>
+                    <option value="true">Igen</option>
+                </select>
+
+                <label>Kivonat sor</label>
+                <input name="statement_item">
+
+                <button type="submit">Mentés</button>
+                <button type="button" id="closeModalBtn" class="secondary">Bezárás</button>
+
+                <div id="successMsg" class="msg success">Sikeresen mentve!</div>
+                <div id="errorMsg" class="msg error">Hiba történt.</div>
+
+            </form>
+        </div>
     </div>
 
+
+
+
+    <!-- Tranzakciók listája -->
     <h2>Tranzakciók</h2>
 
     <div class="card">
 
-      <label>Hónap (YYYYMM)</label>
-      <input id="filterMonth">
+        <label>Hónap (YYYYMM)</label>
+        <input id="filterMonth" placeholder="YYYYMM">
 
-      <label>Kategória</label>
-      <input id="filterCategory">
+        <label>Kategória</label>
+        <input id="filterCategory">
 
-      <label>Típus</label>
-      <select id="filterType">
-        <option value="">Mind</option>
-        <option value="income">Bevétel</option>
-        <option value="expense">Kiadás</option>
-      </select>
+        <label>Típus</label>
+        <select id="filterType">
+            <option value="">Mind</option>
+            <option value="income">Bevétel</option>
+            <option value="expense">Kiadás</option>
+        </select>
 
-      <label>Keresés cím alapján</label>
-      <input id="filterTitle">
+        <label>Keresés cím alapján</label>
+        <input id="filterTitle">
 
-      <button id="loadListBtn">Lista betöltése</button>
+        <button id="loadListBtn">Lista betöltése</button>
 
-      <div id="transactionsList" style="margin-top:20px;"></div>
+        <div id="transactionsList" style="margin-top:20px;"></div>
+
     </div>
 
-  </div>
+</div>
 
-  <!-- App logika -->
-  <script src="utils/helpers.js"></script>
-  <script src="scripts/api.js"></script>
-  <script src="app.js"></script>
+<script src="utils/helpers.js"></script>
+<script src="scripts/api.js"></script>
+<script src="app.js"></script>
 
 </body>
 </html>

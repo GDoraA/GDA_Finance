@@ -1,26 +1,31 @@
-// Dátum → YYYY.MM.DD.
+/**
+ * Magyar formátum: YYYY.MM.DD.
+ */
 function formatDateHU(dateStr) {
     if (!dateStr) return "";
-    const d = new Date(dateStr);
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth()+1).padStart(2,"0");
-    const dd = String(d.getDate()).padStart(2,"0");
-    return `${yyyy}.${mm}.${dd}.`;
+
+    const dt = new Date(dateStr);
+    if (isNaN(dt.getTime())) return dateStr;
+
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, "0");
+    const d = String(dt.getDate()).padStart(2, "0");
+
+    return `${y}.${m}.${d}.`;
 }
 
-// Date → YYYYMM hónap
+
+/**
+ * Hónap (YYYYMM) generálása
+ */
 function deriveMonth(dateStr) {
     if (!dateStr) return "";
-    const d = new Date(dateStr);
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth()+1).padStart(2,"0");
-    return `${yyyy}${mm}`;
-}
 
-// Amount normalizálása
-function normalizeAmount(v) {
-    if (!v) return "";
-    v = v.replace(/\s/g, "").replace(",", ".");
-    const n = parseFloat(v);
-    return isNaN(n) ? "" : n.toFixed(2);
+    const dt = new Date(dateStr);
+    if (isNaN(dt.getTime())) return "";
+
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, "0");
+
+    return `${y}${m}`;
 }

@@ -1,32 +1,26 @@
-// YYYY-MM from date string
-function getMonthString(dateStr) {
+// Dátum → YYYY.MM.DD.
+function formatDateHU(dateStr) {
     if (!dateStr) return "";
     const d = new Date(dateStr);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,"0");
+    const dd = String(d.getDate()).padStart(2,"0");
+    return `${yyyy}.${mm}.${dd}.`;
 }
 
-// ISO timestamp
-function getTimestamp() {
-    return new Date().toISOString();
+// Date → YYYYMM hónap
+function deriveMonth(dateStr) {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,"0");
+    return `${yyyy}${mm}`;
 }
 
-// JSONP hívás Apps Scripthez
-function jsonp(url) {
-    return new Promise((resolve, reject) => {
-        const callbackName =
-            "jsonp_cb_" + Date.now() + "_" + Math.random().toString(36).substring(2);
-
-        window[callbackName] = (data) => {
-            resolve(data);
-            delete window[callbackName];
-            script.remove();
-        };
-
-        const script = document.createElement("script");
-        const sep = url.includes("?") ? "&" : "?";
-        script.src = `${url}${sep}callback=${callbackName}`;
-        script.onerror = reject;
-
-        document.body.appendChild(script);
-    });
+// Amount normalizálása
+function normalizeAmount(v) {
+    if (!v) return "";
+    v = v.replace(/\s/g, "").replace(",", ".");
+    const n = parseFloat(v);
+    return isNaN(n) ? "" : n.toFixed(2);
 }

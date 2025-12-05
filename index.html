@@ -1,67 +1,95 @@
 <!DOCTYPE html>
 <html lang="hu">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GDA Finance</title>
+  <meta charset="UTF-8" />
+  <title>GDA Finance</title>
 
-    <!-- PWA manifest -->
-    <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="manifest.json">
+ 
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <!-- App Styles -->
-    <link rel="stylesheet" href="styles.css">
-
-    <!-- App Scripts -->
-    <script defer src="utils/helpers.js"></script>
-    <script defer src="scripts/api.js"></script>
-    <script defer src="app.js"></script>
 </head>
 
 <body>
+  <div class="container">
 
-    <header>
-        <h1>GDA Finance</h1>
-    </header>
+    <h2>Új tranzakció</h2>
 
-    <main>
-        <!-- Új tétel felvétele -->
-        <section id="add-transaction-section">
-            <h2>Új tranzakció</h2>
+    <div class="card">
+      <form id="txForm">
 
-            <form id="add-transaction-form">
+        <label>Dátum</label>
+        <input name="date" type="date">
 
-                <input type="date" id="date" required>
-                <input type="number" id="amount" placeholder="Összeg" required>
-                <input type="text" id="title" placeholder="Megnevezés" required>
+        <label>Hónap (auto)</label>
+        <input name="month" placeholder="YYYYMM">
 
-                <input type="text" id="category" placeholder="Kategória">
-                <select id="payment_type">
-                    <option value="cash">Készpénz</option>
-                    <option value="card">Kártya</option>
-                    <option value="transfer">Utalás</option>
-                </select>
+        <label>Összeg</label>
+        <input name="amount" placeholder="0">
 
-                <select id="transaction_type">
-                    <option value="expense">Kiadás</option>
-                    <option value="income">Bevétel</option>
-                </select>
+        <label>Megnevezés</label>
+        <input name="title">
 
-                <label>
-                    <input type="checkbox" id="is_shared"> Megosztott?
-                </label>
+        <label>Kategória</label>
+        <input name="category">
 
-                <input type="text" id="statement_item" placeholder="Kivonat hivatkozás">
+        <label>Fizetési mód</label>
+        <input name="payment_type">
 
-                <button type="submit">Mentés</button>
-            </form>
-        </section>
+        <label>Típus</label>
+        <select name="transaction_type">
+          <option value="income">Bevétel</option>
+          <option value="expense">Kiadás</option>
+        </select>
 
-        <!-- Tétel lista -->
-        <section id="list-section">
-            <h2>Tranzakciók</h2>
-            <div id="transaction-list"></div>
-        </section>
-    </main>
+        <label>Megosztott?</label>
+        <select name="is_shared">
+          <option value="false">Nem</option>
+          <option value="true">Igen</option>
+        </select>
+
+        <label>Kivonat sor</label>
+        <input name="statement_item">
+
+        <button type="submit">Mentés</button>
+
+        <div id="successMsg" class="msg success">Sikeresen mentve!</div>
+        <div id="errorMsg" class="msg error">Hiba történt.</div>
+      </form>
+    </div>
+
+    <h2>Tranzakciók</h2>
+
+    <div class="card">
+
+      <label>Hónap (YYYYMM)</label>
+      <input id="filterMonth">
+
+      <label>Kategória</label>
+      <input id="filterCategory">
+
+      <label>Típus</label>
+      <select id="filterType">
+        <option value="">Mind</option>
+        <option value="income">Bevétel</option>
+        <option value="expense">Kiadás</option>
+      </select>
+
+      <label>Keresés cím alapján</label>
+      <input id="filterTitle">
+
+      <button id="loadListBtn">Lista betöltése</button>
+
+      <div id="transactionsList" style="margin-top:20px;"></div>
+    </div>
+
+  </div>
+
+  <!-- App logika -->
+  <script src="utils/helpers.js"></script>
+  <script src="scripts/api.js"></script>
+  <script src="app.js"></script>
 
 </body>
 </html>

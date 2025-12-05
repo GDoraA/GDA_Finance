@@ -1,58 +1,94 @@
-document.addEventListener("DOMContentLoaded", async () => {
+// ------------------ DOM READY ------------------
+document.addEventListener("DOMContentLoaded", () => {
 
-    loadTransactionList();
+    const dateInput = document.querySelector("input[name='date']");
+    const monthInput = document.querySelector("input[name='month']");
+    const amountInput = document.querySelector("input[name='amount']");
 
-    document.getElementById("add-transaction-form").addEventListener("submit", async (e) => {
+    // --- Automatikus month kitöltés ---
+    dateInput.addEventListener("change", () => {
+        if (!dateInput.value) return;
+        monthInput.value = deriveMonth(dateInput.value);
+    });
+
+    // --- Amount valós idejű normalizálás ---
+    amountInput.addEventListener("input", () => {
+        amountInput.value = normalizeAmount(amountInput.value);
+    });
+
+    // --- Submit ---
+    document.getElementById("txForm").addEventListener("submit", async (e) => {
         e.preventDefault();
 
-        const item = {
-            month: getMonthString(document.getElementById("date").value),
-            date: document.getElementById("date").value,
-            amount: document.getElementById("amount").value,
-            title: document.getElementById("title").value,
-            category: document.getElementById("category").value,
-            payment_type: document.getElementById("payment_type").value,
-            transaction_type: document.getElementById("transaction_type").value,
-            is_shared: document.getElementById("is_shared").checked ? "true" : "false",
-            statement_item: document.getElementById("statement_item").value,
-            created_by: "dori",
-            created_at: getTimestamp()
-        };
+        const formData = Object.fromEntries(new FormData(e.target).entries());
 
-        const result = await api.addItem(item);
+        // dátum normalizálás
+        formData.date = formatDateHU(formData.date);
 
-        if (result.success) {
-            alert("Mentve!");
-            loadTransactionList();
-            e.target.reset();
-        } else {
-            alert("Hiba: " + (result.error || "Ismeretlen hiba"));
+        // amount normalizálás
+        formData.amount = normalizeAmount(formData.amount);
+
+        const successMsg = document.getElementById("successMsg");
+        const errorMsg = document.getElementById("errorMsg");
+        successMsg.style.display = "none";
+        errorMsg.style.display = "none";
+
+        try {
+            const result = await api.addTransaction(formData);
+
+            if (result && result.success) {
+                successMsg.style.display = "block";
+                e.target.reset();
+            } else {
+                errorMsg.style.display = "block";
+            }
+        } catch(err) {
+            errorMsg.style.display = "block";
         }
     });
+
+    // --- Listázás ---
+    document.getElementById("loadListBtn").addEventListener("click", loadTransactions);
 });
 
-async function loadTransactionList() {
-    const container = document.getElementById("transaction-list");
-    container.innerHTML = "Betöltés...";
 
-    const list = await api.getList();
+// ------------------ LISTA BETÖLTÉSE ------------------
+async function loadTransactions() {
 
-    container.innerHTML = "";
+    const result = await api.getTransactions();
+    const list = document.getElementById("transactionsList");
 
-    if (!list.success || !list.items) {
-        container.innerHTML = "<p>Hiba a lista betöltésekor.</p>";
+    if (!result || !result.success) {
+        list.innerHTML = "Hiba a betöltéskor.";
         return;
     }
 
-    list.items.forEach(item => {
-        const div = document.createElement("div");
-        div.className = "transaction-item";
+    const data = result.data;
 
-        div.innerHTML = `
-            <strong>${item.title}</strong> – ${item.amount} Ft<br>
-            <small>${item.date} • ${item.category} • ${item.payment_type}</small>
-        `;
+    // szűrő értékek
+    const fMonth = document.getElementById("filterMonth").value.trim();
+    const fCat   = document.getElementById("filterCategory").value.trim().toLowerCase();
+    const fType  = document.getElementById("filterType").value;
+    const fTitle = document.getElementById("filterTitle").value.trim().toLowerCase();
 
-        container.appendChild(div);
+    const filtered = data.filter(tx => {
+        if (fMonth && String(tx.month) !== fMonth) return false;
+        if (fCat   && !String(tx.category).toLowerCase().includes(fCat)) return false;
+        if (fType  && tx.transaction_type !== fType) return false;
+        if (fTitle && !String(tx.title).toLowerCase().includes(fTitle)) return false;
+        return true;
     });
+
+    let html = "";
+    filtered.forEach(tx => {
+        html += `
+          <div class="tx-item">
+            <div><strong>${tx.title}</strong> (${tx.amount})</div>
+            <div>${tx.date} • ${tx.category} • ${tx.transaction_type}</div>
+            <div class="tx-id">ID: ${tx.id}</div>
+          </div>
+        `;
+    });
+
+    list.innerHTML = html || "Nincs megjeleníthető adat.";
 }

@@ -1,36 +1,40 @@
-const API_BASE = "https://script.google.com/macros/s/AKfycbxkvmqQoWG83xNsQWMe_LgMXxv0ZEMJlPaboH2O7nTgi4rjpvieW_b29ldsAqgOLyI/exec";
+// ----------- API KONFIG -------------
+
+const API_URL = "https://script.google.com/macros/s/AKfycbzy-PUNWRaZImC5elAYnR5GAnPzvhD21Utf-T89bPw-QQVn1qfCQkAuvq6MYaigQJM/exec";
+
+
+// ----------- JSONP HÍVÓ FUNKCIÓ -------------
+
+function jsonp(action, params = {}) {
+    return new Promise((resolve, reject) => {
+
+        const callbackName = "cb_" + Date.now() + "_" + Math.floor(Math.random()*10000);
+
+        window[callbackName] = function(response) {
+            delete window[callbackName];
+            script.remove();
+            resolve(response);
+        };
+
+        const urlParams = new URLSearchParams({ action, callback: callbackName, _: Date.now() });
+        Object.entries(params).forEach(([k, v]) => urlParams.set(k, v));
+
+        const script = document.createElement("script");
+        script.src = `${API_URL}?${urlParams.toString()}`;
+        script.onerror = () => reject("JSONP hiba");
+
+        document.body.appendChild(script);
+    });
+}
+
+
+// ----------- API METÓDUSOK -------------
 
 const api = {
-
-    addItem(item) {
-        const params = new URLSearchParams({
-            action: "addItem",
-            ...item
-        });
-        return jsonp(`${API_BASE}?${params.toString()}`);
+    addTransaction(data) {
+        return jsonp("addTransaction", data);
     },
-
-    getList() {
-        return jsonp(`${API_BASE}?action=getList`);
-    },
-
-    updateItem(item) {
-        const params = new URLSearchParams({
-            action: "updateItem",
-            ...item
-        });
-        return jsonp(`${API_BASE}?${params.toString()}`);
-    },
-
-    deleteItem(id) {
-        const params = new URLSearchParams({
-            action: "deleteItem",
-            id
-        });
-        return jsonp(`${API_BASE}?${params.toString()}`);
-    },
-
-    getUniqueLists() {
-        return jsonp(`${API_BASE}?action=getUniqueLists`);
+    getTransactions() {
+        return jsonp("getTransactions");
     }
 };

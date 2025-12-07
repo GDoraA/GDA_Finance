@@ -28,7 +28,6 @@ body {
     font-family: 'Segoe UI', Tahoma, sans-serif;
     color: var(--dark);
     padding: 40px 20px;
-    max-width: 900px;
     margin: auto;
 }
 
@@ -36,9 +35,20 @@ h2 {
     font-size: 1.8rem;
     margin-bottom: 1rem;
     background: linear-gradient(135deg, #4a90e2, #F1E5AC);
+
+    /* Standard property */
+    background-clip: text;
+
+    /* Vendor prefix for WebKit browsers */
     -webkit-background-clip: text;
+
+    /* Fill text with gradient in WebKit browsers */
     -webkit-text-fill-color: transparent;
+
+    /* Optional: Non-WebKit fallback (some browsers ignore it) */
+    color: transparent;
 }
+
 
 /* ==========================================================================
    CARD

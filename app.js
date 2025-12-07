@@ -7,6 +7,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const closeBtn = document.getElementById("closeModalBtn");
 
     openBtn.addEventListener("click", () => {
+        const form = document.getElementById("txForm");
+
+        form.reset();
+        form.removeAttribute("data-edit-id");
+
         modal.classList.add("open");
         overlay.classList.add("open");
     });
@@ -35,9 +40,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const form = new FormData(e.target);
         const formData = Object.fromEntries(form.entries());
+        console.log("TX FORM SUBMIT RAW:", formData);
 
         // Dátum mentési formátumra konvertálása
-        formData.date = formatDateHU(formData.date);
+        // Dátumot ISO formátumban kell küldeni → yyyy-mm-dd maradjon
+        // formData.date változatlanul marad
 
         const s = document.getElementById("successMsg");
         const er = document.getElementById("errorMsg");
@@ -46,18 +53,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Ha van edit ID, akkor módosítunk – ha nincs, új rekord jön létre
         const editId = e.target.getAttribute("data-edit-id");
+        console.log("EDIT MODE?", { editId });
         let result;
 
         try {
             if (editId) {
                 // ===== MÓDOSÍTÁS =====
                 formData.id = editId;
+                console.log("FORMDATA OBJECT CONTENTS:", JSON.stringify(formData, null, 2));
+
+                console.log("CALL updateTransaction WITH:", formData);
                 result = await api.updateTransaction(formData);
+                console.log("UPDATE RESULT RAW:", result);
+                console.log("UPDATE SUCCESS:", result?.success);
+                console.log("UPDATE MESSAGE:", result?.message);
+
 
             } else {
                 // ===== ÚJ REKORD =====
                 result = await api.addTransaction(formData);
             }
+            
+            console.log("API RESULT:", result);
+
 
             if (result && result.success) {
                 s.style.display = "block";
@@ -88,18 +106,18 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-const filtersPanel = document.getElementById("filtersPanel");
-const toggleFiltersBtn = document.getElementById("toggleFiltersBtn");
+    const filtersPanel = document.getElementById("filtersPanel");
+    const toggleFiltersBtn = document.getElementById("toggleFiltersBtn");
 
-// Gomb — manuális nyitás/zárás
-toggleFiltersBtn.addEventListener("click", () => {
-    filtersPanel.classList.toggle("open");
-});
-const filterFields = [
-    "filterMonth", "filterDate", "filterAmount", "filterTitle",
-    "filterCategory", "filterPaymentType", "filterType",
-    "filterShared", "filterStatement"
-].map(id => document.getElementById(id));
+    // Gomb — manuális nyitás/zárás
+    toggleFiltersBtn.addEventListener("click", () => {
+        filtersPanel.classList.toggle("open");
+    });
+    const filterFields = [
+        "filterMonth", "filterDate", "filterAmount", "filterTitle",
+        "filterCategory", "filterPaymentType", "filterType",
+        "filterShared", "filterStatement"
+    ].map(id => document.getElementById(id));
 
 function updateFilterPanelState() {
     const hasFilters = filterFields.some(el => el.value.trim() !== "");
@@ -109,10 +127,20 @@ function updateFilterPanelState() {
         filtersPanel.classList.remove("open");
     }
 }
-
-filterFields.forEach(el => {
-    el.addEventListener("input", updateFilterPanelState);
+document.getElementById("itemsPerPage").addEventListener("change", () => {
+    loadTransactions();
 });
+
+// Minden szűrőmező változásakor:
+// 1) frissítjük a panel nyitott/zárt állapotát
+// 2) újratöltjük a listát az aktuális szűrőfeltételekkel
+filterFields.forEach(el => {
+    el.addEventListener("input", () => {
+        updateFilterPanelState();  // panel nyit/zár logika
+        loadTransactions();        // lista újraszámítása a szűrők alapján
+    });
+});
+
 
     // ===== Lista betöltése =====
     document.getElementById("loadListBtn").addEventListener("click", loadTransactions);
@@ -127,6 +155,19 @@ document.getElementById("clearFiltersBtn").addEventListener("click", () => {
         "filterCategory", "filterPaymentType", "filterType",
         "filterShared", "filterStatement"
     ];
+    // mezők kiürítése
+    fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+    });
+
+    // szűrőpanel bezárása
+    const filtersPanel = document.getElementById("filtersPanel");
+    filtersPanel.classList.remove("open");
+
+    // teljes lista újratöltése
+    loadTransactions();
+});
 // ===== AUTOMATIKUS LISTA FRISSÍTÉS SZŰRÉS KÖZBEN =====
 
 // Az összes szűrő mező listája
@@ -162,19 +203,7 @@ autoFilterFields.forEach(el => {
     });
 });
 
-    // mezők kiürítése
-    fields.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = "";
-    });
-
-    // szűrőpanel bezárása
-    const filtersPanel = document.getElementById("filtersPanel");
-    filtersPanel.classList.remove("open");
-
-    // teljes lista újratöltése
-    loadTransactions();
-});
+    
 
 // ======================================================
 // FORMÁZÓ FÜGGVÉNYEK – DÁTUM, ÖSSZEG
@@ -320,7 +349,7 @@ async function loadTransactions() {
         tbody.innerHTML = `<tr><td colspan="10">Nincs megjeleníthető adat.</td></tr>`;
         return;
     }
-
+    
     let rows = "";
 
 filtered.forEach(tx => {
@@ -365,7 +394,9 @@ function openTransactionEditor(tx) {
     const overlay = document.getElementById("modalOverlay");
 
     // mezők kitöltése
-    document.querySelector("input[name='date']").value = tx.date;
+    // ISO → yyyy-MM-dd
+    const dateOnly = tx.date.split("T")[0];
+    document.querySelector("input[name='date']").value = dateOnly;
     document.querySelector("input[name='month']").value = tx.month;
     document.querySelector("input[name='amount']").value = tx.amount;
     document.querySelector("input[name='title']").value = tx.title;

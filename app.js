@@ -36,6 +36,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const form = new FormData(e.target);
         const formData = Object.fromEntries(form.entries());
 
+        // Dátum mentési formátumra konvertálása
         formData.date = formatDateHU(formData.date);
 
         const s = document.getElementById("successMsg");
@@ -43,19 +44,39 @@ document.addEventListener("DOMContentLoaded", () => {
         s.style.display = "none";
         er.style.display = "none";
 
+        // Ha van edit ID, akkor módosítunk – ha nincs, új rekord jön létre
+        const editId = e.target.getAttribute("data-edit-id");
+        let result;
+
         try {
-            const result = await api.addTransaction(formData);
+            if (editId) {
+                // ===== MÓDOSÍTÁS =====
+                formData.id = editId;
+                result = await api.updateTransaction(formData);
+
+            } else {
+                // ===== ÚJ REKORD =====
+                result = await api.addTransaction(formData);
+            }
 
             if (result && result.success) {
                 s.style.display = "block";
 
-                // Reset
+                // form ürítése
                 e.target.reset();
+
+                // szerkesztési mód kikapcsolása
+                e.target.removeAttribute("data-edit-id");
+
+                // datalist frissítése
                 loadDropdownValues();
 
-                // MODAL bezárása sikeres mentés után
+                // modal bezárása
                 modal.classList.remove("open");
                 overlay.classList.remove("open");
+
+                // lista frissítése
+                loadTransactions();
 
             } else {
                 er.style.display = "block";
@@ -66,6 +87,7 @@ document.addEventListener("DOMContentLoaded", () => {
             console.error(err);
         }
     });
+
 const filtersPanel = document.getElementById("filtersPanel");
 const toggleFiltersBtn = document.getElementById("toggleFiltersBtn");
 
@@ -303,7 +325,7 @@ async function loadTransactions() {
 
 filtered.forEach(tx => {
     rows += `
-        <tr>
+        <tr data-id="${tx.id}">
             <td>${tx.month}</td>
             <td>${formatDateForList(tx.date)}</td>
             <td>${formatAmount(tx.amount)}</td>
@@ -316,10 +338,48 @@ filtered.forEach(tx => {
         </tr>
     `;
 
+
 });
 
 
     tbody.innerHTML = rows;
-}
+// ===== TABLÁZAT SORAINAK KATTINTÁSA – SZERKESZTÉS =====
+const rowsElements = document.querySelectorAll("#transactionsBody tr");
 
+rowsElements.forEach(row => {
+    row.addEventListener("click", () => {
+        const id = row.getAttribute("data-id");
+
+        // A teljes rekordot megkeressük a betöltött adatok között
+        const tx = data.find(item => String(item.id) === String(id));
+
+        if (tx) {
+            openTransactionEditor(tx);
+        }
+    });
+});}
+
+
+function openTransactionEditor(tx) {
+    const modal = document.getElementById("txModal");
+    const overlay = document.getElementById("modalOverlay");
+
+    // mezők kitöltése
+    document.querySelector("input[name='date']").value = tx.date;
+    document.querySelector("input[name='month']").value = tx.month;
+    document.querySelector("input[name='amount']").value = tx.amount;
+    document.querySelector("input[name='title']").value = tx.title;
+    document.querySelector("input[name='category']").value = tx.category;
+    document.querySelector("input[name='payment_type']").value = tx.payment_type;
+    document.querySelector("input[name='transaction_type']").value = tx.transaction_type;
+    document.querySelector("select[name='is_shared']").value = tx.is_shared;
+    document.querySelector("input[name='statement_item']").value = tx.statement_item;
+
+    // a szerkesztendő ID-t eltároljuk a formban (nem látszik, de szükséges)
+    document.getElementById("txForm").setAttribute("data-edit-id", tx.id);
+
+    // modal megnyitása
+    modal.classList.add("open");
+    overlay.classList.add("open");
+}
 

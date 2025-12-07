@@ -39,7 +39,10 @@ const api = {
         return jsonp("getTransactions");
     },
 
-    // <<< IDE KELL BESZÚRNI >>>
+    updateTransaction(data) {
+    return jsonp("updateTransaction", data);
+    },
+
     getValueSets() {
         return jsonp("getValueSets");
     }

@@ -289,3 +289,18 @@ button.secondary {
         font-size: 0.85rem;
     }
 }
+.filters {
+    overflow: hidden;
+    transition: max-height 0.35s ease;
+    max-height: 0;
+    opacity: 0;
+}
+
+.filters.open {
+    max-height: 800px; /* elég nagy érték a tartalomhoz */
+    opacity: 1;
+}
+
+#toggleFiltersBtn {
+    margin-bottom: 10px;
+}

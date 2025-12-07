@@ -105,6 +105,40 @@ document.getElementById("clearFiltersBtn").addEventListener("click", () => {
         "filterCategory", "filterPaymentType", "filterType",
         "filterShared", "filterStatement"
     ];
+// ===== AUTOMATIKUS LISTA FRISSÍTÉS SZŰRÉS KÖZBEN =====
+
+// Az összes szűrő mező listája
+const autoFilterFields = [
+    "filterMonth",
+    "filterDate",
+    "filterAmount",
+    "filterTitle",
+    "filterCategory",
+    "filterPaymentType",
+    "filterType",
+    "filterShared",
+    "filterStatement"
+].map(id => document.getElementById(id));
+
+// Szűrőpanel állapotának frissítése
+function updateFilterPanelState() {
+    const hasFilters = autoFilterFields.some(el => el.value.trim() !== "");
+    const panel = document.getElementById("filtersPanel");
+
+    if (hasFilters) {
+        panel.classList.add("open");
+    } else {
+        panel.classList.remove("open");
+    }
+}
+
+// Minden szűrő mező → automatikus frissítés
+autoFilterFields.forEach(el => {
+    el.addEventListener("input", () => {
+        updateFilterPanelState();
+        loadTransactions();
+    });
+});
 
     // mezők kiürítése
     fields.forEach(id => {
@@ -120,6 +154,41 @@ document.getElementById("clearFiltersBtn").addEventListener("click", () => {
     loadTransactions();
 });
 
+// ======================================================
+// FORMÁZÓ FÜGGVÉNYEK – DÁTUM, ÖSSZEG
+// ======================================================
+
+function formatDateForList(dateStr) {
+    if (!dateStr) return "";
+
+    // Ha már magyar formátumban van (YYYY.MM.DD.), akkor hagyjuk
+    if (/^\d{4}\.\d{2}\.\d{2}\.$/.test(dateStr)) {
+        return dateStr;
+    }
+
+    const dt = new Date(dateStr);
+    if (isNaN(dt.getTime())) return dateStr;
+
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, "0");
+    const d = String(dt.getDate()).padStart(2, "0");
+
+    return `${y}.${m}.${d}.`;
+}
+
+function formatAmount(amount) {
+    if (amount === null || amount === undefined) return "";
+
+    // szóközök eltávolítása, majd számmá alakítás
+    const num = Number(String(amount).replace(/\s/g, ""));
+    if (isNaN(num)) {
+        // ha nem értelmezhető számként, akkor eredeti értéket adjuk vissza
+        return String(amount);
+    }
+
+    // ez teszi bele a szóközöket ezres csoportosítással
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
 
 
 
@@ -236,8 +305,8 @@ filtered.forEach(tx => {
     rows += `
         <tr>
             <td>${tx.month}</td>
-            <td>${tx.date}</td>
-            <td>${tx.amount}</td>
+            <td>${formatDateForList(tx.date)}</td>
+            <td>${formatAmount(tx.amount)}</td>
             <td>${tx.title}</td>
             <td>${tx.category}</td>
             <td>${tx.payment_type}</td>
@@ -246,6 +315,7 @@ filtered.forEach(tx => {
             <td>${tx.statement_item}</td>
         </tr>
     `;
+
 });
 
 

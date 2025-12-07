@@ -254,6 +254,12 @@ button.secondary {
     overflow: hidden;
     box-shadow: var(--shadow);
 }
+/* A táblázat mindig igazodjon az ablak szélességéhez */
+.tx-table {
+    display: table;
+    width: 100%;
+    table-layout: auto;
+}
 
 .tx-table th {
     background: var(--primary);
@@ -267,6 +273,10 @@ button.secondary {
     padding: 12px;
     border-bottom: 1px solid #eee;
     font-size: 0.95rem;
+}
+/* Amount oszlop jobbra igazítása */
+.tx-table td:nth-child(3) {
+    text-align: right;
 }
 
 .tx-table tr:hover td {
@@ -303,4 +313,57 @@ button.secondary {
 
 #toggleFiltersBtn {
     margin-bottom: 10px;
+}
+button.secondary {
+    background: #bbb;
+    margin-top: 10px;
+}
+/* ============================
+   MOBIL KÁRTYANÉZET (≤ 600px)
+   ============================ */
+
+@media (max-width: 600px) {
+
+    /* Elrejtjük a táblázat fejléceit */
+    .tx-table thead {
+        display: none;
+    }
+
+    /* A sorok kártyákká alakulnak */
+    .tx-table tr {
+        display: block;
+        margin-bottom: 15px;
+        background: white;
+        padding: 12px;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-light);
+    }
+
+    /* A cellák blokkszintű elemek */
+    .tx-table td {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: none !important;
+        font-size: 0.9rem;
+    }
+
+    /* Minden cella elé automatikusan megjelenik a mező neve */
+    .tx-table td::before {
+        font-weight: 600;
+        color: var(--primary);
+        text-transform: capitalize;
+    }
+
+    /* A mezőnevek hozzárendelése oszlopsorrend alapján */
+    .tx-table td:nth-child(1)::before { content: "Hónap"; }
+    .tx-table td:nth-child(2)::before { content: "Dátum"; }
+    .tx-table td:nth-child(3)::before { content: "Összeg"; }
+    .tx-table td:nth-child(4)::before { content: "Megnevezés"; }
+    .tx-table td:nth-child(5)::before { content: "Kategória"; }
+    .tx-table td:nth-child(6)::before { content: "Fizetési mód"; }
+    .tx-table td:nth-child(7)::before { content: "Típus"; }
+    .tx-table td:nth-child(8)::before { content: "Megosztott?"; }
+    .tx-table td:nth-child(9)::before { content: "Kivonat sor"; }
+
 }

@@ -43,11 +43,11 @@
                 <input list="transactionTypesList" name="transaction_type" placeholder="Típus">
                 <datalist id="transactionTypesList"></datalist>
 
-                <select name="is_shared">
-                    <option value="">Megosztott?</option>
-                    <option value="false">Nem</option>
-                    <option value="true">Igen</option>
-                </select>
+                <label>
+                    <label for="is_shared">Megosztott tranzakció?</label>
+                    <input type="checkbox" id="is_shared" name="is_shared">
+                </label>
+
 
                 <input name="statement_item" placeholder="Kivonat sor">
 

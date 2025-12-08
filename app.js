@@ -40,7 +40,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const form = new FormData(e.target);
         const formData = Object.fromEntries(form.entries());
-        console.log("TX FORM SUBMIT RAW:", formData);
+        console.log("TX FORM SUBMIT RAW (BEFORE NORMALIZE):", formData);
+
+        // Megosztott checkbox → "x" / ""
+        const isSharedCheckbox = document.querySelector("#txForm input[name='is_shared']");
+        formData.is_shared = (isSharedCheckbox && isSharedCheckbox.checked) ? "x" : "";
+
+        console.log("TX FORM SUBMIT (AFTER NORMALIZE):", formData);
 
         // Dátum mentési formátumra konvertálása
         // Dátumot ISO formátumban kell küldeni → yyyy-mm-dd maradjon
@@ -344,31 +350,45 @@ async function loadTransactions() {
         return true;
     });
 
-    // --- Kiírás ---
-    if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10">Nincs megjeleníthető adat.</td></tr>`;
-        return;
-    }
-    
-    let rows = "";
 
-filtered.forEach(tx => {
-    rows += `
-        <tr data-id="${tx.id}">
-            <td>${tx.month}</td>
-            <td>${formatDateForList(tx.date)}</td>
-            <td>${formatAmount(tx.amount)}</td>
-            <td>${tx.title}</td>
-            <td>${tx.category}</td>
-            <td>${tx.payment_type}</td>
-            <td>${tx.transaction_type}</td>
-            <td>${tx.is_shared}</td>
-            <td>${tx.statement_item}</td>
-        </tr>
-    `;
+        // --- Kiírás ---
+        if (filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="10">Nincs megjeleníthető adat.</td></tr>`;
+            return;
+        }
 
+        // --- Elemszám kezelése (itemsPerPage) ---
+        const itemsPerPageSelect = document.getElementById("itemsPerPage");
+        let itemsPerPageValue = itemsPerPageSelect ? itemsPerPageSelect.value : "all";
 
-});
+        let visibleItems = filtered;
+        if (itemsPerPageValue !== "all") {
+            const limit = parseInt(itemsPerPageValue, 10);
+            if (!isNaN(limit)) {
+                visibleItems = filtered.slice(0, limit);
+            }
+        }
+
+        let rows = "";
+
+        visibleItems.forEach(tx => {
+            rows += `
+                <tr data-id="${tx.id}">
+                    <td>${tx.month}</td>
+                    <td>${formatDateForList(tx.date)}</td>
+                    <td>${formatAmount(tx.amount)}</td>
+                    <td>${tx.title}</td>
+                    <td>${tx.category}</td>
+                    <td>${tx.payment_type}</td>
+                    <td>${tx.transaction_type}</td>
+                    <td>
+                        <input type="checkbox" disabled ${tx.is_shared === "x" ? "checked" : ""}>
+                    </td>
+
+                    <td>${tx.statement_item}</td>
+                </tr>
+            `;
+        });
 
 
     tbody.innerHTML = rows;
@@ -403,7 +423,8 @@ function openTransactionEditor(tx) {
     document.querySelector("input[name='category']").value = tx.category;
     document.querySelector("input[name='payment_type']").value = tx.payment_type;
     document.querySelector("input[name='transaction_type']").value = tx.transaction_type;
-    document.querySelector("select[name='is_shared']").value = tx.is_shared;
+    document.querySelector("input[name='is_shared']").checked =
+    (tx.is_shared === "x" || tx.is_shared === true || tx.is_shared === "true");
     document.querySelector("input[name='statement_item']").value = tx.statement_item;
 
     // a szerkesztendő ID-t eltároljuk a formban (nem látszik, de szükséges)

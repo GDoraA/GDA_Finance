@@ -9,7 +9,12 @@
 </head>
 
 <body>
-
+    <div class="nav-bar">
+        <button id="showTransactionsBtn">Tranzakciók</button>
+        <button id="showSharedExpensesBtn">Megosztott költségek</button>
+    </div>
+        <!-- Tranzakció lista -->
+        <h2>Tranzakciók</h2>
     <div class="container">
 
     <!-- Új tranzakció gomb -->
@@ -62,8 +67,7 @@
         </div>
     </div>
 
-    <!-- Tranzakció lista -->
-    <h2>Tranzakciók</h2>
+    
 
     <button id="toggleFiltersBtn">Szűrők</button>
 
@@ -129,6 +133,33 @@
 
 
     </div>
+
+</div>
+<!-- Shared Expenses Panel -->
+<div id="sharedExpensesPanel" class="hidden">
+
+    <h2>Megosztott költségek</h2>
+
+    <table id="sharedExpensesTable" class="tx-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Létrehozva</th>
+                <th>Transaction ID</th>
+                <th>Hónap</th>
+                <th>Dátum</th>
+                <th>Megnevezés</th>
+                <th>Összeg</th>
+                <th>Fizette</th>
+                <th>Saját rész</th>
+                <th>Maradék</th>
+                <th>Partner része</th>
+                <th>Egyenleg</th>
+                <th>Megjegyzés</th>
+            </tr>
+        </thead>
+        <tbody id="sharedExpensesBody"></tbody>
+    </table>
 
 </div>
 

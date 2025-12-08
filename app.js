@@ -265,6 +265,10 @@ async function loadDropdownValues() {
     fillDatalist("categoriesList", sets.categories);
     fillDatalist("paymentTypesList", sets.payments);
     fillDatalist("transactionTypesList", sets.types);
+    fillDatalist("paidByList", sets.paid_by || []);
+
+    // Új értékkészlet a fizető felekhez
+    fillDatalist("paidByList", sets.paid_by || []);
 
     // Szűrő datalist-ek
     fillDatalist("filterTitlesList", sets.titles);
@@ -435,3 +439,51 @@ function openTransactionEditor(tx) {
     overlay.classList.add("open");
 }
 
+// Váltás a két panel között
+document.getElementById("showTransactionsBtn").addEventListener("click", () => {
+    document.getElementById("transactionsTable").parentElement.style.display = "block";
+    document.getElementById("sharedExpensesPanel").classList.add("hidden");
+});
+
+document.getElementById("showSharedExpensesBtn").addEventListener("click", () => {
+    document.getElementById("transactionsTable").parentElement.style.display = "none";
+    document.getElementById("sharedExpensesPanel").classList.remove("hidden");
+});
+async function loadSharedExpenses() {
+    try {
+        const result = await api.getSharedExpenses();
+
+        if (!result || !result.success) {
+            console.error("Nem sikerült betölteni a megosztott költségeket.", result);
+            return;
+        }
+
+        const tbody = document.getElementById("sharedExpensesBody");
+        tbody.innerHTML = "";
+
+        result.data.forEach(row => {
+            const tr = document.createElement("tr");
+
+            tr.innerHTML = `
+                <td>${row.id || ""}</td>
+                <td>${row.created_at || ""}</td>
+                <td>${row.transaction_id || ""}</td>
+                <td>${row.month || ""}</td>
+                <td>${row.date || ""}</td>
+                <td>${row.title || ""}</td>
+                <td>${row.amount || ""}</td>
+                <td>${row.paid_by || ""}</td>
+                <td>${row.own_amount || ""}</td>
+                <td>${row.remaining_amount || ""}</td>
+                <td>${row.partner_share || ""}</td>
+                <td>${row.balance_impact || ""}</td>
+                <td>${row.notes || ""}</td>
+            `;
+
+            tbody.appendChild(tr);
+        });
+    } 
+    catch (err) {
+        console.error("Hiba a megosztott költségek betöltésekor:", err);
+    }
+}

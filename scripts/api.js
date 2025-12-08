@@ -1,6 +1,6 @@
 // ----------- API KONFIG -------------
 
-const API_URL = "https://script.google.com/macros/s/AKfycbxzzoI1m5TXQ_yCUa1ohpvTc55v-dzFX_EZLVaqn7LzE4m2scnMt1p944eFmWE8YGo/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbx2C6TRp7o-iuLoNJHx41l8pH-JPdeyldnZByDW5iYad1v4Iynmp1P5Jzsuh8ZxOc8/exec";
 
 
 // ----------- JSONP HÍVÓ FUNKCIÓ -------------
@@ -45,6 +45,15 @@ const api = {
 
     getValueSets() {
         return jsonp("getValueSets");
+    },
+    
+    addValueToSet(setName, value) {
+        return jsonp("addValueToSet", { set: setName, value });
+    },
+    getSharedExpenses() {
+        return jsonp("getSharedExpenses");
     }
+
+
 };
 

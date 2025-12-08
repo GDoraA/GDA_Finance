@@ -377,3 +377,15 @@ button.secondary {
     .tx-table td:nth-child(9)::before { content: "Kivonat sor"; }
 
 }
+.hidden {
+    display: none;
+}
+
+.nav-bar {
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+.nav-bar button {
+    margin-right: 10px;
+}

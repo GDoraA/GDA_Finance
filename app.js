@@ -483,6 +483,7 @@ document.getElementById("showSharedExpensesBtn").addEventListener("click", () =>
 async function loadSharedExpenses() {
     try {
         const result = await api.getSharedExpenses();
+        const valueSets = await api.getValueSets();
 
         if (!result || !result.success) {
             console.error("Nem sikerült betölteni a megosztott költségeket.", result);
@@ -500,8 +501,23 @@ async function loadSharedExpenses() {
                 <td>${formatDateForList(row.date)}</td>
                 <td>${row.title || ""}</td>
                 <td>${formatAmount(row.amount)}</td>
-                <td>${row.paid_by || ""}</td>
-                <td>${row.own_amount || ""}</td>
+                <td>
+                    <select class="se-paid-by" data-id="${row.id}">
+                        ${valueSets.paid_by.map(v => `
+                            <option value="${v}" ${v === row.paid_by ? "selected" : ""}>${v}</option>
+                        `).join("")}
+                    </select>
+                </td>
+
+                <td>
+                    <input
+                        type="number"
+                        step="0.01"
+                        class="se-own-amount"
+                        data-id="${row.id}"
+                        value="${row.own_amount || ""}"
+                    >
+                </td>
                 <td>${row.remaining_amount || ""}</td>
                 <td>${row.partner_share || ""}</td>
                 <td>${row.balance_impact || ""}</td>
@@ -509,6 +525,26 @@ async function loadSharedExpenses() {
             `;
 
             tbody.appendChild(tr);
+            // --- ÚJ: Szerkeszthető mezők figyelése és küldése a backendnek ---
+
+            // paid_by mezők figyelése
+            document.querySelectorAll(".se-paid-by").forEach(input => {
+                input.addEventListener("change", async (e) => {
+                    const id = e.target.getAttribute("data-id");
+                    const value = e.target.value.trim();
+                    await api.updateSharedExpense(id, "paid_by", value);
+                });
+            });
+
+            // own_amount mezők figyelése
+            document.querySelectorAll(".se-own-amount").forEach(input => {
+                input.addEventListener("change", async (e) => {
+                    const id = e.target.getAttribute("data-id");
+                    const value = e.target.value.trim();
+                    await api.updateSharedExpense(id, "own_amount", value);
+                });
+            });
+
         });
     } 
     catch (err) {

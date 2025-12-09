@@ -67,6 +67,8 @@ function doGet(e) {
 
     } else if (action === "getSharedExpenses") {
       result = getSharedExpenses_(p);
+    } else if (action === "updateSharedExpense") {
+      result = updateSharedExpense_(p.id, p.field, p.value);
 
     } else {
       result = { success: false, error: "Ismeretlen action: " + action };
@@ -98,7 +100,7 @@ function addTransaction_(tx) {
   const row = [
     id,
     tx.month,
-    tx.date,
+    formatDateForStore_(tx.date),
     tx.amount,
     tx.title,
     tx.category,
@@ -159,7 +161,7 @@ function updateTransaction_(tx) {
   const updatedRow = [
     tx.id,
     tx.month,
-    tx.date,
+    formatDateForStore_(tx.date),
     tx.amount,
     tx.title,
     tx.category,
@@ -415,7 +417,7 @@ function syncSharedExpenseForTransaction_(tx) {
     newRow[colCreatedAt]     = new Date();
     newRow[colTxId]          = tx.id;
     newRow[colMonth]         = tx.month;
-    newRow[colDate]          = tx.date;
+    newRow[colDate]          = formatDateForStore_(tx.date);
     newRow[colTitle]         = tx.title;
     newRow[colAmount]        = tx.amount;
     newRow[colPaidBy]        = tx.paid_by || "";
@@ -428,11 +430,76 @@ function syncSharedExpenseForTransaction_(tx) {
     const row = existingRow.slice();
 
     row[colMonth]     = tx.month;
-    row[colDate]      = tx.date;
+    row[colDate]      = formatDateForStore_(tx.date);
     row[colTitle]     = tx.title;
     row[colAmount]    = tx.amount;
     row[colPaidBy]    = tx.paid_by || row[colPaidBy];
 
     sheet.getRange(rowIndex, 1, 1, header.length).setValues([row]);
   }
+}
+/**
+ * Shared_Expenses egy mezőjének manuális módosítása
+ */
+function updateSharedExpense_(id, field, value) {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Shared_Expenses");
+  if (!sheet) {
+    return { success: false, error: 'Nem található a "Shared_Expenses" munkalap.' };
+  }
+
+  const data = sheet.getDataRange().getValues();
+  const header = data[0];
+
+  // Oszlopindexek
+  const colId        = header.indexOf("id");
+  const colPaidBy    = header.indexOf("paid_by");
+  const colOwnAmount = header.indexOf("own_amount");
+
+  // Ellenőrzés
+  if (colId === -1) {
+    return { success: false, error: "Nincs ID oszlop a Shared_Expenses lapban." };
+  }
+
+  // A mezők közül csak ezt a kettőt engedjük módosítani
+  let targetCol = null;
+  if (field === "paid_by") targetCol = colPaidBy;
+  if (field === "own_amount") targetCol = colOwnAmount;
+
+  if (targetCol === null) {
+    return { success: false, error: "Nem módosítható mező: " + field };
+  }
+
+  // Sor keresése az ID alapján
+  let rowIndex = -1;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][colId]).trim() === String(id).trim()) {
+      rowIndex = i + 1; // 1-indexelt
+      break;
+    }
+  }
+
+  if (rowIndex === -1) {
+    return { success: false, error: "Nincs ilyen Shared Expense ID: " + id };
+  }
+
+  // Módosítás
+  sheet.getRange(rowIndex, targetCol + 1).setValue(value);
+
+  return { success: true, id: id, field: field, value: value };
+}
+
+/**
+ * Dátum egységes tárolási formátumra alakítása: YYYY.MM.DD
+ */
+function formatDateForStore_(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return value;
+  return (
+    d.getFullYear() +
+    "." +
+    String(d.getMonth() + 1).padStart(2, "0") +
+    "." +
+    String(d.getDate()).padStart(2, "0")
+  );
 }

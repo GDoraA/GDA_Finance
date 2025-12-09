@@ -496,13 +496,10 @@ async function loadSharedExpenses() {
             const tr = document.createElement("tr");
 
             tr.innerHTML = `
-                <td>${row.id || ""}</td>
-                <td>${row.created_at || ""}</td>
-                <td>${row.transaction_id || ""}</td>
                 <td>${row.month || ""}</td>
-                <td>${row.date || ""}</td>
+                <td>${formatDateForList(row.date)}</td>
                 <td>${row.title || ""}</td>
-                <td>${row.amount || ""}</td>
+                <td>${formatAmount(row.amount)}</td>
                 <td>${row.paid_by || ""}</td>
                 <td>${row.own_amount || ""}</td>
                 <td>${row.remaining_amount || ""}</td>

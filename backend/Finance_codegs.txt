@@ -24,61 +24,63 @@ function doGet(e) {
   let result;
 
   try {
+
     if (action === "addTransaction") {
       const tx = {
-        month:           p.month           || "",
-        date:            p.date            || "",
-        amount:          p.amount          || "",
-        title:           p.title           || "",
-        category:        p.category        || "",
-        payment_type:    p.payment_type    || "",
-        transaction_type:p.transaction_type|| "",
-        is_shared:       p.is_shared       || "",
-        statement_item:  p.statement_item  || "",
-        paid_by:         p.paid_by         || ""
+        month:            p.month            || "",
+        date:             p.date             || "",
+        amount:           p.amount           || "",
+        title:            p.title            || "",
+        category:         p.category         || "",
+        payment_type:     p.payment_type     || "",
+        transaction_type: p.transaction_type || "",
+        is_shared:        p.is_shared        || "",
+        statement_item:   p.statement_item   || "",
+        paid_by:          p.paid_by          || ""
       };
-
       result = addTransaction_(tx);
+
     } else if (action === "getTransactions") {
       result = getTransactions_();
+
     } else if (action === "getValueSets") {
       result = getValueSets_();
-    } else if (action === "updateTransaction") {
-        const tx = {
-            id:              p.id              || "",
-            month:           p.month           || "",
-            date:            p.date            || "",
-            amount:          p.amount          || "",
-            title:           p.title           || "",
-            category:        p.category        || "",
-            payment_type:    p.payment_type    || "",
-            transaction_type:p.transaction_type|| "",
-            is_shared:       p.is_shared       || "",
-            statement_item:  p.statement_item  || "",
-            paid_by:         p.paid_by         || ""
-        };
 
-        result = updateTransaction_(tx);
+    } else if (action === "updateTransaction") {
+      const tx = {
+        id:               p.id               || "",
+        month:            p.month            || "",
+        date:             p.date             || "",
+        amount:           p.amount           || "",
+        title:            p.title            || "",
+        category:         p.category         || "",
+        payment_type:     p.payment_type     || "",
+        transaction_type: p.transaction_type || "",
+        is_shared:        p.is_shared        || "",
+        statement_item:   p.statement_item   || "",
+        paid_by:          p.paid_by          || ""
+      };
+      result = updateTransaction_(tx);
+
     } else if (action === "addValueToSet") {
-    result = addValueToSet_(p);     // <-- EZ A SOR ÚJ
+      result = addValueToSet_(p);
 
     } else if (action === "getSharedExpenses") {
-    result = getSharedExpenses_(p);
-    
+      result = getSharedExpenses_(p);
+
     } else {
       result = { success: false, error: "Ismeretlen action: " + action };
-    } 
-    return ContentService
-  .createTextOutput(JSON.stringify(result))
-  .setMimeType(ContentService.MimeType.JSON);
-  }
-  
-   catch (err) {
+    }
+
+  } catch (err) {
     result = { success: false, error: err.message || String(err) };
   }
 
+  // 🔥 A HELYES HELYEN hívjuk meg a JSONP-t
   return createJsonOrJsonpResponse_(result, callback);
 }
+
+
 
 /**
  * Segédfüggvény: beszúr egy sort a Transactions sheetbe.
@@ -113,6 +115,16 @@ function addTransaction_(tx) {
   addValueIfMissing_("category_values", tx.category);
   addValueIfMissing_("payment_type_values", tx.payment_type);
   addValueIfMissing_("transaction_type_values", tx.transaction_type);
+    // --- ÚJ: megosztott költség automatikus szinkron ---
+    syncSharedExpenseForTransaction_({
+      id:           id,
+      month:        tx.month,
+      date:         tx.date,
+      amount:       tx.amount,
+      title:        tx.title,
+      is_shared:    tx.is_shared,
+      paid_by:      tx.paid_by
+    });
   return { success: true, id: id };
 }
 /**
@@ -160,7 +172,16 @@ function updateTransaction_(tx) {
   ];
 
   sheet.getRange(rowIndex, 1, 1, updatedRow.length).setValues([updatedRow]);
-
+    // --- ÚJ: megosztott költség automatikus szinkron ---
+    syncSharedExpenseForTransaction_({
+      id:           tx.id,
+      month:        tx.month,
+      date:         tx.date,
+      amount:       tx.amount,
+      title:        tx.title,
+      is_shared:    tx.is_shared,
+      paid_by:      tx.paid_by
+    });
   return { success: true, id: tx.id };
 }
 
@@ -181,37 +202,47 @@ function getTransactions_() {
 }
 function getValueSets_() {
   const sheet = SpreadsheetApp.getActive().getSheetByName("Value_Sets");
+  if (!sheet) {
+    return { success: false, error: 'Nem található a "Value_Sets" munkalap.' };
+  }
 
   const values = sheet.getDataRange().getValues();
+  if (values.length < 2) {
+    return {
+      success: true,
+      sets: {
+        titles: [],
+        categories: [],
+        payments: [],
+        types: [],
+        paid_by: []
+      }
+    };
+  }
+
   const header = values[0];
 
   // Oszlopindexek
-  const colTitle = header.indexOf("title_values");
+  const colTitle    = header.indexOf("title_values");
   const colCategory = header.indexOf("category_values");
-  const colPayment = header.indexOf("payment_type_values");
-  const colType = header.indexOf("transaction_type_values");
-  const colPaidBy = header.indexOf("paid_by");
+  const colPayment  = header.indexOf("payment_type_values");
+  const colType     = header.indexOf("transaction_type_values");
+  const colPaidBy   = header.indexOf("paid_by");
 
-  const titles = [];
+  const titles     = [];
   const categories = [];
-  const payments = [];
-  const types = [];
+  const payments   = [];
+  const types      = [];
+  const paid_by    = [];
 
   for (let i = 1; i < values.length; i++) {
-    if (values[i][colTitle]) titles.push(values[i][colTitle]);
-    if (values[i][colCategory]) categories.push(values[i][colCategory]);
-    if (values[i][colPayment]) payments.push(values[i][colPayment]);
-    if (values[i][colType]) types.push(values[i][colType]);
-  const paid_by = [];
-
-for (let i = 1; i < values.length; i++) {
-    if (values[i][colTitle]) titles.push(values[i][colTitle]);
-    if (values[i][colCategory]) categories.push(values[i][colCategory]);
-    if (values[i][colPayment]) payments.push(values[i][colPayment]);
-    if (values[i][colType]) types.push(values[i][colType]);
-    if (values[i][colPaidBy]) paid_by.push(values[i][colPaidBy]);  // <-- ÚJ
-}
-
+    const row = values[i];
+    if (colTitle    !== -1 && row[colTitle])    titles.push(row[colTitle]);
+    if (colCategory !== -1 && row[colCategory]) categories.push(row[colCategory]);
+    if (colPayment  !== -1 && row[colPayment])  payments.push(row[colPayment]);
+    if (colType     !== -1 && row[colType])     types.push(row[colType]);
+    if (colPaidBy   !== -1 && row[colPaidBy])   paid_by.push(row[colPaidBy]);
+  }
 
   return {
     success: true,
@@ -224,6 +255,7 @@ for (let i = 1; i < values.length; i++) {
     }
   };
 }
+
 function addValueIfMissing_(columnName, value) {
   if (!value) return;
 
@@ -297,4 +329,110 @@ function addValueToSet_(p) {
   sheet.getRange(lastRow + 1, col + 1).setValue(value);
 
   return { success: true, message: "Érték hozzáadva." };
-}}
+}
+/**
+ * Shared_Expenses lap tartalmának lekérése
+ */
+function getSharedExpenses_(p) {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Shared_Expenses");
+  if (!sheet) {
+    return { success: false, error: 'Nem található a "Shared_Expenses" munkalap.' };
+  }
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) {
+    return { success: true, data: [] };
+  }
+
+  const header = data[0];
+  const rows = data.slice(1).map(row => {
+    const obj = {};
+    header.forEach((name, idx) => {
+      obj[name] = row[idx];
+    });
+    return obj;
+  });
+
+  return { success: true, data: rows };
+}
+/**
+ * Megosztott tranzakció szinkronizálása a Shared_Expenses lapra.
+ */
+function syncSharedExpenseForTransaction_(tx) {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Shared_Expenses");
+  if (!sheet) {
+    // Ha nincs ilyen lap, nem dobunk hibát, csak kilépünk
+    return;
+  }
+
+  const data = sheet.getDataRange().getValues();
+  const header = data[0];
+
+  // Oszlopindexek
+  const colId            = header.indexOf("id");
+  const colCreatedAt     = header.indexOf("created_at");
+  const colTxId          = header.indexOf("transaction_id");
+  const colMonth         = header.indexOf("month");
+  const colDate          = header.indexOf("date");
+  const colTitle         = header.indexOf("title");
+  const colAmount        = header.indexOf("amount");
+  const colPaidBy        = header.indexOf("paid_by");
+  const colOwnAmount     = header.indexOf("own_amount");
+  const colRemaining     = header.indexOf("remaining_amount");
+  const colPartnerShare  = header.indexOf("partner_share");
+  const colBalanceImpact = header.indexOf("balance_impact");
+  const colNotes         = header.indexOf("notes");
+
+  // Meglévő sor keresése transaction_id alapján
+  let rowIndex = -1;
+  let existingRow = null;
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][colTxId]).trim() === String(tx.id).trim()) {
+      rowIndex = i + 1;  // Sheets 1-indexelt
+      existingRow = data[i];
+      break;
+    }
+  }
+
+  // Ha a tranzakció NEM megosztott → töröljük a Shared_Expenses sorát (ha volt)
+  const isShared = String(tx.is_shared || "").trim() !== "" &&
+                   String(tx.is_shared).toLowerCase() !== "false";
+
+  if (!isShared) {
+    if (rowIndex !== -1) {
+      sheet.deleteRow(rowIndex);
+    }
+    return;
+  }
+
+  // Ha megosztott → új sor vagy frissítés
+  if (rowIndex === -1) {
+    // Új sor beszúrása
+    const newRow = new Array(header.length).fill("");
+
+    newRow[colId]            = Utilities.getUuid();
+    newRow[colCreatedAt]     = new Date();
+    newRow[colTxId]          = tx.id;
+    newRow[colMonth]         = tx.month;
+    newRow[colDate]          = tx.date;
+    newRow[colTitle]         = tx.title;
+    newRow[colAmount]        = tx.amount;
+    newRow[colPaidBy]        = tx.paid_by || "";
+
+    // további mezők később számíthatók
+    sheet.appendRow(newRow);
+
+  } else {
+    // Meglévő sor frissítése
+    const row = existingRow.slice();
+
+    row[colMonth]     = tx.month;
+    row[colDate]      = tx.date;
+    row[colTitle]     = tx.title;
+    row[colAmount]    = tx.amount;
+    row[colPaidBy]    = tx.paid_by || row[colPaidBy];
+
+    sheet.getRange(rowIndex, 1, 1, header.length).setValues([row]);
+  }
+}

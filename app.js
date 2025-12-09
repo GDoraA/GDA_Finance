@@ -136,6 +136,7 @@ function updateFilterPanelState() {
 document.getElementById("itemsPerPage").addEventListener("change", () => {
     loadTransactions();
 });
+document.getElementById("addSharedExpenseBtn").addEventListener("click", createInlineSharedExpenseRow);
 
 // Minden szűrőmező változásakor:
 // 1) frissítjük a panel nyitott/zárt állapotát
@@ -534,7 +535,15 @@ async function loadSharedExpenses() {
                 <td>${row.remaining_amount || ""}</td>
                 <td>${row.partner_share || ""}</td>
                 <td>${row.balance_impact || ""}</td>
-                <td>${row.notes || ""}</td>
+                <td>
+                    <input 
+                        type="text" 
+                        class="se-notes" 
+                        data-id="${row.id}" 
+                        value="${row.notes || ""}"
+                    >
+                </td>
+
             `;
 
             tbody.appendChild(tr);
@@ -597,7 +606,20 @@ async function loadSharedExpenses() {
                     await loadSharedExpenses();
                 });
             });
+            // notes mezők figyelése
+            document.querySelectorAll(".se-notes").forEach(input => {
+                input.addEventListener("change", async (e) => {
+                    const id = e.target.getAttribute("data-id");
+                    const value = e.target.value.trim();
 
+                    // 1) Mentés backendbe
+                    await api.updateSharedExpense(id, "notes", value);
+
+                    // 2) Felület frissítése
+                    await loadSharedExpenses();
+                });
+            });
+     
 
         });
     } 
@@ -605,3 +627,74 @@ async function loadSharedExpenses() {
         console.error("Hiba a megosztott költségek betöltésekor:", err);
     }
 }
+function createInlineSharedExpenseRow() {
+    const tbody = document.getElementById("sharedExpensesBody");
+
+    // új sor létrehozása, ami a táblázat tetejére kerül
+    const tr = document.createElement("tr");
+    tr.classList.add("new-shared-row");
+
+    tr.innerHTML = `
+        <td>Új</td>
+        <td><input type="date" class="se-new-date"></td>
+        <td><input type="text" class="se-new-title"></td>
+        <td><input type="number" step="0.01" class="se-new-amount"></td>
+
+        <!-- paid_by alapértelmezett Zsolti -->
+        <td>
+            <input type="text" class="se-new-paidby" value="Zsolti">
+        </td>
+
+        <td>
+            <input type="number" step="0.01" class="se-new-ownamount" value="0">
+        </td>
+
+        <td><input type="text" class="se-new-notes"></td>
+
+        <td>
+            <button class="btn-primary se-save-new">Mentés</button>
+            <button class="btn-secondary se-cancel-new">Mégse</button>
+        </td>
+    `;
+
+    // beszúrjuk a táblázat elejére
+    tbody.prepend(tr);
+
+    // események
+    tr.querySelector(".se-cancel-new").addEventListener("click", () => tr.remove());
+    tr.querySelector(".se-save-new").addEventListener("click", saveNewSharedExpense);
+}
+async function saveNewSharedExpense() {
+    const tr = document.querySelector(".new-shared-row");
+
+    const date = tr.querySelector(".se-new-date").value;
+    const title = tr.querySelector(".se-new-title").value.trim();
+    const amount = Number(tr.querySelector(".se-new-amount").value);
+    const paidBy = tr.querySelector(".se-new-paidby").value.trim();
+    const ownAmount = Number(tr.querySelector(".se-new-ownamount").value);
+    const notes = tr.querySelector(".se-new-notes").value.trim();
+
+    // egyszerű validáció:
+    if (!date || !title || isNaN(amount)) {
+        alert("Dátum, cím és összeg kötelező.");
+        return;
+    }
+
+    // a backend API hívást a következő lépésben adjuk hozzá:
+    const response = await api.addSharedExpense({
+        date,
+        title,
+        amount,
+        paid_by: paidBy,
+        own_amount: ownAmount,
+        notes
+    });
+
+    if (!response || !response.success) {
+        alert("Hiba az új megosztott költség mentésekor.");
+        return;
+    }
+
+    // új betöltés
+    await loadSharedExpenses();
+    }

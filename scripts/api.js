@@ -1,6 +1,6 @@
 // ----------- API KONFIG -------------
 
-const API_URL = "https://script.google.com/macros/s/AKfycbz9eaZ5W4_RTPTUHHNr8caVzHzFt6W8F3MwloULffUencffSU42oX42tWQ9Hrc5aIs/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwcx1vZf4w6KWoFxpYb7pgNBQA84wLhA-I7ZKfoWBbzFO7bASe3DRTRBM4fA18YmMo/exec";
 
 
 // ----------- JSONP HÍVÓ FUNKCIÓ -------------
@@ -56,7 +56,11 @@ const api = {
     // --- ÚJ: Shared Expense mező módosítása ---
     updateSharedExpense(id, field, value) {
         return jsonp("updateSharedExpense", { id, field, value });
+    },
+    addSharedExpense(data) {
+    return jsonp("addSharedExpense", data);
     }
+
 
 };
 

@@ -34,7 +34,8 @@ function doGet(e) {
         payment_type:    p.payment_type    || "",
         transaction_type:p.transaction_type|| "",
         is_shared:       p.is_shared       || "",
-        statement_item:  p.statement_item  || ""
+        statement_item:  p.statement_item  || "",
+        paid_by:         p.paid_by         || ""
       };
 
       result = addTransaction_(tx);
@@ -53,17 +54,26 @@ function doGet(e) {
             payment_type:    p.payment_type    || "",
             transaction_type:p.transaction_type|| "",
             is_shared:       p.is_shared       || "",
-            statement_item:  p.statement_item  || ""
+            statement_item:  p.statement_item  || "",
+            paid_by:         p.paid_by         || ""
         };
 
         result = updateTransaction_(tx);
-    }
+    } else if (action === "addValueToSet") {
+    result = addValueToSet_(p);     // <-- EZ A SOR ÚJ
 
-     else {
+    } else if (action === "getSharedExpenses") {
+    result = getSharedExpenses_(p);
+    
+    } else {
       result = { success: false, error: "Ismeretlen action: " + action };
-    }
-
-  } catch (err) {
+    } 
+    return ContentService
+  .createTextOutput(JSON.stringify(result))
+  .setMimeType(ContentService.MimeType.JSON);
+  }
+  
+   catch (err) {
     result = { success: false, error: err.message || String(err) };
   }
 
@@ -180,6 +190,7 @@ function getValueSets_() {
   const colCategory = header.indexOf("category_values");
   const colPayment = header.indexOf("payment_type_values");
   const colType = header.indexOf("transaction_type_values");
+  const colPaidBy = header.indexOf("paid_by");
 
   const titles = [];
   const categories = [];
@@ -191,7 +202,16 @@ function getValueSets_() {
     if (values[i][colCategory]) categories.push(values[i][colCategory]);
     if (values[i][colPayment]) payments.push(values[i][colPayment]);
     if (values[i][colType]) types.push(values[i][colType]);
-  }
+  const paid_by = [];
+
+for (let i = 1; i < values.length; i++) {
+    if (values[i][colTitle]) titles.push(values[i][colTitle]);
+    if (values[i][colCategory]) categories.push(values[i][colCategory]);
+    if (values[i][colPayment]) payments.push(values[i][colPayment]);
+    if (values[i][colType]) types.push(values[i][colType]);
+    if (values[i][colPaidBy]) paid_by.push(values[i][colPaidBy]);  // <-- ÚJ
+}
+
 
   return {
     success: true,
@@ -199,7 +219,8 @@ function getValueSets_() {
       titles,
       categories,
       payments,
-      types
+      types,
+      paid_by
     }
   };
 }
@@ -236,4 +257,44 @@ function addValueIfMissing_(columnName, value) {
   // Beszúrjuk az értéket az adott oszlop megfelelő cellájába
   sheet.getRange(insertRow, colIndex + 1).setValue(value);
 }
+/**
+ * Új érték hozzáadása a Value_Sets lap megfelelő oszlopához.
+ */
+function addValueToSet_(p) {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Value_Sets");
+  const setName = p.set;
+  const value = (p.value || "").trim();
 
+  if (!setName || !value) {
+    return { success: false, message: "Hiányzó set vagy érték." };
+  }
+
+  const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const col = header.indexOf(setName);
+
+  if (col === -1) {
+    return { success: false, message: "Nincs ilyen oszlop: " + setName };
+  }
+
+  const lastRow = sheet.getLastRow();
+  let existingValues = [];
+
+  // Ha van legalább egy adat sor a fejléc alatt, akkor olvassuk be a meglévő értékeket
+  if (lastRow > 1) {
+    existingValues = sheet
+      .getRange(2, col + 1, lastRow - 1, 1)
+      .getValues()
+      .map(r => (r[0] || "").toString().trim().toLowerCase())
+      .filter(v => v !== "");
+  }
+
+  // már létezik?
+  if (existingValues.includes(value.toLowerCase())) {
+    return { success: true, message: "Érték már létezik." };
+  }
+
+  // új érték beszúrása az oszlop végére
+  sheet.getRange(lastRow + 1, col + 1).setValue(value);
+
+  return { success: true, message: "Érték hozzáadva." };
+}}

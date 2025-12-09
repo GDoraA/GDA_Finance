@@ -389,3 +389,43 @@ button.secondary {
 .nav-bar button {
     margin-right: 10px;
 }
+.nav-bar {
+    margin-top: 20px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+}
+
+.nav-bar button {
+    margin-right: 0; /* most már a gap rendezi a távolságot */
+    flex: 0 0 auto;
+}
+
+.nav-bar button.active {
+    filter: brightness(1.1);
+    box-shadow: var(--shadow);
+    border: 2px solid var(--accent);
+}
+.nav-bar {
+    margin-top: 20px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-start; /* vagy center */
+
+}
+
+.nav-bar button {
+    flex: 0 0 auto;
+    width: auto !important;
+    padding: 10px 20px;
+    white-space: nowrap;
+}
+
+.nav-bar button.active {
+    background-color: var(--accent);
+    color: white;
+    border: 2px solid var(--accent);
+    box-shadow: var(--shadow);
+    filter: brightness(1.1);
+}

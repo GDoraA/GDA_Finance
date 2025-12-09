@@ -101,7 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 // lista frissítése
                 loadTransactions();
-
+                loadSharedExpenses(); 
             } else {
                 er.style.display = "block";
             }
@@ -150,6 +150,9 @@ filterFields.forEach(el => {
 
     // ===== Lista betöltése =====
     document.getElementById("loadListBtn").addEventListener("click", loadTransactions);
+    // Kezdőlap indításakor
+    showPage("transactions");
+    loadSharedExpenses();
 });
 // Oldal betöltésekor automatikusan listázunk
 loadTransactions();
@@ -440,15 +443,43 @@ function openTransactionEditor(tx) {
 }
 
 // Váltás a két panel között
+function showPage(page) {
+    const txPage   = document.getElementById("page-transactions");
+    const sharedPage = document.getElementById("page-shared-expenses");
+
+    const txBtn    = document.getElementById("showTransactionsBtn");
+    const sharedBtn = document.getElementById("showSharedExpensesBtn");
+
+    if (page === "transactions") {
+        txPage.classList.remove("hidden");
+        sharedPage.classList.add("hidden");
+
+        txBtn.classList.add("active");
+        sharedBtn.classList.remove("active");
+
+        // tranzakciók újratöltése, ha kell
+        loadTransactions();
+
+    } else if (page === "shared") {
+        txPage.classList.add("hidden");
+        sharedPage.classList.remove("hidden");
+
+        txBtn.classList.remove("active");
+        sharedBtn.classList.add("active");
+
+        // megosztott költségek betöltése
+        loadSharedExpenses();
+    }
+}
+
 document.getElementById("showTransactionsBtn").addEventListener("click", () => {
-    document.getElementById("transactionsTable").parentElement.style.display = "block";
-    document.getElementById("sharedExpensesPanel").classList.add("hidden");
+    showPage("transactions");
 });
 
 document.getElementById("showSharedExpensesBtn").addEventListener("click", () => {
-    document.getElementById("transactionsTable").parentElement.style.display = "none";
-    document.getElementById("sharedExpensesPanel").classList.remove("hidden");
+    showPage("shared");
 });
+
 async function loadSharedExpenses() {
     try {
         const result = await api.getSharedExpenses();

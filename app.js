@@ -525,10 +525,10 @@ async function loadSharedExpenses() {
                 <td>
                     <input
                         type="number"
-                        step="0.01"
+                        step="1"
                         class="se-own-amount"
                         data-id="${row.id}"
-                        value="${row.own_amount || ""}"
+                        value="${row.own_amount === 0 ? 0 : (row.own_amount || "")}"
                     >
                 </td>
                 <td>${row.remaining_amount || ""}</td>
@@ -573,10 +573,31 @@ async function loadSharedExpenses() {
             document.querySelectorAll(".se-own-amount").forEach(input => {
                 input.addEventListener("change", async (e) => {
                     const id = e.target.getAttribute("data-id");
-                    const value = e.target.value.trim();
+                    let value = e.target.value;
+
+                    // Ha üres -> HIBA, kötelező mező
+                    if (value === "" || value === null) {
+                        alert("A saját rész mező kötelező (0 is érvényes érték).");
+                        e.target.focus();
+                        return;
+                    }
+
+                    // Konvertáljuk számmá
+                    value = Number(value);
+
+                    // Ha nem szám -> nem engedjük tovább
+                    if (isNaN(value)) {
+                        alert("A saját résznek számnak kell lennie.");
+                        e.target.focus();
+                        return;
+                    }
+
+                    // 0 is teljesen érvényes -> mehet
                     await api.updateSharedExpense(id, "own_amount", value);
+                    await loadSharedExpenses();
                 });
             });
+
 
         });
     } 

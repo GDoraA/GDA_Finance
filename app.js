@@ -483,13 +483,18 @@ document.getElementById("showSharedExpensesBtn").addEventListener("click", () =>
 async function loadSharedExpenses() {
     try {
         const result = await api.getSharedExpenses();
-        const valueSets = await api.getValueSets();
+        const valueSetsResponse = await api.getValueSets();
 
         if (!result || !result.success) {
             console.error("Nem sikerült betölteni a megosztott költségeket.", result);
             return;
         }
+                if (!valueSetsResponse || !valueSetsResponse.success) {
+            console.error("Nem sikerült betölteni a value seteket.", valueSetsResponse);
+            return;
+        }
 
+        const valueSets = valueSetsResponse.sets || {};
         const tbody = document.getElementById("sharedExpensesBody");
         tbody.innerHTML = "";
 
@@ -502,12 +507,20 @@ async function loadSharedExpenses() {
                 <td>${row.title || ""}</td>
                 <td>${formatAmount(row.amount)}</td>
                 <td>
-                    <select class="se-paid-by" data-id="${row.id}">
+                    <input
+                        type="text"
+                        class="se-paid-by-input"
+                        data-id="${row.id}"
+                        list="paidByList-${row.id}"
+                        value="${row.paid_by || ""}"
+                    >
+                    <datalist id="paidByList-${row.id}">
                         ${valueSets.paid_by.map(v => `
-                            <option value="${v}" ${v === row.paid_by ? "selected" : ""}>${v}</option>
+                            <option value="${v}"></option>
                         `).join("")}
-                    </select>
+                    </datalist>
                 </td>
+
 
                 <td>
                     <input
@@ -528,13 +541,33 @@ async function loadSharedExpenses() {
             // --- ÚJ: Szerkeszthető mezők figyelése és küldése a backendnek ---
 
             // paid_by mezők figyelése
-            document.querySelectorAll(".se-paid-by").forEach(input => {
+            document.querySelectorAll(".se-paid-by-input").forEach(input => {
                 input.addEventListener("change", async (e) => {
+
                     const id = e.target.getAttribute("data-id");
                     const value = e.target.value.trim();
+
+                    if (!value) return;
+
+                    // 1) Először mentjük a Shared_Expenses táblába
                     await api.updateSharedExpense(id, "paid_by", value);
+
+                    // 2) Majd friss value-set lekérése
+                    const valueSets = await api.getValueSets();
+
+                    // 3) Ha új érték → felvesszük a Value_Sets lapra
+                    if (
+                        !valueSets.sets.paid_by ||
+                        !valueSets.sets.paid_by.map(v => v.toLowerCase()).includes(value.toLowerCase())
+                    ) {
+                        await api.addValueToSet("paid_by", value);
+                    }
+
+                    // 4) Végül frissítjük a táblát, hogy megjelenjen az új lenyíló érték
+                    await loadSharedExpenses();
                 });
             });
+
 
             // own_amount mezők figyelése
             document.querySelectorAll(".se-own-amount").forEach(input => {

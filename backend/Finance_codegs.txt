@@ -70,6 +70,8 @@ function doGet(e) {
     } else if (action === "updateSharedExpense") {
       result = updateSharedExpense_(p.id, p.field, p.value);
 
+    } else if (action === "addSharedExpense") {
+    result = addSharedExpense_(p);
     } else {
       result = { success: false, error: "Ismeretlen action: " + action };
     }
@@ -312,26 +314,42 @@ function addValueToSet_(p) {
 
   const lastRow = sheet.getLastRow();
   let existingValues = [];
+  let insertRow = 2; // alapértelmezés: a fejléc alatti első sor
 
-  // Ha van legalább egy adat sor a fejléc alatt, akkor olvassuk be a meglévő értékeket
   if (lastRow > 1) {
-    existingValues = sheet
+    // Teljes oszlopértékek beolvasása (fejléc alatti részen)
+    const colValues = sheet
       .getRange(2, col + 1, lastRow - 1, 1)
-      .getValues()
+      .getValues();
+
+    // Meglévő értékek normalizálása (duplikáció ellenőrzéshez)
+    existingValues = colValues
       .map(r => (r[0] || "").toString().trim().toLowerCase())
       .filter(v => v !== "");
+
+    // Következő üres sor keresése ebben az oszlopban
+    insertRow = 2;
+    for (let i = 0; i < colValues.length; i++) {
+      const cell = colValues[i][0];
+      if (!cell || String(cell).trim() === "") {
+        insertRow = 2 + i; // első üres sor
+        break;
+      }
+      insertRow = 2 + i + 1; // ha eddig minden nem üres, akkor a következő sor
+    }
   }
 
-  // már létezik?
+  // Már létezik?
   if (existingValues.includes(value.toLowerCase())) {
     return { success: true, message: "Érték már létezik." };
   }
 
-  // új érték beszúrása az oszlop végére
-  sheet.getRange(lastRow + 1, col + 1).setValue(value);
+  // Új érték beszúrása az oszlop következő üres sorába
+  sheet.getRange(insertRow, col + 1).setValue(value);
 
   return { success: true, message: "Érték hozzáadva." };
 }
+
 /**
  * Shared_Expenses lap tartalmának lekérése
  */
@@ -420,7 +438,8 @@ function syncSharedExpenseForTransaction_(tx) {
     newRow[colDate]          = formatDateForStore_(tx.date);
     newRow[colTitle]         = tx.title;
     newRow[colAmount]        = tx.amount;
-    newRow[colPaidBy]        = tx.paid_by || "";
+    newRow[colPaidBy] = "Dóri";
+
 
     // további mezők később számíthatók
     sheet.appendRow(newRow);
@@ -450,42 +469,109 @@ function updateSharedExpense_(id, field, value) {
   const data = sheet.getDataRange().getValues();
   const header = data[0];
 
-  // Oszlopindexek
-  const colId        = header.indexOf("id");
-  const colPaidBy    = header.indexOf("paid_by");
+  const colId = header.indexOf("id");
+  const colPaidBy = header.indexOf("paid_by");
   const colOwnAmount = header.indexOf("own_amount");
 
-  // Ellenőrzés
-  if (colId === -1) {
-    return { success: false, error: "Nincs ID oszlop a Shared_Expenses lapban." };
-  }
+  // ÚJ oszlopok
+  const colAmount = header.indexOf("amount");
+  const colRemaining = header.indexOf("remaining_amount");
+  const colPartnerShare = header.indexOf("partner_share");
+  const colNotes = header.indexOf("notes");
 
-  // A mezők közül csak ezt a kettőt engedjük módosítani
   let targetCol = null;
   if (field === "paid_by") targetCol = colPaidBy;
   if (field === "own_amount") targetCol = colOwnAmount;
+  if (field === "notes") targetCol = colNotes;
 
   if (targetCol === null) {
     return { success: false, error: "Nem módosítható mező: " + field };
   }
 
-  // Sor keresése az ID alapján
+  // Sor keresése ID alapján
   let rowIndex = -1;
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][colId]).trim() === String(id).trim()) {
-      rowIndex = i + 1; // 1-indexelt
+      rowIndex = i + 1;
       break;
     }
   }
 
   if (rowIndex === -1) {
-    return { success: false, error: "Nincs ilyen Shared Expense ID: " + id };
+    return { success: false, error: "Nincs ilyen ID: " + id };
   }
 
-  // Módosítás
+  // Módosított mező beírása
   sheet.getRange(rowIndex, targetCol + 1).setValue(value);
 
+  // ----- AUTOMATIKUS SZÁMÍTÁSOK -----
+
+  // sor aktuális értékeinek beolvasása
+  const rowValues = sheet.getRange(rowIndex, 1, 1, header.length).getValues()[0];
+
+  const amount = Number(rowValues[colAmount]) || 0;
+  const ownAmount = Number(field === "own_amount" ? value : rowValues[colOwnAmount]) || 0;
+
+  const remaining = amount - ownAmount;
+  const partnerShare = remaining / 2;
+
+  // értékek visszaírása
+  sheet.getRange(rowIndex, colRemaining + 1).setValue(remaining);
+  sheet.getRange(rowIndex, colPartnerShare + 1).setValue(partnerShare);
+
   return { success: true, id: id, field: field, value: value };
+}
+function addSharedExpense_(p) {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Shared_Expenses");
+  const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+  const colId = header.indexOf("id");
+  const colDate = header.indexOf("date");
+  const colTitle = header.indexOf("title");
+  const colAmount = header.indexOf("amount");
+  const colPaidBy = header.indexOf("paid_by");
+  const colOwnAmount = header.indexOf("own_amount");
+  const colRemaining = header.indexOf("remaining_amount");
+  const colPartner = header.indexOf("partner_share");
+  const colNotes = header.indexOf("notes");
+
+  // Új ID (max + 1)
+  const lastRow = sheet.getLastRow();
+  let newId = 1;
+  if (lastRow > 1) {
+    const ids = sheet.getRange(2, colId + 1, lastRow - 1).getValues().flat();
+    const numericIds = ids
+      .map(i => Number(i))
+      .filter(n => !isNaN(n));
+    if (numericIds.length > 0) {
+      newId = Math.max(...numericIds) + 1;
+    }
+  }
+
+  const date = p.date || "";
+  const title = p.title || "";
+  const amount = Number(p.amount) || 0;
+  const paidBy = p.paid_by || "Zsolti";  // alapértelmezett
+  const ownAmount = Number(p.own_amount) || 0;
+  const notes = p.notes || "";
+
+  const remaining = amount - ownAmount;
+  const partnerShare = remaining / 2;
+
+  const newRow = [];
+  newRow[colId] = newId;
+  newRow[colDate] = date;
+  newRow[colTitle] = title;
+  newRow[colAmount] = amount;
+  newRow[colPaidBy] = paidBy;
+  newRow[colOwnAmount] = ownAmount;
+  newRow[colRemaining] = remaining;
+  newRow[colPartner] = partnerShare;
+  newRow[colNotes] = notes;
+
+  sheet.appendRow(newRow);
+
+  return { success: true, id: newId };
 }
 
 /**

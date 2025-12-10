@@ -266,6 +266,7 @@ async function loadDropdownValues() {
 
     // Modal datalist-ek
     fillDatalist("titlesList", sets.titles);
+    fillDatalist("sharedTitlesList", sets.titles);
     fillDatalist("categoriesList", sets.categories);
     fillDatalist("paymentTypesList", sets.payments);
     fillDatalist("transactionTypesList", sets.types);
@@ -635,9 +636,13 @@ function createInlineSharedExpenseRow() {
     tr.classList.add("new-shared-row");
 
     tr.innerHTML = `
-        <td>Új</td>
+        <td><input type="text" class="se-new-month" placeholder="YYYYMM"></td>
         <td><input type="date" class="se-new-date"></td>
-        <td><input type="text" class="se-new-title"></td>
+        <td>
+            <input list="titlesList" class="se-new-title" placeholder="Megnevezés">
+        </td>
+
+
         <td><input type="number" step="0.01" class="se-new-amount"></td>
 
         <!-- paid_by alapértelmezett Zsolti -->
@@ -646,7 +651,7 @@ function createInlineSharedExpenseRow() {
         </td>
 
         <td>
-            <input type="number" step="0.01" class="se-new-ownamount" value="0">
+            <input type="number" step="1" class="se-new-ownamount" value="0">
         </td>
 
         <td><input type="text" class="se-new-notes"></td>
@@ -663,6 +668,15 @@ function createInlineSharedExpenseRow() {
     // események
     tr.querySelector(".se-cancel-new").addEventListener("click", () => tr.remove());
     tr.querySelector(".se-save-new").addEventListener("click", saveNewSharedExpense);
+    // Hónap automatikus kitöltése dátum alapján (modal logika)
+    const dateInput = tr.querySelector(".se-new-date");
+    const monthInput = tr.querySelector(".se-new-month");
+
+    dateInput.addEventListener("change", () => {
+        if (dateInput.value) {
+            monthInput.value = deriveMonth(dateInput.value);
+        }
+    });
 }
 async function saveNewSharedExpense() {
     const tr = document.querySelector(".new-shared-row");

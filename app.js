@@ -494,7 +494,6 @@ async function loadSharedExpenses() {
         // ===== DÁTUM SZERINTI RENDEZÉS (ÚJ FELÜL) =====
         // 1) Rendezés: legrégebbi → legújabb
         result.data.sort((a, b) => new Date(a.date) - new Date(b.date));
-
         // ====== EGYENLEG SZÁMÍTÁSA (partner_share + Törlesztés) ======
         let balance = 0;
 
@@ -506,12 +505,12 @@ async function loadSharedExpenses() {
 
             if (title === "Törlesztés") {
                 // TÖRLESZTÉS: teljes összeggel számolunk, felezés nélkül
+                // Ha Zsolti tartozik és ő fizet → az egyenleg a 0 felé mozdul: +összeg
+                // Ha Dóri tartozik és ő fizet → az egyenleg a 0 felé mozdul: -összeg
                 if (paidBy === "zsolti") {
-                    // Zsolti fizette → az ő tartozása csökken → egyenleg csökken
-                    balance -= amount;
-                } else if (paidBy === "dóri") {
-                    // Dóri fizette → az ő tartozása csökken → egyenleg nő
                     balance += amount;
+                } else if (paidBy === "dóri") {
+                    balance -= amount;
                 }
             } else {
                 // NORMÁL MEGOSZTOTT TÉTEL → partner_share megy az egyenlegbe
@@ -543,6 +542,7 @@ async function loadSharedExpenses() {
             label.textContent = text;
             label.className = cssClass;
         }
+
 
         result.data.forEach(row => {
             const tr = document.createElement("tr");
@@ -582,7 +582,6 @@ async function loadSharedExpenses() {
             tbody.appendChild(tr);
        
         });
-        const isSettlement = row.title?.trim() === "Törlesztés";
 
     } 
     catch (err) {
@@ -791,6 +790,9 @@ function createInlineSettlementRow() {
     `;
 
     tbody.prepend(tr);
+tr.querySelector(".cancel-settlement").addEventListener("click", () => tr.remove());
+tr.querySelector(".save-settlement").addEventListener("click", saveInlineSettlement);
+
 }
 
 

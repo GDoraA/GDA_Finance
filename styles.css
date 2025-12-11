@@ -429,3 +429,178 @@ button.secondary {
     box-shadow: var(--shadow);
     filter: brightness(1.1);
 }
+/* ============================
+   SIDEBAR LAYOUT
+   ============================ */
+
+body {
+    display: flex;
+    flex-direction: row;
+    gap: 0;
+    padding: 0; /* korábbi padding eltávolítása */
+}
+
+/* Oldalsó menü */
+.sidebar {
+    width: 220px;
+    background: var(--primary);
+    min-height: 100vh;
+    padding: 20px 10px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+}
+
+/* Navigáció gombjai */
+.sidebar-btn {
+    width: 100%;
+    background: transparent;
+    border: 2px solid rgba(255,255,255,0.25);
+    padding: 12px 14px;
+    color: white;
+    margin-bottom: 12px;
+    border-radius: var(--radius);
+    text-align: left;
+    transition: 0.25s;
+}
+
+.sidebar-btn:hover {
+    background: rgba(255,255,255,0.15);
+}
+
+/* Aktív állapot */
+.sidebar-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+
+/* A teljes tartalom jobbra tolása */
+.content-wrapper {
+    margin-left: 220px;
+    padding: 30px;
+    width: calc(100% - 220px);
+}
+
+/* Mobil nézet */
+@media (max-width: 700px) {
+
+    .sidebar {
+        position: relative;
+        width: 100%;
+        min-height: auto;
+        flex-direction: row;
+        justify-content: center;
+    }
+
+    .sidebar-btn {
+        flex: 1;
+        text-align: center;
+        margin-bottom: 0;
+        margin-right: 10px;
+    }
+
+    .content-wrapper {
+        margin-left: 0;
+        width: 100%;
+        padding: 15px;
+    }
+}
+/* ============================
+   HAMBURGER BUTTON
+   ============================ */
+.hamburger-btn {
+    display: none;
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    z-index: 200;
+    background: var(--primary);
+    color: white;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    font-size: 1.4rem;
+    border: none;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+}
+
+/* ============================
+   SIDEBAR – összehúzható
+   ============================ */
+.sidebar {
+    width: 220px;
+    background: var(--primary);
+    min-height: 100vh;
+    padding: 20px 10px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    transition: transform 0.25s ease;
+    z-index: 150;
+}
+
+/* Összecsukott állapot mobilon */
+.sidebar.closed {
+    transform: translateX(-100%);
+}
+
+/* Tartalom eltolása desktopon */
+.content-wrapper {
+    margin-left: 220px;
+    padding: 30px;
+    width: calc(100% - 220px);
+    transition: margin 0.25s ease;
+}
+
+/* ============================
+   MOBIL nézet
+   ============================ */
+@media (max-width: 700px) {
+
+    /* Hamburger gomb látszik */
+    .hamburger-btn {
+        display: block;
+    }
+
+    /* Sidebar alapból csukva mobilon */
+    .sidebar {
+        transform: translateX(-100%);
+        width: 220px;
+    }
+
+    .sidebar.open {
+        transform: translateX(0);
+    }
+
+    /* Tartalom ne legyen eltolva mobilon */
+    .content-wrapper {
+        margin-left: 0;
+        width: 100%;
+        padding: 20px;
+    }
+}
+.balance-box {
+    margin: 10px 0 15px 0;
+    padding: 10px 12px;
+    background: #f7f7f7;
+    border-radius: 6px;
+    box-shadow: var(--shadow);
+    font-size: 1.1rem;
+}
+
+.balance-positive {
+    color: #c62828; /* piros – Dóri tartozik */
+    font-weight: bold;
+}
+
+.balance-negative {
+    color: #2e7d32; /* zöld – Zsolti tartozik */
+    font-weight: bold;
+}

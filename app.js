@@ -1,5 +1,16 @@
 document.addEventListener("DOMContentLoaded", () => {
 
+    const sidebar = document.querySelector(".sidebar");
+    const hamburger = document.getElementById("hamburgerBtn");
+
+    hamburger.addEventListener("click", () => {
+        // mobilon: toggle open / closed
+        sidebar.classList.toggle("open");
+    });
+
+});
+document.addEventListener("DOMContentLoaded", () => {
+
     // ===== MODAL =====
     const modal = document.getElementById("txModal");
     const overlay = document.getElementById("modalOverlay");
@@ -155,8 +166,7 @@ filterFields.forEach(el => {
     showPage("transactions");
     loadSharedExpenses();
 });
-// Oldal betöltésekor automatikusan listázunk
-loadTransactions();
+
 // ===== SZŰRŐK TÖRLÉSE =====
 document.getElementById("clearFiltersBtn").addEventListener("click", () => {
 
@@ -178,41 +188,6 @@ document.getElementById("clearFiltersBtn").addEventListener("click", () => {
     // teljes lista újratöltése
     loadTransactions();
 });
-// ===== AUTOMATIKUS LISTA FRISSÍTÉS SZŰRÉS KÖZBEN =====
-
-// Az összes szűrő mező listája
-const autoFilterFields = [
-    "filterMonth",
-    "filterDate",
-    "filterAmount",
-    "filterTitle",
-    "filterCategory",
-    "filterPaymentType",
-    "filterType",
-    "filterShared",
-    "filterStatement"
-].map(id => document.getElementById(id));
-
-// Szűrőpanel állapotának frissítése
-function updateFilterPanelState() {
-    const hasFilters = autoFilterFields.some(el => el.value.trim() !== "");
-    const panel = document.getElementById("filtersPanel");
-
-    if (hasFilters) {
-        panel.classList.add("open");
-    } else {
-        panel.classList.remove("open");
-    }
-}
-
-// Minden szűrő mező → automatikus frissítés
-autoFilterFields.forEach(el => {
-    el.addEventListener("input", () => {
-        updateFilterPanelState();
-        loadTransactions();
-    });
-});
-
     
 
 // ======================================================
@@ -226,7 +201,10 @@ function formatDateForList(dateStr) {
     if (/^\d{4}\.\d{2}\.\d{2}\.$/.test(dateStr)) {
         return dateStr;
     }
-
+    // Ha YYYY.MM.DD (pont nélkül)
+    if (/^\d{4}\.\d{2}\.\d{2}$/.test(dateStr)) {
+        return dateStr + ".";
+    }
     const dt = new Date(dateStr);
     if (isNaN(dt.getTime())) return dateStr;
 
@@ -329,7 +307,13 @@ async function loadTransactions() {
 
         if (fMonth && String(tx.month) !== fMonth) return false;
 
-        if (fDate && String(tx.date).trim() !== fDate) return false;
+        if (fDate) {
+            const txDateFmt = formatDateForList(tx.date);
+            if (txDateFmt !== formatDateForList(fDate)) {
+                return false;
+            }
+        }
+
 
         // Összeg szűrés: támogatja a >1000 vagy <5000 formátumot
         if (fAmount) {
@@ -352,7 +336,13 @@ async function loadTransactions() {
 
         if (fType && tx.transaction_type !== fType) return false;
 
-        if (fShared && String(tx.is_shared) !== fShared) return false;
+        // Megosztott? szűrés javítása
+        if (fShared) {
+            // backend: "x" = megosztott, "" = nem megosztott
+            const sharedValue = tx.is_shared === "x" ? "x" : "0";
+            if (sharedValue !== fShared) return false;
+        }
+
 
         if (fStatement && !String(tx.statement_item).toLowerCase().includes(fStatement)) return false;
 
@@ -499,6 +489,61 @@ async function loadSharedExpenses() {
         const valueSets = valueSetsResponse.sets || {};
         const tbody = document.getElementById("sharedExpensesBody");
         tbody.innerHTML = "";
+        // ===== DÁTUM SZERINTI RENDEZÉS (ÚJ FELÜL) =====
+        // 1) Rendezés: legrégebbi → legújabb
+        result.data.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        // ====== EGYENLEG ÖSSZESÍTÉSE ======
+
+        let balance = 0;
+
+        result.data.forEach(row => {
+            const partnerShare = Number(row.partner_share) || 0;
+            const isSettlement = row.type === "settlement";
+            const paidBy = row.paid_by?.trim().toLowerCase();
+
+            if (isSettlement) {
+                const amount = Number(row.amount) || 0;
+
+                // törlesztés logikája:
+                // Zsolti fizette → egyenleg nő
+                // Dóri fizette  → egyenleg csökken
+                balance += (paidBy === "zsolti") ? amount : -amount;
+
+            } else {
+                // megosztott tételek: partner_share összeadása
+                balance += partnerShare;
+            }
+        });
+
+        // ====== MEGJELENÍTÉS A DOBОZBAN ======
+        const box = document.getElementById("sharedBalanceValue");
+        const label = document.getElementById("sharedBalanceLabel");
+
+        if (box && label) {
+            const formatted = balance.toFixed(0);
+            box.textContent = formatted + " Ft";
+
+            // értelmezés
+            let text = "";
+            let cssClass = "";
+
+            if (balance > 0) {
+                text = " — Dóri tartozik Zsoltinak";
+                cssClass = "balance-positive";
+            } else if (balance < 0) {
+                text = " — Zsolti tartozik Dórinak";
+                cssClass = "balance-negative";
+            } else {
+                text = " — Az elszámolás kiegyenlített";
+                cssClass = "";
+            }
+
+            label.textContent = text;
+            label.className = cssClass;
+        }
+
+
 
         result.data.forEach(row => {
             const tr = document.createElement("tr");
@@ -508,19 +553,8 @@ async function loadSharedExpenses() {
                 <td>${formatDateForList(row.date)}</td>
                 <td>${row.title || ""}</td>
                 <td>${formatAmount(row.amount)}</td>
-                <td>
-                    <input
-                        type="text"
-                        class="se-paid-by-input"
-                        data-id="${row.id}"
-                        list="paidByList-${row.id}"
-                        value="${row.paid_by || ""}"
-                    >
-                    <datalist id="paidByList-${row.id}">
-                        ${valueSets.paid_by.map(v => `
-                            <option value="${v}"></option>
-                        `).join("")}
-                    </datalist>
+                <td>${row.paid_by || ""}</td>
+
                 </td>
 
 
@@ -535,7 +569,6 @@ async function loadSharedExpenses() {
                 </td>
                 <td>${row.remaining_amount || ""}</td>
                 <td>${row.partner_share || ""}</td>
-                <td>${row.balance_impact || ""}</td>
                 <td>
                     <input 
                         type="text" 
@@ -548,86 +581,71 @@ async function loadSharedExpenses() {
             `;
 
             tbody.appendChild(tr);
-            // --- ÚJ: Szerkeszthető mezők figyelése és küldése a backendnek ---
-
-            // paid_by mezők figyelése
-            document.querySelectorAll(".se-paid-by-input").forEach(input => {
-                input.addEventListener("change", async (e) => {
-
-                    const id = e.target.getAttribute("data-id");
-                    const value = e.target.value.trim();
-
-                    if (!value) return;
-
-                    // 1) Először mentjük a Shared_Expenses táblába
-                    await api.updateSharedExpense(id, "paid_by", value);
-
-                    // 2) Majd friss value-set lekérése
-                    const valueSets = await api.getValueSets();
-
-                    // 3) Ha új érték → felvesszük a Value_Sets lapra
-                    if (
-                        !valueSets.sets.paid_by ||
-                        !valueSets.sets.paid_by.map(v => v.toLowerCase()).includes(value.toLowerCase())
-                    ) {
-                        await api.addValueToSet("paid_by", value);
-                    }
-
-                    // 4) Végül frissítjük a táblát, hogy megjelenjen az új lenyíló érték
-                    await loadSharedExpenses();
-                });
-            });
-
-
-            // own_amount mezők figyelése
-            document.querySelectorAll(".se-own-amount").forEach(input => {
-                input.addEventListener("change", async (e) => {
-                    const id = e.target.getAttribute("data-id");
-                    let value = e.target.value;
-
-                    // Ha üres -> HIBA, kötelező mező
-                    if (value === "" || value === null) {
-                        alert("A saját rész mező kötelező (0 is érvényes érték).");
-                        e.target.focus();
-                        return;
-                    }
-
-                    // Konvertáljuk számmá
-                    value = Number(value);
-
-                    // Ha nem szám -> nem engedjük tovább
-                    if (isNaN(value)) {
-                        alert("A saját résznek számnak kell lennie.");
-                        e.target.focus();
-                        return;
-                    }
-
-                    // 0 is teljesen érvényes -> mehet
-                    await api.updateSharedExpense(id, "own_amount", value);
-                    await loadSharedExpenses();
-                });
-            });
-            // notes mezők figyelése
-            document.querySelectorAll(".se-notes").forEach(input => {
-                input.addEventListener("change", async (e) => {
-                    const id = e.target.getAttribute("data-id");
-                    const value = e.target.value.trim();
-
-                    // 1) Mentés backendbe
-                    await api.updateSharedExpense(id, "notes", value);
-
-                    // 2) Felület frissítése
-                    await loadSharedExpenses();
-                });
-            });
-     
-
+       
         });
+        
     } 
     catch (err) {
         console.error("Hiba a megosztott költségek betöltésekor:", err);
     }
 }
+// ===== Shared Expenses – Event Delegation =====
+document.getElementById("sharedExpensesBody").addEventListener("change", async (e) => {
+
+    const target = e.target;
+    const rowId = target.getAttribute("data-id");
+    if (!rowId) return;
+
+    // 1) paid_by mező
+    if (target.classList.contains("se-paid-by-input")) {
+        const value = target.value.trim();
+        if (!value) return;
+
+        await api.updateSharedExpense(rowId, "paid_by", value);
+
+        // value set frissítés, ha új elem
+        const valueSets = await api.getValueSets();
+        const existing = valueSets.sets.paid_by.map(v => v.toLowerCase());
+
+        if (!existing.includes(value.toLowerCase())) {
+            await api.addValueToSet("paid_by", value);
+        }
+
+        await loadSharedExpenses();
+        return;
+    }
+
+    // 2) own_amount mező
+    if (target.classList.contains("se-own-amount")) {
+        let value = target.value;
+
+        if (value === "" || value === null) {
+            alert("A saját rész mező kötelező (0 is érvényes érték).");
+            target.focus();
+            return;
+        }
+
+        value = Number(value);
+        if (isNaN(value)) {
+            alert("A saját résznek számnak kell lennie.");
+            target.focus();
+            return;
+        }
+
+        await api.updateSharedExpense(rowId, "own_amount", value);
+        await loadSharedExpenses();
+        return;
+    }
+
+    // 3) notes mező
+    if (target.classList.contains("se-notes")) {
+        const value = target.value.trim();
+        await api.updateSharedExpense(rowId, "notes", value);
+        await loadSharedExpenses();
+        return;
+    }
+});
+
 function createInlineSharedExpenseRow() {
     const tbody = document.getElementById("sharedExpensesBody");
 
@@ -636,30 +654,47 @@ function createInlineSharedExpenseRow() {
     tr.classList.add("new-shared-row");
 
     tr.innerHTML = `
-        <td><input type="text" class="se-new-month" placeholder="YYYYMM"></td>
-        <td><input type="date" class="se-new-date"></td>
-        <td>
-            <input list="titlesList" class="se-new-title" placeholder="Megnevezés">
-        </td>
+<td><input type="date" class="se-new-date"></td>
+
+<td><input list="titlesList" class="se-new-title" placeholder="Megnevezés"></td>
+
+<td>
+    <input 
+        type="number"
+        inputmode="decimal"
+        step="any"
+        class="se-new-amount"
+        placeholder="Összeg"
+    >
+</td>
+
+<td>
+    <input 
+        type="number"
+        inputmode="decimal"
+        step="any"
+        class="se-new-ownamount"
+        placeholder="Saját rész"
+    >
+</td>
+
+<td>
+    <input 
+        type="text"
+        class="se-new-notes"
+        placeholder="Megjegyzés"
+    >
+</td>
+
+<td class="se-new-paidby">Zsolti</td>
+
+<td>
+    <button class="btn-primary se-save-new">Mentés</button>
+    <button class="btn-secondary se-cancel-new">Mégse</button>
+</td>
 
 
-        <td><input type="number" step="0.01" class="se-new-amount"></td>
 
-        <!-- paid_by alapértelmezett Zsolti -->
-        <td>
-            <input type="text" class="se-new-paidby" value="Zsolti">
-        </td>
-
-        <td>
-            <input type="number" step="1" class="se-new-ownamount" value="0">
-        </td>
-
-        <td><input type="text" class="se-new-notes"></td>
-
-        <td>
-            <button class="btn-primary se-save-new">Mentés</button>
-            <button class="btn-secondary se-cancel-new">Mégse</button>
-        </td>
     `;
 
     // beszúrjuk a táblázat elejére
@@ -668,34 +703,29 @@ function createInlineSharedExpenseRow() {
     // események
     tr.querySelector(".se-cancel-new").addEventListener("click", () => tr.remove());
     tr.querySelector(".se-save-new").addEventListener("click", saveNewSharedExpense);
-    // Hónap automatikus kitöltése dátum alapján (modal logika)
-    const dateInput = tr.querySelector(".se-new-date");
-    const monthInput = tr.querySelector(".se-new-month");
 
-    dateInput.addEventListener("change", () => {
-        if (dateInput.value) {
-            monthInput.value = deriveMonth(dateInput.value);
-        }
-    });
 }
 async function saveNewSharedExpense() {
     const tr = document.querySelector(".new-shared-row");
+    if (!tr) return;
 
     const date = tr.querySelector(".se-new-date").value;
     const title = tr.querySelector(".se-new-title").value.trim();
     const amount = Number(tr.querySelector(".se-new-amount").value);
-    const paidBy = tr.querySelector(".se-new-paidby").value.trim();
+    const paidBy = tr.querySelector(".se-new-paidby").textContent.trim();
     const ownAmount = Number(tr.querySelector(".se-new-ownamount").value);
     const notes = tr.querySelector(".se-new-notes").value.trim();
 
-    // egyszerű validáció:
     if (!date || !title || isNaN(amount)) {
-        alert("Dátum, cím és összeg kötelező.");
+        alert("Dátum, megnevezés és összeg kötelező.");
         return;
     }
 
-    // a backend API hívást a következő lépésben adjuk hozzá:
+    // Hónap minden esetben a dátumból képződik (YYYYMM)
+    const month = deriveMonth(date);
+
     const response = await api.addSharedExpense({
+        month,
         date,
         title,
         amount,
@@ -709,6 +739,7 @@ async function saveNewSharedExpense() {
         return;
     }
 
-    // új betöltés
+    // inline sor eltávolítása és lista frissítése
+    tr.remove();
     await loadSharedExpenses();
-    }
+}

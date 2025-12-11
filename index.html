@@ -9,10 +9,16 @@
 </head>
 
 <body>
-    <div class="nav-bar">
-        <button id="showTransactionsBtn">Tranzakciók</button>
-        <button id="showSharedExpensesBtn">Megosztott költségek</button>
-    </div>
+<button id="hamburgerBtn" class="hamburger-btn">☰</button>
+<aside class="sidebar">
+    <nav>
+        <button id="showTransactionsBtn" class="sidebar-btn">Tranzakciók</button>
+        <button id="showSharedExpensesBtn" class="sidebar-btn">Megosztott költségek</button>
+    </nav>
+</aside>
+
+<div class="content-wrapper">
+
     <!-- Tranzakció lista -->
     <section id="page-transactions">
         <h2>Tranzakciók</h2>
@@ -66,9 +72,9 @@
             <option value="expense">Kiadás</option>
         </select>
         <select id="filterShared">
-            <option value="">Megosztott?</option>
-            <option value="true">Igen</option>
-            <option value="false">Nem</option>
+            <option value="">Mindegy</option>
+            <option value="x">Megosztott</option>
+            <option value="0">Nem megosztott</option>
         </select>
         <input id="filterStatement" placeholder="Kivonat sor">
         <button id="clearFiltersBtn" class="secondary">Szűrők törlése</button>
@@ -107,6 +113,13 @@
             <button id="addSharedExpenseBtn" class="btn-primary">
                 + Új megosztott tétel
             </button>
+            <!-- Összesített egyenleg kijelzése -->
+            <div id="sharedBalanceBox" class="balance-box">
+                <strong>Egyenleg:</strong>
+                <span id="sharedBalanceValue">0</span>
+                <span id="sharedBalanceLabel"></span>
+            </div>
+
             <table id="sharedExpensesTable" class="tx-table">
                 <thead>
                     <tr>
@@ -118,7 +131,6 @@
                         <th>Saját rész</th>
                         <th>Maradék</th>
                         <th>Partner része</th>
-                        <th>Egyenleg</th>
                         <th>Megjegyzés</th>
                     </tr>
                 </thead>
@@ -129,6 +141,7 @@
 <script src="utils/helpers.js"></script>
 <script src="scripts/api.js"></script>
 <script src="app.js"></script>
+</div> <!-- content-wrapper -->
 
 </body>
 </html>

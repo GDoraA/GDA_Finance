@@ -452,7 +452,9 @@ function syncSharedExpenseForTransaction_(tx) {
     row[colDate]      = formatDateForStore_(tx.date);
     row[colTitle]     = tx.title;
     row[colAmount]    = tx.amount;
-    row[colPaidBy]    = tx.paid_by || row[colPaidBy];
+    // Ne írjuk át a paid_by mezőt tranzakció frissítésekor
+    // row[colPaidBy] = tx.paid_by || row[colPaidBy];
+
 
     sheet.getRange(rowIndex, 1, 1, header.length).setValues([row]);
   }
@@ -586,6 +588,7 @@ function formatDateForStore_(value) {
     "." +
     String(d.getMonth() + 1).padStart(2, "0") +
     "." +
-    String(d.getDate()).padStart(2, "0")
+    String(d.getDate()).padStart(2, "0") +
+    "."
   );
 }

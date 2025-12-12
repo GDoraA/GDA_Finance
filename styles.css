@@ -604,3 +604,17 @@ body {
     color: #2e7d32; /* zöld – Zsolti tartozik */
     font-weight: bold;
 }
+.page-btn {
+    min-width: 32px;
+    height: 28px;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1;
+    text-align: center;
+}
+
+.page-info {
+    min-width: 80px;
+    text-align: center;
+    font-weight: 600;
+}

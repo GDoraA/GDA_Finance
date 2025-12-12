@@ -145,8 +145,34 @@ function updateFilterPanelState() {
     }
 }
 document.getElementById("itemsPerPage").addEventListener("change", () => {
+    txCurrentPage = 1;
     loadTransactions();
 });
+// Lapozó gombok: egyszeri eseménykezelők (NEM loadTransactions-ben!)
+document.getElementById("txFirstPageBtn")?.addEventListener("click", () => {
+    txCurrentPage = 1;
+    loadTransactions();
+});
+
+document.getElementById("txPrevPageBtn")?.addEventListener("click", () => {
+    if (txCurrentPage > 1) {
+        txCurrentPage -= 1;   // garantáltan +/-1
+        loadTransactions();
+    }
+});
+
+document.getElementById("txNextPageBtn")?.addEventListener("click", () => {
+    txCurrentPage += 1;       // a felső korlátot loadTransactions vágja vissza
+    loadTransactions();
+});
+
+document.getElementById("txLastPageBtn")?.addEventListener("click", () => {
+    // Utolsó oldalra ugrás: a legegyszerűbb és stabil megoldás,
+    // hogy "túl nagyra" tesszük, a loadTransactions pedig visszavágja totalPages-re.
+    txCurrentPage = 999999;
+    loadTransactions();
+});
+
 document.getElementById("addSharedExpenseBtn").addEventListener("click", createInlineSharedExpenseRow);
 document.getElementById("addSettlementInlineBtn")
     .addEventListener("click", createInlineSettlementRow);
@@ -156,8 +182,9 @@ document.getElementById("addSettlementInlineBtn")
 // 2) újratöltjük a listát az aktuális szűrőfeltételekkel
 filterFields.forEach(el => {
     el.addEventListener("input", () => {
-        updateFilterPanelState();  // panel nyit/zár logika
-        loadTransactions();        // lista újraszámítása a szűrők alapján
+        updateFilterPanelState();
+        txCurrentPage = 1;
+        loadTransactions();
     });
 });
 
@@ -281,6 +308,9 @@ function fillDatalist(listId, values) {
 // ======================================================
 // LISTÁZÁS & SZŰRÉS
 // ======================================================
+let txCurrentPage = 1;
+let txSortField = "date";
+let txSortDirection = "desc"; // "asc" | "desc"
 
 async function loadTransactions() {
     const result = await api.getTransactions();
@@ -350,8 +380,81 @@ async function loadTransactions() {
 
         return true;
     });
+    
+    // ===== ÚJ: RENDEZÉS (a lapozás előtt, a filtered teljes halmazon) =====
+if (txSortField) {
+    const dir = (txSortDirection === "asc") ? 1 : -1;
+
+    const toNum = (v) => {
+        // támogatja: 1234, "1 234", "1 234,56"
+        const n = Number(String(v).replace(/\s+/g, "").replace(",", "."));
+        return isNaN(n) ? null : n;
+    };
+
+    const toTime = (v) => {
+        const t = new Date(v).getTime();
+        return isNaN(t) ? null : t;
+    };
+
+    filtered.sort((a, b) => {
+        const va = a[txSortField];
+        const vb = b[txSortField];
+
+        // null/undefined a végére
+        if (va == null && vb == null) return 0;
+        if (va == null) return 1;
+        if (vb == null) return -1;
+
+        switch (txSortField) {
+            case "amount": {
+                const na = toNum(va);
+                const nb = toNum(vb);
+                if (na == null && nb == null) return 0;
+                if (na == null) return 1;
+                if (nb == null) return -1;
+                return (na - nb) * dir;
+            }
+
+            case "month": {
+                const na = Number(va);
+                const nb = Number(vb);
+                if (isNaN(na) && isNaN(nb)) return 0;
+                if (isNaN(na)) return 1;
+                if (isNaN(nb)) return -1;
+                return (na - nb) * dir;
+            }
+
+            case "date": {
+                const ta = toTime(va);
+                const tb = toTime(vb);
+                if (ta == null && tb == null) return 0;
+                if (ta == null) return 1;
+                if (tb == null) return -1;
+                return (ta - tb) * dir;
+            }
+
+            case "is_shared": {
+                const ba = (va === "x") ? 1 : 0;
+                const bb = (vb === "x") ? 1 : 0;
+                return (ba - bb) * dir;
+            }
+
+            default: {
+                // title/category/payment_type/transaction_type/statement_item
+                const sa = String(va).toLowerCase();
+                const sb = String(vb).toLowerCase();
+                return sa.localeCompare(sb, "hu") * dir;
+            }
+        }
+    });
+}
 
 
+    // ===== ÚJ: találatok számának kijelzése =====
+    const rc = document.getElementById("transactions-result-count");
+    if (rc) {
+        rc.textContent = `Találatok: ${filtered.length} db`;
+    }
         // --- Kiírás ---
         if (filtered.length === 0) {
             tbody.innerHTML = `<tr><td colspan="10">Nincs megjeleníthető adat.</td></tr>`;
@@ -361,14 +464,76 @@ async function loadTransactions() {
         // --- Elemszám kezelése (itemsPerPage) ---
         const itemsPerPageSelect = document.getElementById("itemsPerPage");
         let itemsPerPageValue = itemsPerPageSelect ? itemsPerPageSelect.value : "all";
+        const paginationBox = document.getElementById("transactions-pagination");
+        const pageInfo = document.getElementById("txPageInfo");
+        const prevBtn = document.getElementById("txPrevPageBtn");
+        const nextBtn = document.getElementById("txNextPageBtn");
 
-        let visibleItems = filtered;
         if (itemsPerPageValue !== "all") {
             const limit = parseInt(itemsPerPageValue, 10);
-            if (!isNaN(limit)) {
-                visibleItems = filtered.slice(0, limit);
-            }
+            const totalPages = Math.max(1, Math.ceil(filtered.length / limit));
+
+            // felső korlát biztosítása
+            txCurrentPage = Math.min(
+                Math.max(txCurrentPage, 1),
+                totalPages
+            );
+
+
+            if (paginationBox) paginationBox.style.display = "flex";
+            if (pageInfo) pageInfo.textContent = `Oldal: ${txCurrentPage} / ${totalPages}`;
+
+            if (prevBtn) prevBtn.disabled = (txCurrentPage <= 1);
+            if (nextBtn) nextBtn.disabled = (txCurrentPage >= totalPages);
+        } else {
+            // Összes elem esetén nincs lapozás
+            txCurrentPage = 1;
+            if (paginationBox) paginationBox.style.display = "none";
         }
+        const txFirstBtn = document.getElementById("txFirstPageBtn");
+        const txLastBtn  = document.getElementById("txLastPageBtn");
+
+        if (txFirstBtn) {
+            txFirstBtn.addEventListener("click", () => {
+                txCurrentPage = 1;
+                loadTransactions();
+            });
+        }
+
+        if (txLastBtn) {
+            txLastBtn.addEventListener("click", () => {
+                const itemsPerPageValue = document.getElementById("itemsPerPage").value;
+                if (itemsPerPageValue === "all") {
+                    txCurrentPage = 1;
+                    loadTransactions();
+                    return;
+                }
+
+                const limit = parseInt(itemsPerPageValue, 10);
+                const totalPages = Math.max(
+                    1,
+                    Math.ceil(currentTransactions.length / limit)
+                );
+
+                txCurrentPage = totalPages;
+                loadTransactions();
+            });
+        }
+
+
+        let visibleItems = filtered;
+
+        if (itemsPerPageValue !== "all") {
+            const limit = parseInt(itemsPerPageValue, 10);
+
+            const start = (txCurrentPage - 1) * limit;
+            const end = start + limit;
+
+            visibleItems = filtered.slice(start, end);
+        } else {
+            txCurrentPage = 1;
+        }
+
 
         let rows = "";
 
@@ -393,6 +558,7 @@ async function loadTransactions() {
 
 
     tbody.innerHTML = rows;
+    
 // ===== TABLÁZAT SORAINAK KATTINTÁSA – SZERKESZTÉS =====
 const rowsElements = document.querySelectorAll("#transactionsBody tr");
 

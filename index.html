@@ -80,7 +80,8 @@
         <button id="clearFiltersBtn" class="secondary">Szűrők törlése</button>
         <button id="loadListBtn">Lista betöltése</button>
     </div>
-        <table id="transactionsTable" class="tx-table">
+    <div id="transactions-result-count" class="result-count"></div>
+
             <label for="itemsPerPage">Tételek száma oldalanként:</label>
             <select id="itemsPerPage">
                 <option value="10">10</option>
@@ -89,19 +90,32 @@
                 <option value="100">100</option>
                 <option value="all">Összes</option>
             </select>
-            <thead>
-                <tr>
-                    <th>Hónap</th>
-                    <th>Dátum</th>
-                    <th>Összeg</th>
-                    <th>Megnevezés</th>
-                    <th>Kategória</th>
-                    <th>Fizetési mód</th>
-                    <th>Típus</th>
-                    <th>Megosztott?</th>
-                    <th>Kivonat sor</th>
-                </tr>
-            </thead>
+            <!-- ÚJ: lapozó -->
+            <div id="transactions-pagination" class="pagination">
+                <button id="txFirstPageBtn" type="button" class="page-btn">⏮</button>
+                <button id="txPrevPageBtn"  type="button" class="page-btn">◀</button>
+
+                <span id="txPageInfo" class="page-info"></span>
+
+                <button id="txNextPageBtn"  type="button" class="page-btn">▶</button>
+                <button id="txLastPageBtn"  type="button" class="page-btn">⏭</button>
+            </div>
+        <table id="transactionsTable" class="tx-table">
+
+        <thead>
+            <tr>
+                <th data-sort="month">Hónap</th>
+                <th data-sort="date">Dátum</th>
+                <th data-sort="amount">Összeg</th>
+                <th data-sort="title">Megnevezés</th>
+                <th data-sort="category">Kategória</th>
+                <th data-sort="payment_method">Fizetési mód</th>
+                <th data-sort="type">Típus</th>
+                <th data-sort="shared">Megosztott?</th>
+                <th data-sort="statement_item">Kivonat sor</th>
+            </tr>
+        </thead>
+
             <tbody id="transactionsBody"></tbody>
         </table>
     </div>

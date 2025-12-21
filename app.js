@@ -720,20 +720,30 @@ async function loadSharedExpenses() {
                 <td>${formatAmount(row.amount)}</td>
                 <td>${row.paid_by || ""}</td>
 
+                <td>
+                    <input
+                        type="number"
+                        step="1"
+                        class="se-zsolti-amount"
+                        data-id="${row.id}"
+                        value="${row.Zsolti_amount === 0 ? 0 : (row.Zsolti_amount || "")}"
+                    >
                 </td>
-
 
                 <td>
                     <input
                         type="number"
                         step="1"
-                        class="se-own-amount"
+                        class="se-dori-amount"
                         data-id="${row.id}"
-                        value="${row.own_amount === 0 ? 0 : (row.own_amount || "")}"
+                        value="${row.Dori_amount === 0 ? 0 : (row.Dori_amount || "")}"
                     >
                 </td>
+
                 <td>${row.remaining_amount || ""}</td>
-                <td>${row.partner_share || ""}</td>
+                <td>${row.zsolti_balance || ""}</td>
+                <td>${row.dori_balance || ""}</td>
+                <td>${row.balance_impact || ""}</td>
                 <td>
                     <input 
                         type="text" 
@@ -744,6 +754,7 @@ async function loadSharedExpenses() {
                 </td>
 
             `;
+
 
             tbody.appendChild(tr);
        
@@ -773,31 +784,50 @@ document.getElementById("sharedExpensesBody").addEventListener("change", async (
         await loadSharedExpenses();
         return;
     }
-    // 2) own_amount mező
-    if (target.classList.contains("se-own-amount")) {
+    // 2) Zsolti_amount mező
+    if (target.classList.contains("se-zsolti-amount")) {
         let value = target.value;
+
         if (value === "" || value === null) {
-            alert("A saját rész mező kötelező (0 is érvényes érték).");
+            alert("A Zsolti része mező kötelező (0 is érvényes érték).");
             target.focus();
             return;
         }
+
         value = Number(value);
         if (isNaN(value)) {
-            alert("A saját résznek számnak kell lennie.");
+            alert("A Zsolti része mezőnek számnak kell lennie.");
             target.focus();
             return;
         }
-        await api.updateSharedExpense(rowId, "own_amount", value);
+
+        await api.updateSharedExpense(rowId, "Zsolti_amount", value);
         await loadSharedExpenses();
         return;
     }
-    // 3) notes mező
-    if (target.classList.contains("se-notes")) {
-        const value = target.value.trim();
-        await api.updateSharedExpense(rowId, "notes", value);
+
+    // 3) Dori_amount mező
+    if (target.classList.contains("se-dori-amount")) {
+        let value = target.value;
+
+        if (value === "" || value === null) {
+            alert("A Dóri része mező kötelező (0 is érvényes érték).");
+            target.focus();
+            return;
+        }
+
+        value = Number(value);
+        if (isNaN(value)) {
+            alert("A Dóri része mezőnek számnak kell lennie.");
+            target.focus();
+            return;
+        }
+
+        await api.updateSharedExpense(rowId, "Dori_amount", value);
         await loadSharedExpenses();
         return;
     }
+
     // ================================
     // INLINE TÖRLESZTÉS MENTÉSE
     // ================================
@@ -845,10 +875,21 @@ function createInlineSharedExpenseRow() {
                 type="number"
                 inputmode="decimal"
                 step="any"
-                class="se-new-ownamount"
-                placeholder="Saját rész"
+                class="se-new-zsoltiamount"
+                placeholder="Zsolti része"
             >
         </td>
+
+        <td>
+            <input 
+                type="number"
+                inputmode="decimal"
+                step="any"
+                class="se-new-doriamount"
+                placeholder="Dóri része"
+            >
+        </td>
+
 
         <td>
             <input 
@@ -882,8 +923,9 @@ async function saveNewSharedExpense() {
     const title = tr.querySelector(".se-new-title").value.trim();
     const amount = Number(tr.querySelector(".se-new-amount").value);
     const paidBy = tr.querySelector(".se-new-paidby").textContent.trim();
-    const ownAmount = Number(tr.querySelector(".se-new-ownamount").value);
-    const notes = tr.querySelector(".se-new-notes").value.trim();
+    const zsoltiAmount = Number(tr.querySelector(".se-new-zsoltiamount").value || 0);
+    const doriAmount = Number(tr.querySelector(".se-new-doriamount").value || 0);
+
 
     if (!date || !title || isNaN(amount)) {
         alert("Dátum, megnevezés és összeg kötelező.");
@@ -899,7 +941,9 @@ async function saveNewSharedExpense() {
         title,
         amount,
         paid_by: paidBy,
-        own_amount: ownAmount,
+        Zsolti_amount: zsoltiAmount,
+        Dori_amount: doriAmount,
+
         notes
     });
 
@@ -974,6 +1018,10 @@ async function saveInlineSettlement() {
 
     if (!date || !title || !amount || isNaN(amount)) {
         alert("Dátum, megnevezés és összeg kötelező.");
+        return;
+    }
+        if (isNaN(zsoltiAmount) || isNaN(doriAmount)) {
+        alert("A Zsolti része és a Dóri része mezőknek számnak kell lenniük (üres = 0).");
         return;
     }
 

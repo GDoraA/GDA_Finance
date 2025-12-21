@@ -12,6 +12,11 @@ function createJsonOrJsonpResponse_(obj, callback) {
     .createTextOutput(json)
     .setMimeType(ContentService.MimeType.JSON);
 }
+function generatePrefixedId_(prefix) {
+  // 10 hosszú alfanumerikus (0-9, A-F) – UUID-ból vágva
+  const code = Utilities.getUuid().replace(/-/g, "").toUpperCase().slice(0, 10);
+  return `${prefix}-${code}`;
+}
 
 /**
  * GET alapú API (JSONP támogatással).
@@ -95,7 +100,8 @@ function addTransaction_(tx) {
     throw new Error('Nem található a "Transactions" nevű munkalap.');
   }
 
-  const id = Utilities.getUuid();
+  const id = generatePrefixedId_("TR");
+
   const created_at = new Date();
   const created_by = Session.getActiveUser().getEmail() || "unknown";
 
@@ -431,7 +437,8 @@ function syncSharedExpenseForTransaction_(tx) {
     // Új sor beszúrása
     const newRow = new Array(header.length).fill("");
 
-    newRow[colId]            = Utilities.getUuid();
+    newRow[colId] = generatePrefixedId_("SE");
+
     newRow[colCreatedAt]     = new Date();
     newRow[colTxId]          = tx.id;
     newRow[colMonth]         = tx.month;
@@ -525,56 +532,56 @@ function updateSharedExpense_(id, field, value) {
 }
 function addSharedExpense_(p) {
   const sheet = SpreadsheetApp.getActive().getSheetByName("Shared_Expenses");
-  const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-
-  const colId = header.indexOf("id");
-  const colDate = header.indexOf("date");
-  const colTitle = header.indexOf("title");
-  const colAmount = header.indexOf("amount");
-  const colPaidBy = header.indexOf("paid_by");
-  const colOwnAmount = header.indexOf("own_amount");
-  const colRemaining = header.indexOf("remaining_amount");
-  const colPartner = header.indexOf("partner_share");
-  const colNotes = header.indexOf("notes");
-
-  // Új ID (max + 1)
-  const lastRow = sheet.getLastRow();
-  let newId = 1;
-  if (lastRow > 1) {
-    const ids = sheet.getRange(2, colId + 1, lastRow - 1).getValues().flat();
-    const numericIds = ids
-      .map(i => Number(i))
-      .filter(n => !isNaN(n));
-    if (numericIds.length > 0) {
-      newId = Math.max(...numericIds) + 1;
-    }
+  if (!sheet) {
+    return { success: false, error: 'Nem található a "Shared_Expenses" munkalap.' };
   }
 
-  const date = p.date || "";
-  const title = p.title || "";
-  const amount = Number(p.amount) || 0;
-  const paidBy = p.paid_by || "Zsolti";  // alapértelmezett
-  const ownAmount = Number(p.own_amount) || 0;
-  const notes = p.notes || "";
+  const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
 
-  const remaining = amount - ownAmount;
+  const colId        = header.indexOf("id");
+  const colMonth     = header.indexOf("month");
+  const colDate      = header.indexOf("date");
+  const colTitle     = header.indexOf("title");
+  const colAmount    = header.indexOf("amount");
+  const colPaidBy    = header.indexOf("paid_by");
+  const colOwnAmount = header.indexOf("own_amount");
+  const colRemaining = header.indexOf("remaining_amount");
+  const colPartner   = header.indexOf("partner_share");
+  const colNotes     = header.indexOf("notes");
+
+  // Új ID (max + 1)
+  const newId = generatePrefixedId_("SE");
+
+
+  const dateRaw   = p.date || "";
+  const title     = p.title || "";
+  const amount    = Number(p.amount) || 0;
+  const paidBy    = p.paid_by || "Zsolti";  // alapértelmezett továbbra is
+  const ownAmount = Number(p.own_amount) || 0;
+  const notes     = p.notes || "";
+  const month     = p.month || deriveMonthFromDate_(dateRaw);
+
+  const remaining    = amount - ownAmount;
   const partnerShare = remaining / 2;
 
   const newRow = [];
-  newRow[colId] = newId;
-  newRow[colDate] = date;
-  newRow[colTitle] = title;
-  newRow[colAmount] = amount;
-  newRow[colPaidBy] = paidBy;
-  newRow[colOwnAmount] = ownAmount;
-  newRow[colRemaining] = remaining;
-  newRow[colPartner] = partnerShare;
-  newRow[colNotes] = notes;
+
+  if (colId        !== -1) newRow[colId]        = newId;
+  if (colMonth     !== -1) newRow[colMonth]     = month;
+  if (colDate      !== -1) newRow[colDate]      = formatDateForStore_(dateRaw);
+  if (colTitle     !== -1) newRow[colTitle]     = title;
+  if (colAmount    !== -1) newRow[colAmount]    = amount;
+  if (colPaidBy    !== -1) newRow[colPaidBy]    = paidBy;
+  if (colOwnAmount !== -1) newRow[colOwnAmount] = ownAmount;
+  if (colRemaining !== -1) newRow[colRemaining] = remaining;
+  if (colPartner   !== -1) newRow[colPartner]   = partnerShare;
+  if (colNotes     !== -1) newRow[colNotes]     = notes;
 
   sheet.appendRow(newRow);
 
   return { success: true, id: newId };
 }
+
 
 /**
  * Dátum egységes tárolási formátumra alakítása: YYYY.MM.DD
@@ -591,4 +598,12 @@ function formatDateForStore_(value) {
     String(d.getDate()).padStart(2, "0") +
     "."
   );
+}
+function deriveMonthFromDate_(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  return y + "" + m; // YYYYMM
 }

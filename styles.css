@@ -329,6 +329,24 @@ button.secondary {
     margin-top: 10px;
 }
 /* ============================
+   TRANSACTIONS – AMOUNT COLORS
+   ============================ */
+
+.amount-expense {
+    color: #c62828; /* piros */
+    font-weight: 700;
+}
+
+.amount-income {
+    color: #1565c0; /* kék */
+    font-weight: 700;
+}
+.amount-saving {
+    color: #6a1b9a; /* lila */
+    font-weight: 700;
+}
+
+/* ============================
    MOBIL KÁRTYANÉZET (≤ 600px)
    ============================ */
 
@@ -593,6 +611,15 @@ body {
     border-radius: 6px;
     box-shadow: var(--shadow);
     font-size: 1.1rem;
+}
+.balance-zsolti {
+    color: #1565c0; /* kék */
+    font-weight: 700;
+}
+
+.balance-dori {
+    color: #c62828; /* piros */
+    font-weight: 700;
 }
 
 .balance-positive {

@@ -56,6 +56,23 @@ document.addEventListener("DOMContentLoaded", () => {
         // Megosztott checkbox → "x" / ""
         const isSharedCheckbox = document.querySelector("#txForm input[name='is_shared']");
         formData.is_shared = (isSharedCheckbox && isSharedCheckbox.checked) ? "x" : "";
+                // ===== ÖSSZEG NORMALIZÁLÁS =====
+        // UI: a felhasználó mindig pozitív összeget ír be
+        // Mentés: expense -> negatív, income -> pozitív
+        const normalizeSignedAmount = (raw, txType) => {
+            const str = String(raw ?? "").trim();
+            if (!str) return "";
+
+            // támogatja: "1 234", "1 234,56"
+            const n = Number(str.replace(/\s+/g, "").replace(",", "."));
+            if (isNaN(n)) return str; // ha valamiért nem szám, hagyjuk változatlanul
+
+            const abs = Math.abs(n);
+            const signed = (txType === "Kiadás") ? -abs : abs;
+            return String(signed);
+        };
+
+        formData.amount = normalizeSignedAmount(formData.amount, formData.transaction_type);
 
         console.log("TX FORM SUBMIT (AFTER NORMALIZE):", formData);
 
@@ -115,7 +132,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 loadSharedExpenses(); 
             } else {
                 er.style.display = "block";
+                console.error("SAVE FAILED:", result);
+                // Ha van hibaüzenet a backendből, azt is írjuk ki
+                if (result?.error) {
+                    er.textContent = result.error;
+                } else {
+                    er.textContent = "A mentés sikertelen (ismeretlen hiba).";
+                }
             }
+
 
         } catch (err) {
             er.style.display = "block";
@@ -255,7 +280,8 @@ function formatAmount(amount) {
     }
 
     // ez teszi bele a szóközöket ezres csoportosítással
-    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    return Math.abs(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+
 }
 
 
@@ -349,16 +375,19 @@ async function loadTransactions() {
 
         // Összeg szűrés: támogatja a >1000 vagy <5000 formátumot
         if (fAmount) {
+            const txAmtAbs = Math.abs(Number(tx.amount));
+
             if (fAmount.startsWith(">")) {
                 const min = Number(fAmount.substring(1));
-                if (!(Number(tx.amount) > min)) return false;
+                if (!(txAmtAbs > min)) return false;
             } else if (fAmount.startsWith("<")) {
                 const max = Number(fAmount.substring(1));
-                if (!(Number(tx.amount) < max)) return false;
+                if (!(txAmtAbs < max)) return false;
             } else {
-                if (String(tx.amount) !== fAmount) return false;
+                if (String(txAmtAbs) !== fAmount) return false;
             }
         }
+
 
         if (fTitle && !String(tx.title).toLowerCase().includes(fTitle)) return false;
 
@@ -542,7 +571,25 @@ if (txSortField) {
                 <tr data-id="${tx.id}">
                     <td>${tx.month}</td>
                     <td>${formatDateForList(tx.date)}</td>
-                    <td>${formatAmount(tx.amount)}</td>
+                    <td class="${
+                        (() => {
+                            const t = String(tx.transaction_type || "").trim().toLowerCase();
+
+                            const isSaving  = t.includes("megtak") || t === "saving";
+                            const isExpense = t.includes("kiad")  || t === "expense" || (Number(tx.amount) < 0);
+                            const isIncome  = t.includes("bev")   || t === "income"  || (Number(tx.amount) > 0);
+
+                            if (isSaving)  return "amount-saving";
+                            if (isExpense) return "amount-expense";
+                            if (isIncome)  return "amount-income";
+                            return "";
+                        })()
+                    }">
+                        ${formatAmount(tx.amount)}
+                    </td>
+
+
+
                     <td>${tx.title}</td>
                     <td>${tx.category}</td>
                     <td>${tx.payment_type}</td>
@@ -585,7 +632,7 @@ function openTransactionEditor(tx) {
     const dateOnly = tx.date.split("T")[0];
     document.querySelector("input[name='date']").value = dateOnly;
     document.querySelector("input[name='month']").value = tx.month;
-    document.querySelector("input[name='amount']").value = tx.amount;
+    document.querySelector("input[name='amount']").value = Math.abs(Number(tx.amount) || 0);
     document.querySelector("input[name='title']").value = tx.title;
     document.querySelector("input[name='category']").value = tx.category;
     document.querySelector("input[name='payment_type']").value = tx.payment_type;
@@ -660,55 +707,42 @@ async function loadSharedExpenses() {
         // ===== DÁTUM SZERINTI RENDEZÉS (ÚJ FELÜL) =====
         // 1) Rendezés: legrégebbi → legújabb
         result.data.sort((a, b) => new Date(a.date) - new Date(b.date));
-        // ====== EGYENLEG SZÁMÍTÁSA (partner_share + Törlesztés) ======
-        let balance = 0;
+        // ====== EGYENLEG SZÁMÍTÁSA (PIROS - KÉK) ======
+        let blueTotal = 0; // Zsolti tartozása (paid_by = Dóri)
+        let redTotal  = 0; // Dóri tartozása  (paid_by = Zsolti)
 
-        result.data.forEach((row) => {
-            const title = (row.title || "").trim();
-            const partnerShare = Number(row.partner_share) || 0;
-            const amount = Number(row.amount) || 0;
-            const paidBy = (row.paid_by || "").trim().toLowerCase();
+        for (const row of (result.data || [])) {
+            const paidBy = String(row.paid_by || "").trim().toLowerCase();
 
-            if (title === "Törlesztés") {
-                // TÖRLESZTÉS: teljes összeggel számolunk, felezés nélkül
-                // Ha Zsolti tartozik és ő fizet → az egyenleg a 0 felé mozdul: +összeg
-                // Ha Dóri tartozik és ő fizet → az egyenleg a 0 felé mozdul: -összeg
-                if (paidBy === "zsolti") {
-                    balance += amount;
-                } else if (paidBy === "dóri") {
-                    balance -= amount;
-                }
-            } else {
-                // NORMÁL MEGOSZTOTT TÉTEL → partner_share megy az egyenlegbe
-                balance += partnerShare;
+            // Tartozás összege: az adott fél "egyenleg" mezője (abs értékkel)
+            if (paidBy === "dóri" || paidBy === "dori") {
+                blueTotal += Math.abs(Number(row.Zsolti_balance) || 0);
+            } else if (paidBy === "zsolti") {
+                redTotal += Math.abs(Number(row.Dori_balance) || 0);
             }
-        });
+        }
+
+        const headerNet = redTotal - blueTotal;
 
         // ====== EGYENLEG KIÍRÁSA A FEJLÉC ALATTI DOBOZBA ======
         const box = document.getElementById("sharedBalanceValue");
         const label = document.getElementById("sharedBalanceLabel");
 
-        if (box && label) {
-            box.textContent = balance.toFixed(0) + " Ft";
+        // A HTML-ben ezek az ID-k léteznek:contentReference[oaicite:2]{index=2}
+        if (box) box.textContent = Math.abs(headerNet).toFixed(0) + " Ft";
 
-            let text = "";
-            let cssClass = "";
-
-            if (balance > 0) {
-                text = " — Dóri tartozik Zsoltinak";
-                cssClass = "balance-positive";
-            } else if (balance < 0) {
-                text = " — Zsolti tartozik Dórinak";
-                cssClass = "balance-negative";
+        if (label) {
+            if (headerNet > 0) {
+                label.textContent = " — Dóri tartozik (piros)";
+                label.className = "balance-negative"; // nálad ez a piros stílus
+            } else if (headerNet < 0) {
+                label.textContent = " — Zsolti tartozik (kék)";
+                label.className = "balance-positive"; // nálad ez a kék stílus
             } else {
-                text = " — Az elszámolás kiegyenlített";
-                cssClass = "";
+                label.textContent = " — Az elszámolás kiegyenlített";
+                label.className = "";
             }
-
-            label.textContent = text;
-            label.className = cssClass;
         }
-
 
         result.data.forEach(row => {
             const tr = document.createElement("tr");
@@ -726,7 +760,9 @@ async function loadSharedExpenses() {
                         step="1"
                         class="se-zsolti-amount"
                         data-id="${row.id}"
-                        value="${row.Zsolti_amount === 0 ? 0 : (row.Zsolti_amount || "")}"
+                        value="${row.Zsolti_amount === 0 ? 0 : (Math.abs(Number(row.Zsolti_amount) || 0) || "")}"
+
+
                     >
                 </td>
 
@@ -736,14 +772,62 @@ async function loadSharedExpenses() {
                         step="1"
                         class="se-dori-amount"
                         data-id="${row.id}"
-                        value="${row.Dori_amount === 0 ? 0 : (row.Dori_amount || "")}"
+                        value="${row.Dori_amount === 0 ? 0 : (Math.abs(Number(row.Dori_amount) || 0) || "")}"
+
                     >
                 </td>
 
-                <td>${row.remaining_amount || ""}</td>
-                <td>${row.zsolti_balance || ""}</td>
-                <td>${row.dori_balance || ""}</td>
-                <td>${row.balance_impact || ""}</td>
+                <td>${formatAmount(row.remaining_amount)}</td>
+                ${(() => {
+                    const paidBy = String(row.paid_by || "").trim().toLowerCase();
+
+                    const paidByDori = paidBy.includes("dóri") || paidBy === "dori";
+                    const paidByZsolti = paidBy.includes("zsolti");
+
+                    // Default: nincs kiemelés
+                    let zClass = "";
+                    let dClass = "";
+
+                    // Fizető: credit (kék), nem fizető: debit (piros)
+                    // Kérés szerint: ha Dóri fizetett, Zsolti oldala legyen kiemelve (piros),
+                    // és Dóri oldala kék. Ha Zsolti fizetett, fordítva.
+                    if (paidByDori) {
+                        zClass = "balance-debit";
+                        dClass = "balance-credit";
+                    } else if (paidByZsolti) {
+                        zClass = "balance-credit";
+                        dClass = "balance-debit";
+                    }
+
+                    return `
+                        <td class="${zClass}">${formatAmount(row.Zsolti_balance)}</td>
+                        <td class="${dClass}">${formatAmount(row.Dori_balance)}</td>
+                    `;
+                })()}
+
+                ${(() => {
+                    const paidBy = String(row.paid_by || "").trim().toLowerCase();
+
+                    const paidByDori   = paidBy.includes("dóri") || paidBy === "dori";
+                    const paidByZsolti = paidBy.includes("zsolti");
+
+                    let value = "";
+                    let cls   = "";
+
+                    if (paidByDori) {
+                        // Dóri fizetett → Zsolti egyenlege jelenjen meg (kék)
+                        value = row.Zsolti_balance;
+                        cls   = "balance-zsolti";
+                    } else if (paidByZsolti) {
+                        // Zsolti fizetett → Dóri egyenlege jelenjen meg (piros)
+                        value = row.Dori_balance;
+                        cls   = "balance-dori";
+                    }
+
+                    return `<td class="${cls}">${formatAmount(value)}</td>`;
+                })()}
+
+
                 <td>
                     <input 
                         type="text" 
@@ -795,6 +879,7 @@ document.getElementById("sharedExpensesBody").addEventListener("change", async (
         }
 
         value = Number(value);
+        value = Math.abs(value);
         if (isNaN(value)) {
             alert("A Zsolti része mezőnek számnak kell lennie.");
             target.focus();
@@ -817,6 +902,7 @@ document.getElementById("sharedExpensesBody").addEventListener("change", async (
         }
 
         value = Number(value);
+        value = Math.abs(value);
         if (isNaN(value)) {
             alert("A Dóri része mezőnek számnak kell lennie.");
             target.focus();
@@ -899,7 +985,10 @@ function createInlineSharedExpenseRow() {
             >
         </td>
 
-        <td class="se-new-paidby">Zsolti</td>
+        <td>
+            <input class="se-new-paidby" list="paidByList" value="Zsolti">
+        </td>
+
 
         <td>
             <button class="btn-primary se-save-new">Mentés</button>
@@ -921,10 +1010,13 @@ async function saveNewSharedExpense() {
 
     const date = tr.querySelector(".se-new-date").value;
     const title = tr.querySelector(".se-new-title").value.trim();
-    const amount = Number(tr.querySelector(".se-new-amount").value);
-    const paidBy = tr.querySelector(".se-new-paidby").textContent.trim();
-    const zsoltiAmount = Number(tr.querySelector(".se-new-zsoltiamount").value || 0);
-    const doriAmount = Number(tr.querySelector(".se-new-doriamount").value || 0);
+    const amount = Math.abs(Number(tr.querySelector(".se-new-amount").value));
+    const paidBy = (tr.querySelector(".se-new-paidby")?.value || tr.querySelector(".se-new-paidby")?.textContent || "Zsolti").trim();
+
+    const zsoltiAmount = Math.abs(Number(tr.querySelector(".se-new-zsoltiamount").value || 0));
+    const doriAmount   = Math.abs(Number(tr.querySelector(".se-new-doriamount").value || 0));
+    const notes        = (tr.querySelector(".se-new-notes")?.value || "").trim();
+
 
 
     if (!date || !title || isNaN(amount)) {
@@ -938,14 +1030,16 @@ async function saveNewSharedExpense() {
     const response = await api.addSharedExpense({
         month,
         date,
-        title,
+        title,                 // ne legyen fix "Törlesztés"
         amount,
         paid_by: paidBy,
-        Zsolti_amount: zsoltiAmount,
-        Dori_amount: doriAmount,
-
+        Zsolti_amount: zsoltiAmount,  // <-- ezt küldjük, ne 0-t
+        Dori_amount: doriAmount,      // <-- ezt küldjük, ne 0-t
         notes
     });
+
+
+
 
     if (!response || !response.success) {
         alert("Hiba az új megosztott költség mentésekor.");
@@ -1012,7 +1106,7 @@ async function saveInlineSettlement() {
 
     const date = tr.querySelector(".set-date").value;
     const title = tr.querySelector(".set-title").value.trim();
-    const amount = Number(tr.querySelector(".set-amount").value);
+    const amount = Math.abs(Number(tr.querySelector(".set-amount").value));
     const paidBy = tr.querySelector(".set-paidby").value.trim();
     const notes = tr.querySelector(".set-notes").value.trim();
 
@@ -1020,10 +1114,7 @@ async function saveInlineSettlement() {
         alert("Dátum, megnevezés és összeg kötelező.");
         return;
     }
-        if (isNaN(zsoltiAmount) || isNaN(doriAmount)) {
-        alert("A Zsolti része és a Dóri része mezőknek számnak kell lenniük (üres = 0).");
-        return;
-    }
+
 
     const month = deriveMonth(date);
 
@@ -1044,4 +1135,73 @@ async function saveInlineSettlement() {
 
     tr.remove();
     await loadSharedExpenses();
+}
+function addSharedExpense_(p) {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Shared_Expenses");
+  if (!sheet) {
+    return { success: false, error: 'Nem található a "Shared_Expenses" munkalap.' };
+  }
+
+  const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+  const colId            = header.indexOf("id");
+  const colMonth         = header.indexOf("month");
+  const colDate          = header.indexOf("date");
+  const colTitle         = header.indexOf("title");
+  const colAmount        = header.indexOf("amount");
+  const colPaidBy        = header.indexOf("paid_by");
+  const colZsoltiAmount  = header.indexOf("Zsolti_amount");
+  const colDoriAmount    = header.indexOf("Dori_amount");
+  const colRemaining     = header.indexOf("remaining_amount");
+  const colZsoltiBalance = header.indexOf("Zsolti_balance");
+  const colDoriBalance   = header.indexOf("Dori_balance");
+  const colBalanceImpact = header.indexOf("balance_impact");
+  const colNotes         = header.indexOf("notes");
+
+  const newId  = generatePrefixedId_("SE");
+
+  const dateRaw = p.date || "";
+  const month   = p.month || deriveMonthFromDate_(dateRaw);
+
+  const title  = p.title || "";
+  const paidBy = (p.paid_by || "Zsolti").trim();
+
+  const amountAbs  = Math.abs(Number(p.amount) || 0);
+  const zAbs       = Math.abs(Number(p.Zsolti_amount) || 0);
+  const dAbs       = Math.abs(Number(p.Dori_amount) || 0);
+  const notes      = p.notes || "";
+
+  const remaining      = amountAbs - dAbs - zAbs;
+  const halfRemaining  = remaining / 2;
+  const zsoltiBal      = halfRemaining + zAbs;
+  const doriBal        = halfRemaining + dAbs;
+
+  // A kért "Egyenleg" mező: a NEM fizető fél egyenlege (pozitív, előjel nélkül tárolva)
+  const paidByNorm = paidBy.toLowerCase();
+  let balanceImpact = 0;
+  if (paidByNorm === "dóri" || paidByNorm === "dori") {
+    balanceImpact = zsoltiBal;   // Dóri fizetett → Zsolti egyenlege
+  } else if (paidByNorm === "zsolti") {
+    balanceImpact = doriBal;     // Zsolti fizetett → Dóri egyenlege
+  }
+
+  const newRow = new Array(header.length).fill("");
+
+  if (colId !== -1)            newRow[colId] = newId;
+  if (colMonth !== -1)         newRow[colMonth] = month;
+  if (colDate !== -1)          newRow[colDate] = formatDateForStore_(dateRaw);
+  if (colTitle !== -1)         newRow[colTitle] = title;
+  if (colAmount !== -1)        newRow[colAmount] = amountAbs;
+  if (colPaidBy !== -1)        newRow[colPaidBy] = paidBy;
+  if (colZsoltiAmount !== -1)  newRow[colZsoltiAmount] = zAbs;
+  if (colDoriAmount !== -1)    newRow[colDoriAmount] = dAbs;
+  if (colRemaining !== -1)     newRow[colRemaining] = remaining;
+  if (colZsoltiBalance !== -1) newRow[colZsoltiBalance] = zsoltiBal;
+  if (colDoriBalance !== -1)   newRow[colDoriBalance] = doriBal;
+  if (colBalanceImpact !== -1) newRow[colBalanceImpact] = balanceImpact;
+  if (colNotes !== -1)         newRow[colNotes] = notes;
+
+  sheet.appendRow(newRow);
+
+  return { success: true, id: newId };
 }

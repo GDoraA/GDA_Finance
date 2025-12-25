@@ -1,6 +1,6 @@
 // ----------- API KONFIG -------------
 
-const API_URL = "https://script.google.com/macros/s/AKfycbx4rSFrJOkqTbNySSiivwF7piUROz2-q68xDYVRzEnnENXADxZ23on3-cfBZjO2x_E/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbz2gij2TAj4rs4US9jlV9gGz8AV55fmbfWUAmmvzj4JTmxibxVRcAYZw1pP3hHyd5o/exec";
 
 
 // ----------- JSONP HÍVÓ FUNKCIÓ -------------
@@ -41,6 +41,13 @@ const api = {
 
     updateTransaction(data) {
     return jsonp("updateTransaction", data);
+    },
+
+    deleteTransaction(id) {
+        return jsonp("deleteTransaction", { id });
+    },
+    deleteSharedExpense(id) {
+    return jsonp("deleteSharedExpense", { id });
     },
 
     getValueSets() {

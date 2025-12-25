@@ -90,7 +90,6 @@ function doGet(e) {
 }
 
 
-
 /**
  * Segédfüggvény: beszúr egy sort a Transactions sheetbe.
  */
@@ -119,29 +118,28 @@ function addTransaction_(tx) {
     created_by,
     created_at
   ];
-  const colZsoltiAmount  = header.indexOf("Zsolti_amount");
-  const colDoriAmount    = header.indexOf("Dori_amount");
-
-  if (colZsoltiAmount !== -1) newRow[colZsoltiAmount] = 0;
-  if (colDoriAmount   !== -1) newRow[colDoriAmount]   = 0;
 
   sheet.appendRow(row);
+
   addValueIfMissing_("title_values", tx.title);
   addValueIfMissing_("category_values", tx.category);
   addValueIfMissing_("payment_type_values", tx.payment_type);
   addValueIfMissing_("transaction_type_values", tx.transaction_type);
-    // --- ÚJ: megosztott költség automatikus szinkron ---
-    syncSharedExpenseForTransaction_({
-      id:           id,
-      month:        tx.month,
-      date:         tx.date,
-      amount:       tx.amount,
-      title:        tx.title,
-      is_shared:    tx.is_shared,
-      paid_by:      tx.paid_by
-    });
+
+  // --- megosztott költség automatikus szinkron ---
+  syncSharedExpenseForTransaction_({
+    id:           id,
+    month:        tx.month,
+    date:         tx.date,
+    amount:       tx.amount,
+    title:        tx.title,
+    is_shared:    tx.is_shared,
+    paid_by:      tx.paid_by
+  });
+
   return { success: true, id: id };
 }
+
 /**
  * Segédfüggvény: módosít egy meglévő sort a Transactions sheetben.
  */
@@ -391,15 +389,12 @@ function getSharedExpenses_(p) {
  */
 function syncSharedExpenseForTransaction_(tx) {
   const sheet = SpreadsheetApp.getActive().getSheetByName("Shared_Expenses");
-  if (!sheet) {
-    // Ha nincs ilyen lap, nem dobunk hibát, csak kilépünk
-    return;
-  }
+  if (!sheet) return;
 
   const data = sheet.getDataRange().getValues();
   const header = data[0];
 
-  // Oszlopindexek
+  // Oszlopindexek (új, jelenlegi séma szerint)
   const colId            = header.indexOf("id");
   const colCreatedAt     = header.indexOf("created_at");
   const colTxId          = header.indexOf("transaction_id");
@@ -408,10 +403,14 @@ function syncSharedExpenseForTransaction_(tx) {
   const colTitle         = header.indexOf("title");
   const colAmount        = header.indexOf("amount");
   const colPaidBy        = header.indexOf("paid_by");
-  const colOwnAmount     = header.indexOf("own_amount");
+
+  const colZsoltiAmount  = header.indexOf("Zsolti_amount");
+  const colDoriAmount    = header.indexOf("Dori_amount");
   const colRemaining     = header.indexOf("remaining_amount");
-  const colPartnerShare  = header.indexOf("partner_share");
+  const colZsoltiBal     = header.indexOf("Zsolti_balance");
+  const colDoriBal       = header.indexOf("Dori_balance");
   const colBalanceImpact = header.indexOf("balance_impact");
+
   const colNotes         = header.indexOf("notes");
 
   // Meglévő sor keresése transaction_id alapján
@@ -420,57 +419,97 @@ function syncSharedExpenseForTransaction_(tx) {
 
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][colTxId]).trim() === String(tx.id).trim()) {
-      rowIndex = i + 1;  // Sheets 1-indexelt
-      existingRow = data[i];
+      rowIndex = i + 1;      // 1-indexelt sheet sor
+      existingRow = data[i]; // 0-indexelt tömb
       break;
     }
   }
 
-  // Ha a tranzakció NEM megosztott → töröljük a Shared_Expenses sorát (ha volt)
-  const isShared = String(tx.is_shared || "").trim() !== "" &&
-                   String(tx.is_shared).toLowerCase() !== "false";
-
+  // Ha nem megosztott: töröljük a hozzá tartozó Shared_Expenses sort (ha van)
+  const isShared = String(tx.is_shared || "").trim().toLowerCase() === "x";
   if (!isShared) {
-    if (rowIndex !== -1) {
-      sheet.deleteRow(rowIndex);
-    }
+    if (rowIndex !== -1) sheet.deleteRow(rowIndex);
     return;
   }
 
-  // Ha megosztott → új sor vagy frissítés
-  // amount mindig pozitív értékkel kerüljön a Shared_Expenses lapra
+  // Shared_Expenses lapon az amount mindig pozitív legyen
   const amountAbs = Math.abs(Number(tx.amount) || 0);
+
+  // paid_by: új sornál tx.paid_by (ha nincs: Dóri), frissítésnél nem írjuk felül
+  const fallbackPaidBy = (tx.paid_by && String(tx.paid_by).trim()) ? tx.paid_by : "Dóri";
+  const paidByForCalc =
+    (rowIndex === -1)
+      ? fallbackPaidBy
+      : ((colPaidBy !== -1 && existingRow) ? (existingRow[colPaidBy] || fallbackPaidBy) : fallbackPaidBy);
+
+  // Importált shared tételnél alapból nincs egyéni megosztás
+  const zAbs = 0;
+  const dAbs = 0;
+
+  // Számítás (alap shared logika)
+  const remaining = amountAbs - dAbs - zAbs; // = amountAbs
+  const halfRemaining = remaining / 2;
+
+  const zsoltiBal = halfRemaining + zAbs; // = amountAbs/2
+  const doriBal   = halfRemaining + dAbs; // = amountAbs/2
+
+  // balance_impact: a NEM fizető fél egyenlege (előjel nélkül)
+  let balanceImpact = 0;
+  const paidByNorm = String(paidByForCalc || "").trim().toLowerCase();
+  if (paidByNorm === "dóri" || paidByNorm === "dori") {
+    balanceImpact = zsoltiBal; // Dóri fizetett → Zsolti tartozása
+  } else if (paidByNorm === "zsolti") {
+    balanceImpact = doriBal;   // Zsolti fizetett → Dóri tartozása
+  }
 
   if (rowIndex === -1) {
     // Új sor beszúrása
     const newRow = new Array(header.length).fill("");
 
-    newRow[colId] = generatePrefixedId_("SE");
-    newRow[colCreatedAt] = new Date();
-    newRow[colTxId]      = tx.id;
-    newRow[colMonth]     = tx.month;
-    newRow[colDate]      = formatDateForStore_(tx.date);
-    newRow[colTitle]     = tx.title;
-    newRow[colAmount]    = amountAbs;
-    newRow[colPaidBy] = (tx.paid_by && String(tx.paid_by).trim()) ? tx.paid_by : "Dóri";
+    if (colId !== -1)        newRow[colId] = generatePrefixedId_("SE");
+    if (colCreatedAt !== -1) newRow[colCreatedAt] = new Date();
+    if (colTxId !== -1)      newRow[colTxId] = tx.id;
 
+    if (colMonth !== -1)     newRow[colMonth] = tx.month;
+    if (colDate !== -1)      newRow[colDate] = formatDateForStore_(tx.date);
+    if (colTitle !== -1)     newRow[colTitle] = tx.title;
+    if (colAmount !== -1)    newRow[colAmount] = amountAbs;
+    if (colPaidBy !== -1)    newRow[colPaidBy] = fallbackPaidBy;
 
+    if (colZsoltiAmount !== -1) newRow[colZsoltiAmount] = 0;
+    if (colDoriAmount !== -1)   newRow[colDoriAmount] = 0;
+
+    if (colRemaining !== -1)    newRow[colRemaining] = remaining;
+    if (colZsoltiBal !== -1)    newRow[colZsoltiBal] = zsoltiBal;
+    if (colDoriBal !== -1)      newRow[colDoriBal] = doriBal;
+    if (colBalanceImpact !== -1) newRow[colBalanceImpact] = balanceImpact;
+
+    // notes-t nem töltünk automatikusan, maradhat üres
     sheet.appendRow(newRow);
 
   } else {
-    // Meglévő sor frissítése
+    // Meglévő sor frissítése (paid_by-t nem írjuk felül)
     const row = existingRow.slice();
 
-    row[colMonth]  = tx.month;
-    row[colDate]   = formatDateForStore_(tx.date);
-    row[colTitle]  = tx.title;
-    row[colAmount] = amountAbs;
+    if (colMonth !== -1)  row[colMonth] = tx.month;
+    if (colDate !== -1)   row[colDate] = formatDateForStore_(tx.date);
+    if (colTitle !== -1)  row[colTitle] = tx.title;
+    if (colAmount !== -1) row[colAmount] = amountAbs;
 
-    // Ne írjuk át a paid_by mezőt tranzakció frissítésekor
+    // Alap megosztási mezők importált tételnél 0-ra
+    if (colZsoltiAmount !== -1) row[colZsoltiAmount] = 0;
+    if (colDoriAmount !== -1)   row[colDoriAmount] = 0;
+
+    // Újraszámolt mezők
+    if (colRemaining !== -1)     row[colRemaining] = remaining;
+    if (colZsoltiBal !== -1)     row[colZsoltiBal] = zsoltiBal;
+    if (colDoriBal !== -1)       row[colDoriBal] = doriBal;
+    if (colBalanceImpact !== -1) row[colBalanceImpact] = balanceImpact;
+
     sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
   }
-
 }
+
 /**
  * Shared_Expenses egy mezőjének manuális módosítása + automatikus újraszámítás.
  * Elvárt oszlopok (a sheet fejlécben): 
@@ -489,6 +528,7 @@ function updateSharedExpense_(id, field, value) {
   // Kötelező oszlopok indexei
   const colId            = header.indexOf("id");
   const colAmount        = header.indexOf("amount");
+  const colTitle         = header.indexOf("title");
   const colPaidBy        = header.indexOf("paid_by");
   const colZsoltiAmount  = header.indexOf("Zsolti_amount");
   const colDoriAmount    = header.indexOf("Dori_amount");
@@ -533,6 +573,10 @@ function updateSharedExpense_(id, field, value) {
 
   // 2) Újraszámítás ugyanarra a sorra (a frissen írt értékkel együtt)
   const rowValues = sheet.getRange(rowIndex, 1, 1, header.length).getValues()[0];
+  const titleVal = colTitle !== -1 ? String(rowValues[colTitle] || "") : "";
+  const isSettlement = titleVal.trim().toLowerCase().includes("törleszt");
+
+
 
   const amount = Math.abs(Number(colAmount !== -1 ? rowValues[colAmount] : 0) || 0);
 
@@ -551,32 +595,26 @@ function updateSharedExpense_(id, field, value) {
       ? 0
       : Math.abs(Number(field === "Dori_amount" ? storeValue : rowValues[colDoriAmount]) || 0);
 
-
-// remaining_amount: amount - Dóri - Zsolti
-const remaining = amount - doriAmount - zsoltiAmount;
-
-// A megadott képletek alapján a két fél "egyenleg" értéke (valójában a teljes tételből rájuk eső rész):
-const halfRemaining = remaining / 2;
-
-const zsoltiBal = halfRemaining + zsoltiAmount;
-const doriBal   = halfRemaining + doriAmount;
-
-/**
- * balance_impact (Egyenleg):
- * Mivel a két "egyenleg" mező most a felekre eső végső részt adja ki (összegük = amount),
- * a transzfer (ki kinek mennyit tartozik) a paid_by szerint dől el:
- * - ha Dóri fizetett, Zsolti tartozik Dórinak: negatív (Zsolti nézőpontból) = -zsoltiBal
- * - ha Zsolti fizetett, Dóri tartozik Zsoltinak: pozitív (Zsolti nézőpontból) = +doriBal
- * - egyéb/üres paid_by esetén 0 (ne torzítson)
- */
+let remaining = "";
+let zsoltiBal = "";
+let doriBal   = "";
 let balanceImpact = 0;
-if (paidBy === "dóri" || paidBy === "dori") {
-  balanceImpact = zsoltiBal; // Dóri fizetett → Zsolti egyenlege
-} else if (paidBy === "zsolti") {
-  balanceImpact = doriBal;   // Zsolti fizetett → Dóri egyenlege
+
+if (isSettlement) {
+  balanceImpact = amount;
 } else {
-  balanceImpact = 0;
+  remaining = amount - doriAmount - zsoltiAmount;
+  const halfRemaining = remaining / 2;
+
+  zsoltiBal = halfRemaining + zsoltiAmount;
+  doriBal   = halfRemaining + doriAmount;
+
+  let bi = 0;
+  if (paidBy === "dóri" || paidBy === "dori") bi = zsoltiBal;
+  else if (paidBy === "zsolti") bi = doriBal;
+  balanceImpact = bi;
 }
+
 
 
 // Visszaírások (csak ha az oszlop létezik)
@@ -622,26 +660,46 @@ function addSharedExpense_(p) {
 
   // UI + számítás: mindent abs értékkel kezelünk
   const amountAbs  = Math.abs(Number(p.amount) || 0);
-  const zAbs       = Math.abs(Number(p.Zsolti_amount) || 0);
-  const dAbs       = Math.abs(Number(p.Dori_amount) || 0);
 
-  const paidByRaw = (p.paid_by || "Zsolti").toString().trim();
-  const paidBy    = paidByRaw; // a sheetbe az eredeti megnevezést írjuk
+  // Törlesztés jelző: frontend settlement="x"
+  const isSettlement = String(p.settlement || "").trim().toLowerCase() === "x";
 
-  const remaining     = amountAbs - dAbs - zAbs;
-  const halfRemaining = remaining / 2;
+  // Törlesztésnél nincs megosztott rész
+  const zAbs = isSettlement ? 0 : Math.abs(Number(p.Zsolti_amount) || 0);
+  const dAbs = isSettlement ? 0 : Math.abs(Number(p.Dori_amount) || 0);
 
-  const zsoltiBal = halfRemaining + zAbs;
-  const doriBal   = halfRemaining + dAbs;
 
-  // ÚJ jelentés: balance_impact = a NEM fizető fél egyenlege (előjel nélkül)
-  const paidByNorm = paidByRaw.toLowerCase();
-  let balanceImpact = 0;
-  if (paidByNorm === "dóri" || paidByNorm === "dori") {
-    balanceImpact = zsoltiBal; // Dóri fizetett → Zsolti egyenlege
-  } else if (paidByNorm === "zsolti") {
-    balanceImpact = doriBal;   // Zsolti fizetett → Dóri egyenlege
-  }
+    const paidByRaw = (p.paid_by || "Zsolti").toString().trim();
+    const paidBy    = paidByRaw; // a sheetbe az eredeti megnevezést írjuk
+
+    let remaining = "";
+    let zsoltiBal = "";
+    let doriBal   = "";
+    let balanceImpact = 0;
+
+    if (isSettlement) {
+      // Törlesztés: teljes összeg egyenlegbe kerül
+      // (a fejlécben ezt hozzáadjuk a piros-kék különbözethez)
+      balanceImpact = amountAbs;
+    } else {
+      remaining = amountAbs - dAbs - zAbs;
+      const halfRemaining = remaining / 2;
+
+      zsoltiBal = halfRemaining + zAbs;
+      doriBal   = halfRemaining + dAbs;
+
+      // NEM fizető fél egyenlege (előjel nélkül)
+      const paidByNorm = paidByRaw.toLowerCase();
+      if (paidByNorm === "dóri" || paidByNorm === "dori") {
+        balanceImpact = zsoltiBal; // Dóri fizetett → Zsolti egyenlege
+      } else if (paidByNorm === "zsolti") {
+        balanceImpact = doriBal;   // Zsolti fizetett → Dóri egyenlege
+      } else {
+        balanceImpact = 0;
+      }
+    }
+
+
 
   const newRow = new Array(header.length).fill("");
 

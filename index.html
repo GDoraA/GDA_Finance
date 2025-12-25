@@ -51,6 +51,7 @@
                     <button type="submit">Mentés</button>
                         <div id="successMsg" class="msg success">Sikeresen mentve!</div>
                         <div id="errorMsg" class="msg error">Hiba történt.</div>
+                    <button id="txDeleteBtn" type="button" class="secondary" style="display:none">Törlés</button>
                     <button id="closeModalBtn" type="button" class="secondary">Mégse</button>
                 </form>
             </div>
@@ -66,10 +67,8 @@
             <datalist id="filterCategoriesList"></datalist>
         <input id="filterPaymentType" list="filterPaymentsList" placeholder="Fizetési mód">
             <datalist id="filterPaymentsList"></datalist>
-        <select id="filterType">
-            <option value="">Típus</option>
-            <option value="income">Bevétel</option>
-            <option value="expense">Kiadás</option>
+        <input id="filterType" list="filterTypesList" placeholder="Típus">
+        <datalist id="filterTypesList"></datalist>
         </select>
         <select id="filterShared">
             <option value="">Mindegy</option>
@@ -107,11 +106,11 @@
                 <th data-sort="month">Hónap</th>
                 <th data-sort="date">Dátum</th>
                 <th data-sort="amount">Összeg</th>
-                <th data-sort="title">Megnevezés</th>
+                <th data-sort="title">Jogcím</th>
                 <th data-sort="category">Kategória</th>
-                <th data-sort="payment_method">Fizetési mód</th>
-                <th data-sort="type">Típus</th>
-                <th data-sort="shared">Megosztott?</th>
+                <th data-sort="payment_type">Fizetési mód</th>
+                <th data-sort="transaction_type">Típus</th>
+                <th data-sort="is_shared">Megosztott?</th>
                 <th data-sort="statement_item">Kivonat sor</th>
             </tr>
         </thead>
@@ -130,28 +129,71 @@
             <button id="addSettlementInlineBtn" class="btn-secondary">
                 + Törlesztés
             </button>
+            <!-- Shared Expenses Modal háttér -->
+            <div id="seModalOverlay" class="modal-overlay"></div>
+
+            <!-- Shared Expenses Modal -->
+            <div id="seModal" class="modal">
+            <div class="modal-content">
+                <h2 id="seModalTitle">Megosztott tétel</h2>
+
+                <form id="seForm">
+                <input type="date" id="seDate" name="date" placeholder="Dátum">
+                <input id="seMonth" name="month" placeholder="Hónap (YYYYMM)" disabled>
+
+                <input id="seTitle" name="title" list="titlesList" placeholder="Megnevezés">
+                <input id="seAmount" name="amount" inputmode="decimal" placeholder="Összeg">
+
+                <input id="sePaidBy" name="paid_by" list="paidByList" placeholder="Fizette (Dóri/Zsolti)">
+
+                <!-- Megosztott bontás – törlesztésnél majd elrejtjük -->
+                <div id="seSplitBlock">
+                    <input id="seZsoltiAmount" name="Zsolti_amount" inputmode="decimal" placeholder="Zsolti része">
+                    <input id="seDoriAmount" name="Dori_amount" inputmode="decimal" placeholder="Dóri része">
+                </div>
+
+                <input id="seNotes" name="notes" placeholder="Megjegyzés">
+
+                <button id="seSaveBtn" type="submit">Mentés</button>
+                <div id="seSuccessMsg" class="msg success">Sikeresen mentve!</div>
+                <div id="seErrorMsg" class="msg error">Hiba történt.</div>
+                <button id="seDeleteBtn" type="button" class="secondary" style="display:none">Törlés</button>
+                <button id="seCloseBtn" type="button" class="secondary">Mégse</button>
+                </form>
+            </div>
+            </div>
+
             <!-- Összesített egyenleg kijelzése -->
             <div id="sharedBalanceBox" class="balance-box">
                 <strong>Egyenleg:</strong>
                 <span id="sharedBalanceValue">0</span>
                 <span id="sharedBalanceLabel"></span>
+
+                <span id="sharedTotalsInline">
+                    &nbsp;|&nbsp;
+                    <span class="balance-dori">Dóri tartozik: <span id="sharedRedTotal">0</span></span>
+                    &nbsp;|&nbsp;
+                    <span class="balance-zsolti">Zsolti tartozik: <span id="sharedBlueTotal">0</span></span>
+                    &nbsp;|&nbsp;
+                    <span class="balance-settlement">Zsolti törleszt: <span id="sharedPurpleTotal">0</span></span>
+                </span>
             </div>
 
             <table id="sharedExpensesTable" class="tx-table">
                 <thead>
                     <tr>
-                        <th>Hónap</th>
-                        <th>Dátum</th>
-                        <th>Megnevezés</th>
-                        <th>Összeg</th>
-                        <th>Fizette</th>
-                        <th>Zsolti része</th>
-                        <th>Dóri része</th>
-                        <th>Maradék</th>
-                        <th>Zsolti egyenleg</th>
-                        <th>Dóri egyenleg</th>
-                        <th>Egyenleg</th>
-                        <th>Megjegyzés</th>
+                        <th data-sort="month">Hónap</th>
+                        <th data-sort="date">Dátum</th>
+                        <th data-sort="title">Megnevezés</th>
+                        <th data-sort="amount">Összeg</th>
+                        <th data-sort="paid_by">Fizette</th>
+                        <th data-sort="Zsolti_amount">Zsolti része</th>
+                        <th data-sort="Dori_amount">Dóri része</th>
+                        <th data-sort="remaining_amount">Maradék</th>
+                        <th data-sort="Zsolti_balance">Zsolti egyenleg</th>
+                        <th data-sort="Dori_balance">Dóri egyenleg</th>
+                        <th data-sort="balance_display">Egyenleg</th>
+                        <th data-sort="notes">Megjegyzés</th>
                     </tr>
                 </thead>
                 <tbody id="sharedExpensesBody"></tbody>

@@ -329,6 +329,57 @@ button.secondary {
     margin-top: 10px;
 }
 /* ============================
+   TABLE SORT ICONS
+   ============================ */
+
+.tx-table th[data-sort] {
+    cursor: pointer;
+    position: relative;
+    padding-right: 26px;
+}
+
+.tx-table th[data-sort]::after {
+    content: "⇅";
+    position: absolute;
+    right: 8px;
+    opacity: 0.4;
+    font-size: 0.8em;
+}
+
+.tx-table th.sort-asc::after {
+    content: "▲";
+    opacity: 1;
+}
+
+.tx-table th.sort-desc::after {
+    content: "▼";
+    opacity: 1;
+}
+
+/* ============================
+   TÁBLÁZAT – IGAZÍTÁS
+   ============================ */
+
+/* Szöveges oszlopok */
+.text-left {
+    text-align: left;
+}
+
+/* Szám jellegű oszlopok */
+.text-right {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+/* Saját rész inputok igazítása */
+.se-zsolti-amount,
+.se-dori-amount {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+      width: 100%;
+      box-sizing: border-box;
+}
+
+/* ============================
    TRANSACTIONS – AMOUNT COLORS
    ============================ */
 
@@ -631,6 +682,33 @@ body {
     color: #2e7d32; /* zöld – Zsolti tartozik */
     font-weight: bold;
 }
+/* ============================
+   SHARED EXPENSES – SETTLEMENT
+   ============================ */
+
+.balance-settlement {
+    color: #6a1b9a; /* lila */
+    font-weight: 700;
+}
+
+/* A törlesztés sorban a megosztott mezők "eltűnnek" */
+.settlement-hidden-cell {
+    visibility: hidden;  /* helyet foglal, de nem látszik -> nem esik szét a táblázat */
+    padding: 0 !important;
+    border-bottom: none !important;
+}
+
+/* Inline gombok elrendezése a megjegyzés cellában */
+.settlement-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.settlement-actions button {
+    width: auto !important;
+    padding: 10px 14px;
+}
+
 .page-btn {
     min-width: 32px;
     height: 28px;
@@ -644,4 +722,32 @@ body {
     min-width: 80px;
     text-align: center;
     font-weight: 600;
+}
+/* ============================
+   SHARED EXPENSES – SETTLEMENT ALIGN
+   ============================ */
+
+/* Törlesztés (megjelenített sor): Összeg oszlop (4.) jobbra */
+#sharedExpensesTable tr.settlement-row td:nth-child(4) {
+    text-align: right;
+}
+
+/* Törlesztés (megjelenített sor): Egyenleg (lila) cella jobbra */
+#sharedExpensesTable tr.settlement-row td.balance-settlement {
+    text-align: right;
+}
+
+/* Inline új törlesztés sor: Összeg cella jobbra */
+#sharedExpensesTable tr.new-settlement-row td:nth-child(4) {
+    text-align: right;
+}
+
+/* Inline új törlesztés sor: lila preview cella jobbra */
+#sharedExpensesTable tr.new-settlement-row td.balance-settlement {
+    text-align: right;
+}
+
+/* Inline új törlesztés sor: összeg input jobbra (gépelés közben is) */
+#sharedExpensesTable tr.new-settlement-row input.set-amount {
+    text-align: right;
 }

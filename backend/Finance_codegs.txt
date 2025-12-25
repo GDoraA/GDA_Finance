@@ -76,10 +76,16 @@ function doGet(e) {
       result = updateSharedExpense_(p.id, p.field, p.value);
 
     } else if (action === "addSharedExpense") {
-    result = addSharedExpense_(p);
+      result = addSharedExpense_(p);
+
+    } else if (action === "deleteSharedExpense") {
+      result = deleteSharedExpense_(p.id || "");
+
     } else {
       result = { success: false, error: "Ismeretlen action: " + action };
     }
+
+
 
   } catch (err) {
     result = { success: false, error: err.message || String(err) };
@@ -196,6 +202,51 @@ function updateTransaction_(tx) {
       paid_by:      tx.paid_by
     });
   return { success: true, id: tx.id };
+}
+function deleteTransaction_(id) {
+  const txId = String(id || "").trim();
+  if (!txId) return { success: false, error: "Hiányzó id" };
+
+  // 1) Transactions sor törlése ID alapján
+  const txSheet = SpreadsheetApp.getActive().getSheetByName("Transactions");
+  if (!txSheet) throw new Error('Nem található a "Transactions" nevű munkalap.');
+
+  const txData = txSheet.getDataRange().getValues();
+  const txHeader = txData[0];
+  const txIdCol = 0; // ID az első oszlopban
+
+  let txRowIndex = -1;
+  for (let i = 1; i < txData.length; i++) {
+    if (String(txData[i][txIdCol]).trim() === txId) {
+      txRowIndex = i + 1; // sheet 1-indexelt
+      break;
+    }
+  }
+  if (txRowIndex === -1) {
+    return { success: false, error: "Nincs ilyen tranzakció ID: " + txId };
+  }
+
+  txSheet.deleteRow(txRowIndex);
+
+  // 2) Kapcsolódó Shared_Expenses sor törlése transaction_id alapján (ha van)
+  const seSheet = SpreadsheetApp.getActive().getSheetByName("Shared_Expenses");
+  if (seSheet) {
+    const seData = seSheet.getDataRange().getValues();
+    if (seData.length >= 2) {
+      const seHeader = seData[0];
+      const colTxId = seHeader.indexOf("transaction_id");
+      if (colTxId !== -1) {
+        // alulról felfelé törlünk, hogy ne csússzanak az indexek
+        for (let r = seData.length - 1; r >= 1; r--) {
+          if (String(seData[r][colTxId]).trim() === txId) {
+            seSheet.deleteRow(r + 1); // sheet 1-indexelt
+          }
+        }
+      }
+    }
+  }
+
+  return { success: true, id: txId };
 }
 
 function getTransactions_() {
@@ -724,6 +775,34 @@ function addSharedExpense_(p) {
   return { success: true, id: newId };
 }
 
+function deleteSharedExpense_(id) {
+  const seId = String(id || "").trim();
+  if (!seId) return { success: false, error: "Hiányzó id" };
+
+  const seSheet = SpreadsheetApp.getActive().getSheetByName("Shared_Expenses");
+  if (!seSheet) throw new Error('Nem található a "Shared_Expenses" nevű munkalap.');
+
+  const data = seSheet.getDataRange().getValues();
+  if (data.length < 2) return { success: false, error: "Nincs törölhető adat." };
+
+  // Feltételezés: az "id" az első oszlopban van (a projektedben eddig így használtuk).
+  const idCol = 0;
+
+  let rowIndex = -1;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]).trim() === seId) {
+      rowIndex = i + 1; // sheet 1-indexelt
+      break;
+    }
+  }
+
+  if (rowIndex === -1) {
+    return { success: false, error: "Nincs ilyen megosztott tétel ID: " + seId };
+  }
+
+  seSheet.deleteRow(rowIndex);
+  return { success: true, id: seId };
+}
 
 
 /**

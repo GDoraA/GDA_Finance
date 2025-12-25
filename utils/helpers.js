@@ -29,3 +29,22 @@ function deriveMonth(dateStr) {
 
     return `${y}${m}`;
 }
+/**
+ * Bármilyen dátum inputból (ISO, Date, yyyy-mm-dd) visszaad egy <input type="date"> kompatibilis
+ * helyi dátumot: YYYY-MM-DD, időzóna-csúszás nélkül.
+ */
+function toInputDateLocal(value) {
+    if (!value) return "";
+
+    const s = String(value).trim();
+
+    // ha már yyyy-mm-dd, hagyjuk
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return "";
+
+    // local date -> ISO date (yyyy-mm-dd) időzóna-eltolás korrigálásával
+    const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 10);
+}

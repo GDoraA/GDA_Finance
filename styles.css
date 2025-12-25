@@ -77,11 +77,13 @@ label {
 input,
 select {
     width: 100%;
+    max-width: 100%;      /* KRITIKUS */
     padding: 12px 14px;
     margin-bottom: 18px;
     border-radius: var(--radius);
     border: 1px solid var(--border);
     background: var(--input-bg);
+    box-sizing: border-box;
     font-size: 1rem;
     transition: all 0.2s ease;
 }
@@ -100,6 +102,11 @@ input[list] {
     background-position: right 12px center;
     background-size: 16px;
     cursor: text;
+}
+#seSplitBlock {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
 }
 
 /* ==========================================================================
@@ -227,6 +234,8 @@ button:active {
     left: 50%;
     width: 90%;
     max-width: 420px;
+    max-height: 90vh;              /* ÚJ: ne lógjon ki a képernyőről */
+    overflow: hidden;              /* ÚJ: a belső tartalom görgessen */
     transform: translate(-50%, -50%) scale(0.8);
     opacity: 0;
     background: white;
@@ -236,12 +245,19 @@ button:active {
     transition: 0.25s ease;
     z-index: 100;
     pointer-events: none;
+    box-sizing: border-box;        /* ÚJ: padding ne növelje túl */
 }
+
 
 .modal.open {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
     pointer-events: all;
+}
+.modal-content {
+    max-height: calc(90vh - 40px); /* 90vh - (modal padding: 20px*2) */
+    overflow-y: auto;              /* ÚJ: hosszú form esetén belső scroll */
+    -webkit-overflow-scrolling: touch;
 }
 
 .modal-content h2 {
@@ -619,6 +635,47 @@ body {
 .sidebar.closed {
     transform: translateX(-100%);
 }
+/* Sidebar toggle gomb (a menü tetején) */
+.sidebar-toggle-btn {
+    width: 100%;
+    background: rgba(255,255,255,0.12);
+    border: 2px solid rgba(255,255,255,0.25);
+    padding: 12px 14px;
+    color: white;
+    margin-bottom: 14px;
+    border-radius: var(--radius);
+    text-align: left;
+    transition: 0.25s;
+}
+/* Sidebar toggle – csak ikon */
+.sidebar-toggle-btn.icon-only {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    font-size: 18px;
+    text-align: center;
+}
+
+.sidebar-toggle-btn:hover {
+    background: rgba(255,255,255,0.18);
+}
+
+/* Desktop: összecsukott sidebar */
+.sidebar.collapsed {
+    transform: translateX(-100%);
+}
+
+/* Desktop: ha a sidebar csukva, a tartalom vegye fel a teljes szélességet */
+.content-wrapper.sidebar-collapsed {
+    margin-left: 0;
+    width: 100%;
+}
+
+/* Desktop: ha csukva a sidebar, mutassuk a hamburgert, hogy vissza lehessen nyitni */
+body.sidebar-collapsed .hamburger-btn {
+    display: block;
+}
 
 /* Tartalom eltolása desktopon */
 .content-wrapper {
@@ -750,4 +807,18 @@ body {
 /* Inline új törlesztés sor: összeg input jobbra (gépelés közben is) */
 #sharedExpensesTable tr.new-settlement-row input.set-amount {
     text-align: right;
+}
+.input-like {
+    box-sizing: border-box;
+    width: 100%;
+    height: 38px;              /* ugyanaz, mint az inputok */
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #fff;
+    font-size: 14px;
+    line-height: 24px;
+    color: #333;
+    display: flex;
+    align-items: center;
 }

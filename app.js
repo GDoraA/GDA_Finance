@@ -1,14 +1,62 @@
 document.addEventListener("DOMContentLoaded", () => {
-
     const sidebar = document.querySelector(".sidebar");
+    const content = document.querySelector(".content-wrapper");
     const hamburger = document.getElementById("hamburgerBtn");
+    const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
 
-    hamburger.addEventListener("click", () => {
-        // mobilon: toggle open / closed
-        sidebar.classList.toggle("open");
+    const applyDesktopState = (collapsed) => {
+        document.body.classList.toggle("sidebar-collapsed", collapsed);
+        sidebar.classList.toggle("collapsed", collapsed);
+        content.classList.toggle("sidebar-collapsed", collapsed);
+
+        if (sidebarToggleBtn) {
+            sidebarToggleBtn.textContent = collapsed ? "▶" : "◀";
+
+        }
+        localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0");
+    };
+
+    const isMobile = () => window.matchMedia("(max-width: 700px)").matches;
+
+    // induló állapot (desktopon mentett beállítás)
+    if (!isMobile()) {
+        const saved = localStorage.getItem("sidebarCollapsed") === "1";
+        applyDesktopState(saved);
+    }
+
+    // Hamburger: mobilon open/close, desktopon collapsed toggle
+    hamburger?.addEventListener("click", () => {
+        if (isMobile()) {
+            sidebar.classList.toggle("open");
+        } else {
+            applyDesktopState(!sidebar.classList.contains("collapsed"));
+        }
     });
 
+    // Sidebar tetején lévő gomb: desktopon collapsed toggle (mobilon is működhet, de ott inkább a hamburger a UX)
+    sidebarToggleBtn?.addEventListener("click", () => {
+        if (isMobile()) {
+            sidebar.classList.toggle("open");
+        } else {
+            applyDesktopState(!sidebar.classList.contains("collapsed"));
+        }
+    });
+
+    // Ha átméretezed az ablakot, a logika ne “ragadjon be”
+    window.addEventListener("resize", () => {
+        if (isMobile()) {
+            // mobil: a collapsed desktop állapotot ne erőltesse
+            document.body.classList.remove("sidebar-collapsed");
+            sidebar.classList.remove("collapsed");
+            content.classList.remove("sidebar-collapsed");
+        } else {
+            const saved = localStorage.getItem("sidebarCollapsed") === "1";
+            applyDesktopState(saved);
+            sidebar.classList.remove("open"); // desktopon ne használjuk az "open"-t
+        }
+    });
 });
+
 
 document.addEventListener("DOMContentLoaded", () => {
 
@@ -283,9 +331,16 @@ function openSeModal(isSettlement) {
 
     // form reset
     const form = document.getElementById("seForm");
-    if (form) form.reset();
+    if (form) {
+        form.reset();
+        form.removeAttribute("data-edit-id"); // <-- ÚJ: ne maradjon bent régi edit mód
+    }
+
+    // ÚJ: alapból ne lehessen törölni (csak szerkesztésnél, feltételesen)
+    document.getElementById("seDeleteBtn")?.style.setProperty("display", "none");
 
     hideSeModalMessages();
+
 
     // cím + törlesztésnél bontás elrejtése
     const titleEl = document.getElementById("seModalTitle");
@@ -314,14 +369,24 @@ document.getElementById("addSharedExpenseBtn").addEventListener("click", () => o
 document.getElementById("addSettlementInlineBtn")
     .addEventListener("click", () => openSeModal(true));
 document.getElementById("seCloseBtn")?.addEventListener("click", closeSeModal);
-// Shared Expenses – sorra kattintás -> modal szerkesztés (Szerkeszt gomb nélkül)
-document.getElementById("sharedExpensesBody")?.addEventListener("click", (e) => {
-// Megosztott / törlesztés tétel törlése modalból
+// Megosztott / törlesztés tétel törlése modalból (csak törlesztés vagy paid_by=Zsolti)
 document.getElementById("seDeleteBtn")?.addEventListener("click", async () => {
     const form = document.getElementById("seForm");
     const seId = form?.getAttribute("data-edit-id");
-
     if (!seId) return;
+
+    // Frontend védelem: csak törlesztés vagy paid_by=Zsolti törölhető
+    const row = seRowsById?.get(String(seId));
+    const title = String(row?.title || "").trim().toLowerCase();
+    const paidBy = String(row?.paid_by || "").trim().toLowerCase();
+    const isSettlement = title.includes("törleszt");
+    const isPaidByZsolti = (paidBy === "zsolti");
+    const canDelete = isSettlement || isPaidByZsolti;
+
+    if (!canDelete) {
+        alert("Ez a tétel nem törölhető. Csak törlesztés vagy paid_by = Zsolti tétel törölhető.");
+        return;
+    }
 
     const ok = confirm("Biztosan törlöd ezt a tételt?");
     if (!ok) return;
@@ -333,7 +398,6 @@ document.getElementById("seDeleteBtn")?.addEventListener("click", async () => {
             return;
         }
 
-        // modal bezárása – ugyanazzal a logikával, mint a Mégse gomb
         document.getElementById("seModal")?.classList.remove("open");
         document.getElementById("seModalOverlay")?.classList.remove("open");
 
@@ -343,47 +407,8 @@ document.getElementById("seDeleteBtn")?.addEventListener("click", async () => {
         alert("Váratlan hiba történt a törlés során.");
     }
 });
-    // Ha inputra/gombra kattintasz, maradjon az inline működés
-    if (e.target.closest("input, select, textarea, button")) return;
 
-    const tr = e.target.closest("tr");
-    if (!tr) return;
 
-    // inline új sorokra ne nyissunk modalt
-    if (tr.classList.contains("new-shared-row") || tr.classList.contains("new-settlement-row")) return;
-
-    const rowId = tr.getAttribute("data-id");
-    if (!rowId) return;
-
-    const row = seRowsById?.get(String(rowId));
-    if (!row) return;
-
-    const isSettlement = String(row.title || "").trim().toLowerCase().includes("törleszt");
-
-    openSeModal(isSettlement);
-
-    // szerkesztési mód jelölése
-    const form = document.getElementById("seForm");
-    if (form) form.setAttribute("data-edit-id", String(rowId));
-    document.getElementById("seDeleteBtn")?.style.setProperty("display", "inline-block");
-
-    // mezők kitöltése
-    const dateOnly = String(row.date || "").split("T")[0];
-    document.getElementById("seDate").value = dateOnly || "";
-    document.getElementById("seMonth").value = row.month || (dateOnly ? deriveMonth(dateOnly) : "");
-
-    document.getElementById("seTitle").value = row.title || "";
-    document.getElementById("seAmount").value = Math.abs(Number(row.amount) || 0);
-    document.getElementById("sePaidBy").value = row.paid_by || "";
-
-    document.getElementById("seZsoltiAmount").value = Math.abs(Number(row.Zsolti_amount) || 0);
-    document.getElementById("seDoriAmount").value = Math.abs(Number(row.Dori_amount) || 0);
-
-    document.getElementById("seNotes").value = row.notes || "";
-
-    const titleEl = document.getElementById("seModalTitle");
-    if (titleEl) titleEl.textContent = isSettlement ? "Törlesztés szerkesztése" : "Megosztott tétel szerkesztése";
-});
 // Modal – dátum → hónap automatikus kitöltés
 document.getElementById("seDate")?.addEventListener("input", (e) => {
     const dateVal = e.target.value;
@@ -395,6 +420,7 @@ document.getElementById("seDate")?.addEventListener("input", (e) => {
 // Modal – Mentés (ÚJ tétel / ÚJ törlesztés)
 document.getElementById("seForm")?.addEventListener("submit", async (e) => {
     e.preventDefault();
+    const editingRowId = document.getElementById("seModal").getAttribute("data-edit-id") || "";
 
     hideSeModalMessages();
 
@@ -433,7 +459,15 @@ document.getElementById("seForm")?.addEventListener("submit", async (e) => {
 
         if (seModalIsSettlement) payload.settlement = "x";
 
-        const response = await api.addSharedExpense(payload);
+        const editId = document.getElementById("seForm")?.getAttribute("data-edit-id");
+
+        let response;
+        if (editId) {
+            response = await api.updateSharedExpenseRow({ ...payload, id: editId });
+        } else {
+            response = await api.addSharedExpense(payload);
+        }
+
 
         if (!response || !response.success) {
             console.error("addSharedExpense FAILED:", response);
@@ -518,6 +552,23 @@ function formatDateForList(dateStr) {
     const d = String(dt.getDate()).padStart(2, "0");
 
     return `${y}.${m}.${d}.`;
+}
+function toInputDateLocal(value) {
+  if (!value) return "";
+
+  // már jó formátum: YYYY-MM-DD
+  const s = String(value).trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return s;
+
+  // ISO / Date string -> helyi dátum (nem UTC nap)
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return "";
+
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 function formatAmount(amount) {
@@ -1114,13 +1165,9 @@ const result = await api.getSharedExpenses();
                 <td class="balance-settlement">${formatAmount(row.amount)}</td>
 
                 <td>
-                    <input 
-                        type="text" 
-                        class="se-notes" 
-                        data-id="${row.id}" 
-                        value="${row.notes || ""}"
-                    >
+                    ${row.notes || ""}
                 </td>
+
             `;
             tbody.appendChild(tr);
             return;
@@ -1134,25 +1181,14 @@ const result = await api.getSharedExpenses();
             <td class="text-right">${formatAmount(row.amount)}</td>
             <td>${row.paid_by || ""}</td>
 
-            <td>
-                <input
-                    type="text"
-                    inputmode="numeric"
-                    class="se-zsolti-amount"
-                    data-id="${row.id}"
-                    value="${row.Zsolti_amount === 0 ? "0" : formatAmount(Math.abs(Number(row.Zsolti_amount) || 0))}"
-                >
+            <td class="text-right">
+                ${formatAmount(Math.abs(Number(row.Zsolti_amount) || 0))}
             </td>
 
-            <td>
-                <input
-                    type="text"
-                    inputmode="numeric"
-                    class="se-dori-amount"
-                    data-id="${row.id}"
-                    value="${row.Dori_amount === 0 ? "0" : formatAmount(Math.abs(Number(row.Dori_amount) || 0))}"
-                >
+            <td class="text-right">
+                ${formatAmount(Math.abs(Number(row.Dori_amount) || 0))}
             </td>
+
 
 
             <td class="text-right se-remaining">${formatAmount(row.remaining_amount)}</td>
@@ -1199,14 +1235,10 @@ const result = await api.getSharedExpenses();
                 return `<td class="text-right se-balance">${formatAmount(value)}</td>`;
             })()}
 
-            <td>
-                <input 
-                    type="text" 
-                    class="se-notes" 
-                    data-id="${row.id}" 
-                    value="${row.notes || ""}"
-                >
-            </td>
+        <td>
+            ${row.notes || ""}
+        </td>
+
         `;
         tbody.appendChild(tr);
         });
@@ -1254,8 +1286,9 @@ document.getElementById("sharedExpensesBody").addEventListener("click", (e) => {
     if (form) form.setAttribute("data-edit-id", String(rowId));
 
     // mezők kitöltése
-    const dateOnly = String(row.date || "").split("T")[0]; // ISO -> yyyy-mm-dd
+    const dateOnly = toInputDateLocal(row.date);
     document.getElementById("seDate").value = dateOnly || "";
+
     document.getElementById("seMonth").value = row.month || (dateOnly ? deriveMonth(dateOnly) : "");
 
     document.getElementById("seTitle").value = row.title || "";

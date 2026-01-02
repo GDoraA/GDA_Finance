@@ -60,26 +60,30 @@ document.addEventListener("DOMContentLoaded", () => {
 
 document.addEventListener("DOMContentLoaded", () => {
 
-    // ===== MODAL =====
-    const modal = document.getElementById("txModal");
-    const overlay = document.getElementById("modalOverlay");
-    const openBtn = document.getElementById("openModalBtn");
-    const closeBtn = document.getElementById("closeModalBtn");
+// ===== MODAL =====
+const modal = document.getElementById("txModal");
+const overlay = document.getElementById("modalOverlay");
+const openBtn = document.getElementById("openModalBtn");
+const closeBtn = document.getElementById("closeModalBtn");
 
+if (openBtn && modal && overlay) {
     openBtn.addEventListener("click", () => {
         const form = document.getElementById("txForm");
-
-        form.reset();
-        form.removeAttribute("data-edit-id");
-
+        if (form) {
+            form.reset();
+            form.removeAttribute("data-edit-id");
+        }
         modal.classList.add("open");
         overlay.classList.add("open");
     });
+}
 
+if (closeBtn && modal && overlay) {
     closeBtn.addEventListener("click", () => {
         modal.classList.remove("open");
         overlay.classList.remove("open");
     });
+}
 
     // =========================
     // CSV IMPORT (Transactions)
@@ -162,6 +166,21 @@ document.addEventListener("DOMContentLoaded", () => {
         const dd = String(d.getDate()).padStart(2, "0");
         return `${yyyy}-${mm}-${dd}`;
     };
+    const normalizeMonth = (raw, fallbackDateIso) => {
+        const s = String(raw ?? "").trim();
+
+        // Ha a CSV-ben már YYYYMM formátum van (pl. 202509), használjuk azt
+        if (/^\d{6}$/.test(s)) return s;
+
+        // Egyébként számoljuk a dátumból YYYYMM-re
+        if (fallbackDateIso) {
+            const [y, m] = fallbackDateIso.split("-");
+            return `${y}${m}`;
+        }
+
+        return "";
+    };
+
 
     // A meglévő logikádhoz illeszkedő előjelzés:
     // - UI/import: pozitív összegből indulunk
@@ -303,26 +322,30 @@ document.addEventListener("DOMContentLoaded", () => {
                     continue;
                 }
 
-                const month = normalizeMonth(parsed.monthRaw, parsed.dateIso);
-
-
-                // ha a CSV-ben negatív összeg van, az abs-ból indulunk, és a típus adja a mentési előjelet
+                // ha a CSV-ben negatív összeg van, az előjelet a "Jelleg" alapján kényszerítjük
                 const normalizeSignedAmountFromCsv = (amountN, txType) => {
-                const n = Number(amountN);
-                if (isNaN(n)) return "";
+                    const n = Number(amountN);
+                    if (isNaN(n)) return "";
 
-                const t = String(txType || "").trim().toLowerCase();
-                const isExpense = t.includes("kiad"); // Kiadás
-                const isIncome  = t.includes("bev");  // Bevétel
+                    const t = String(txType || "").trim().toLowerCase();
+                    const isExpense = t.includes("kiad"); // Kiadás
+                    const isIncome  = t.includes("bev");  // Bevétel
 
-                const abs = Math.abs(n);
+                    const abs = Math.abs(n);
 
-                if (isExpense) return String(-abs);
-                if (isIncome)  return String(abs);
+                    if (isExpense) return String(-abs);
+                    if (isIncome)  return String(abs);
 
-                // ha nincs jelleg, akkor hagyjuk úgy, ahogy a CSV-ben van
-                return String(n);
+                    // ha nincs jelleg, akkor hagyjuk úgy, ahogy a CSV-ben van
+                    return String(n);
                 };
+
+                const month = normalizeMonth(parsed.monthRaw, parsed.dateIso);
+                const signedAmount = normalizeSignedAmountFromCsv(
+                    parsed.amountN,
+                    parsed.transaction_type
+                );
+
 
 
                 const payload = {
@@ -390,20 +413,23 @@ loadTransactions();
 });
 
     // ===== Dátum → hónap =====
-    const dateInput = document.querySelector("input[name='date']");
-    const monthInput = document.querySelector("input[name='month']");
 
-    dateInput.addEventListener("change", () => {
-        if (dateInput.value) {
-            monthInput.value = deriveMonth(dateInput.value);
-        }
-    });
+const dateInput = document.querySelector("input[name='date']");
+const monthInput = document.querySelector("input[name='month']");
+
+dateInput?.addEventListener("change", () => {
+    if (dateInput.value && monthInput) {
+        monthInput.value = deriveMonth(dateInput.value);
+    }
+});
+
+
 
     // ===== Datalist betöltés =====
     loadDropdownValues();
 
     // ===== Mentés =====
-    document.getElementById("txForm").addEventListener("submit", async e => {
+    document.getElementById("txForm")?.addEventListener("submit", async e => {
         e.preventDefault();
 
         const form = new FormData(e.target);
@@ -526,10 +552,11 @@ function updateFilterPanelState() {
         filtersPanel.classList.remove("open");
     }
 }
-document.getElementById("itemsPerPage").addEventListener("change", () => {
+document.getElementById("itemsPerPage")?.addEventListener("change", () => {
     txCurrentPage = 1;
     loadTransactions();
 });
+
 // ===== TRANSACTIONS – FEJLÉCRE KATTINTVA RENDEZÉS =====
 document.querySelectorAll("#transactionsTable thead th[data-sort]").forEach(th => {
     th.style.cursor = "pointer";
@@ -1077,10 +1104,13 @@ if (txSortField) {
 
 
     // ===== ÚJ: találatok számának kijelzése =====
-    const rc = document.getElementById("transactions-result-count");
-    if (rc) {
-        rc.textContent = `Találatok: ${filtered.length} db`;
-    }
+const rcTop = document.getElementById("transactions-result-count");
+const rcBottom = document.getElementById("transactions-result-count-bottom");
+const txt = `Találatok: ${filtered.length} db`;
+
+if (rcTop) rcTop.textContent = txt;
+if (rcBottom) rcBottom.textContent = txt;
+
         // --- Kiírás ---
         if (filtered.length === 0) {
             tbody.innerHTML = `<tr><td colspan="10">Nincs megjeleníthető adat.</td></tr>`;
@@ -1116,36 +1146,6 @@ if (txSortField) {
             txCurrentPage = 1;
             if (paginationBox) paginationBox.style.display = "none";
         }
-        const txFirstBtn = document.getElementById("txFirstPageBtn");
-        const txLastBtn  = document.getElementById("txLastPageBtn");
-
-        if (txFirstBtn) {
-            txFirstBtn.addEventListener("click", () => {
-                txCurrentPage = 1;
-                loadTransactions();
-            });
-        }
-
-        if (txLastBtn) {
-            txLastBtn.addEventListener("click", () => {
-                const itemsPerPageValue = document.getElementById("itemsPerPage").value;
-                if (itemsPerPageValue === "all") {
-                    txCurrentPage = 1;
-                    loadTransactions();
-                    return;
-                }
-
-                const limit = parseInt(itemsPerPageValue, 10);
-                const totalPages = Math.max(
-                    1,
-                    Math.ceil(currentTransactions.length / limit)
-                );
-
-                txCurrentPage = totalPages;
-                loadTransactions();
-            });
-        }
-
 
         let visibleItems = filtered;
 

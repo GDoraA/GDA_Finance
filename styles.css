@@ -26,6 +26,7 @@
 body {
     background: var(--light);
     font-family: 'Segoe UI', Tahoma, sans-serif;
+    font-size: 1rem;
     color: var(--dark);
     padding: 40px 20px;
     margin: auto;
@@ -68,25 +69,30 @@ h2 {
 
 label {
     display: block;
-    font-size: 0.95rem;
     margin-bottom: 6px;
     font-weight: 600;
     color: var(--primary);
+}
+.result-count {
+    font-weight: 600;
+    color: var(--primary);
+    font-size: 0.95rem;
 }
 
 input,
 select {
     width: 100%;
     max-width: 100%;      /* KRITIKUS */
-    padding: 12px 14px;
-    margin-bottom: 18px;
+    padding: 4px 8px;    /* kisebb magasság */
+    margin-bottom: 10px;  /* kicsit kompaktabb */
     border-radius: var(--radius);
     border: 1px solid var(--border);
     background: var(--input-bg);
     box-sizing: border-box;
-    font-size: 1rem;
+    line-height: 1.2;     /* stabilabb magasság */
     transition: all 0.2s ease;
 }
+
 
 input:focus,
 select:focus {
@@ -115,8 +121,7 @@ input[list] {
 
 button {
     width: 100%;
-    padding: 14px 18px;
-    font-size: 1.05rem;
+    padding: 6px 10px;
     font-weight: 600;
     border: none;
     border-radius: var(--radius);
@@ -126,6 +131,23 @@ button {
     box-shadow: var(--shadow-light);
     transition: all 0.25s ease;
 }
+/* Compact buttons – transactions page */
+#openModalBtn,
+#importCsvBtn,
+#toggleFiltersBtn {
+    width: auto !important;
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    line-height: 1.1;
+    display: inline-flex;
+    align-items: center;
+}
+#openModalBtn,
+#importCsvBtn {
+    margin-right: 6px;
+}
+
 
 button:hover {
     transform: translateY(-3px);
@@ -290,16 +312,19 @@ button.secondary {
 .tx-table th {
     background: var(--primary);
     color: white;
-    padding: 12px;
+    padding: 6px 8px;
     text-align: left;
-    font-size: 0.95rem;
+    font-size: 0.82rem;
+    line-height: 1.1;
 }
 
 .tx-table td {
-    padding: 12px;
+    padding: 4px 8px;
     border-bottom: 1px solid #eee;
-    font-size: 0.95rem;
+    font-size: 0.82rem;
+    line-height: 1.1;
 }
+
 /* Amount oszlop jobbra igazítása */
 .tx-table td:nth-child(3) {
     text-align: right;
@@ -337,9 +362,23 @@ button.secondary {
     opacity: 1;
 }
 
-#toggleFiltersBtn {
-    margin-bottom: 10px;
+#toggleFiltersBtn,
+#openModalBtn,
+#importCsvBtn {
+    display: inline-flex;
+    align-items: center;
+
+    width: auto !important;
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    line-height: 1.1;
+
+    margin-right: 6px;   /* gombok közti térköz */
+    margin-bottom: 8px;  /* kis vertikális tér mobilon */
 }
+
+
+
 button.secondary {
     background: #bbb;
     margin-top: 10px;
@@ -370,6 +409,21 @@ button.secondary {
 .tx-table th.sort-desc::after {
     content: "▼";
     opacity: 1;
+}
+/* ============================
+   TABLE – STICKY HEADER
+   ============================ */
+
+#transactionsTable {
+    border-collapse: separate; /* sticky-hez szükséges */
+    border-spacing: 0;
+}
+
+#transactionsTable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+
 }
 
 /* ============================
@@ -770,7 +824,6 @@ body.sidebar-collapsed .hamburger-btn {
     min-width: 32px;
     height: 28px;
     padding: 0;
-    font-size: 14px;
     line-height: 1;
     text-align: center;
 }
@@ -779,7 +832,95 @@ body.sidebar-collapsed .hamburger-btn {
     min-width: 80px;
     text-align: center;
     font-weight: 600;
+    color: var(--primary);
+    font-size: 0.95rem;
 }
+
+/* ============================
+   TRANSACTIONS – TOP TOOLBAR
+   ============================ */
+
+.tx-toolbar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-start;
+    margin: 10px 0 12px;
+    flex-wrap: wrap; /* keskeny képernyőn törhet */
+}
+
+.tx-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+/* a találatszám legyen középen, ne vegye fel az egész sort */
+.tx-toolbar .result-count {
+    flex: 1;
+    text-align: center;
+    min-width: 220px; /* segít, hogy tényleg középen maradjon */
+
+    /* tipográfia egységesítése a label-lel */
+    font-weight: 600;
+    color: var(--primary);
+}
+
+
+/* ============================
+   TRANSACTIONS – PAGINATION (icon-only)
+   ============================ */
+
+.pagination {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: flex-end;
+    white-space: nowrap;
+}
+
+/* felülírjuk a globális button width:100%-ot és "gombosságot" */
+.pagination .page-btn {
+    width: auto !important;
+    min-width: unset;
+    height: 28px;
+    padding: 0 6px;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+    cursor: pointer;
+}
+
+/* hover/active: maradjon diszkrét, ne "ugráljon" */
+.pagination .page-btn:hover {
+    transform: none;
+    box-shadow: none;
+    filter: brightness(0.9);
+}
+
+.pagination .page-btn:active {
+    transform: none;
+}
+
+/* a középső oldalinfó (pl. 2 / 7) */
+.pagination .page-info {
+    min-width: 80px;
+    text-align: center;
+    font-weight: 600;
+}
+
+/* Széles képernyőn fixen egy sorba kényszerítjük */
+@media (min-width: 900px) {
+    .tx-toolbar {
+        flex-wrap: nowrap;
+    }
+    .tx-toolbar .result-count {
+        text-align: center;
+    }
+}
+
 /* ============================
    SHARED EXPENSES – SETTLEMENT ALIGN
    ============================ */
@@ -816,9 +957,47 @@ body.sidebar-collapsed .hamburger-btn {
     border: 1px solid #ccc;
     border-radius: 4px;
     background-color: #fff;
-    font-size: 14px;
     line-height: 24px;
     color: #333;
     display: flex;
     align-items: center;
+}
+/* ============================
+   TRANSACTIONS – PAGINATION (icon-only, left aligned)
+   ============================ */
+
+.pagination {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: flex-start; /* BALRA, ahogy korábban */
+}
+
+/* ikon gombok – ne legyenek "gombok" */
+.pagination .page-btn {
+    width: auto !important;
+    min-width: unset;
+    padding: 0 6px;
+    height: 28px;
+
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    transform: none;
+
+    cursor: pointer;
+}
+
+/* hover / active: ne mozduljon el */
+.pagination .page-btn:hover,
+.pagination .page-btn:active {
+    transform: none;
+    box-shadow: none;
+}
+
+/* oldal infó (pl. 1 / 5) */
+.pagination .page-info {
+    min-width: 80px;
+    text-align: center;
+    font-weight: 600;
 }

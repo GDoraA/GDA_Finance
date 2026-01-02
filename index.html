@@ -34,6 +34,24 @@
         <div class="container">
         <!-- Új tranzakció gomb -->
         <button id="openModalBtn">Új tranzakció felvétele</button>
+        <button id="importCsvBtn" class="secondary" type="button">
+            CSV import
+        </button>
+
+        <input
+            id="importCsvInput"
+            type="file"
+            accept=".csv,text/csv"
+            style="display:none;"
+        >
+
+        <div
+            id="importStatus"
+            class="result-count"
+            style="margin-top:8px;"
+        ></div>
+
+
         <!-- Modal háttér -->
         <div id="modalOverlay" class="modal-overlay"></div>
         <!-- Modal -->

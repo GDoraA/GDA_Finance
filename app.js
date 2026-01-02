@@ -80,6 +80,288 @@ document.addEventListener("DOMContentLoaded", () => {
         modal.classList.remove("open");
         overlay.classList.remove("open");
     });
+
+    // =========================
+    // CSV IMPORT (Transactions)
+    // =========================
+    const importBtn = document.getElementById("importCsvBtn");
+    const importInput = document.getElementById("importCsvInput");
+    const importStatus = document.getElementById("importStatus");
+
+    const setImportStatus = (msg) => {
+        if (importStatus) importStatus.textContent = msg || "";
+    };
+
+    // Egyszerű delimiter detektálás: HU bankoknál gyakori a ';'
+    const detectDelimiter = (line) => {
+        const commas = (line.match(/,/g) || []).length;
+        const semis = (line.match(/;/g) || []).length;
+        return semis > commas ? ";" : ",";
+    };
+
+    // CSV sor parse (idézőjeles mezők támogatása)
+    const parseCsvLine = (line, delimiter) => {
+        const out = [];
+        let cur = "";
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+
+            if (ch === '"') {
+                // dupla idéző escape: ""
+                if (inQuotes && line[i + 1] === '"') {
+                    cur += '"';
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+                continue;
+            }
+
+            if (!inQuotes && ch === delimiter) {
+                out.push(cur);
+                cur = "";
+                continue;
+            }
+
+            cur += ch;
+        }
+        out.push(cur);
+        return out.map(s => s.trim());
+    };
+
+    // Normalizálás: "1 234,56" -> 1234.56
+    const parseNumberHu = (raw) => {
+        const s = String(raw ?? "")
+            .trim()
+            .replace(/\s+/g, "")
+            .replace(/ft/ig, "")
+            .replace(",", ".");
+        const n = Number(s);
+        return isNaN(n) ? null : n;
+    };
+
+    // Dátum parse: támogatott tipikus formák: YYYY-MM-DD, YYYY.MM.DD, YYYY.MM.DD.
+    const normalizeDateToIso = (raw) => {
+        const s = String(raw ?? "").trim();
+        if (!s) return "";
+
+        // már ISO
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+        // YYYY.MM.DD vagy YYYY.MM.DD.
+        const m = s.match(/^(\d{4})\.(\d{2})\.(\d{2})\.?$/);
+        if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+
+        // fallback: Date konstruktor (ha mégis felismeri)
+        const d = new Date(s);
+        if (isNaN(d.getTime())) return "";
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        return `${yyyy}-${mm}-${dd}`;
+    };
+
+    // A meglévő logikádhoz illeszkedő előjelzés:
+    // - UI/import: pozitív összegből indulunk
+    // - Mentés: Kiadás -> negatív, Bevétel -> pozitív
+    const normalizeSignedAmountForSave = (absAmount, txType) => {
+        const n = Number(absAmount);
+        if (isNaN(n)) return "";
+
+        const abs = Math.abs(n);
+        const t = String(txType || "").trim().toLowerCase();
+
+        // magyar kulcsszavak toleráns kezelése
+        const isExpense = t.includes("kiad");   // Kiadás
+        const isIncome  = t.includes("bev");    // Bevétel
+
+        if (isExpense) return String(-abs);
+        if (isIncome)  return String(abs);
+
+        // ha nincs típus, akkor marad pozitív (biztonságos alapértelmezés)
+        return String(abs);
+    };
+
+    // Header -> mező térkép (rugalmas: többféle fejlécet elfogad)
+    const pick = (obj, keys) => {
+        for (const k of keys) {
+            if (k in obj && String(obj[k] ?? "").trim() !== "") return obj[k];
+        }
+        return "";
+    };
+
+    importBtn?.addEventListener("click", () => {
+        setImportStatus("");
+        importInput?.click();
+    });
+
+    importInput?.addEventListener("change", async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setImportStatus("CSV olvasása...");
+
+            const text = await file.text();
+            const linesRaw = text
+                .replace(/\r\n/g, "\n")
+                .replace(/\r/g, "\n")
+                .split("\n")
+                .map(l => l.trim())
+                .filter(l => l.length > 0);
+
+            if (linesRaw.length < 2) {
+                setImportStatus("A CSV üres vagy nincs benne adat.");
+                return;
+            }
+
+            const delimiter = detectDelimiter(linesRaw[0]);
+            const headerCells = parseCsvLine(linesRaw[0], delimiter).map(h => h.trim());
+
+            // sorobjektumok: {header: value}
+            const rows = [];
+            for (let i = 1; i < linesRaw.length; i++) {
+                const cells = parseCsvLine(linesRaw[i], delimiter);
+                if (cells.length === 1 && cells[0] === "") continue;
+
+                const o = {};
+                for (let c = 0; c < headerCells.length; c++) {
+                    o[headerCells[c]] = cells[c] ?? "";
+                }
+                rows.push(o);
+            }
+
+            if (rows.length === 0) {
+                setImportStatus("Nincs importálható sor.");
+                return;
+            }
+
+            // Kötelező minimál mezők: date, amount, title
+            // Megpróbáljuk tipikus HU fejléc nevekből kinyerni.
+            const toTxPayload = (r) => {
+                const monthRaw = pick(r, ["month", "Hónap", "Honap"]);
+
+                const dateRaw = pick(r, ["date", "Dátum", "Datum"]);
+                const amountRaw = pick(r, ["amount", "Összeg", "Osszeg"]);
+                const titleRaw = pick(r, ["title", "Jogcím", "Jogcim"]);
+
+                const categoryRaw = pick(r, ["category", "Kategória", "Kategoria"]);
+
+                const paymentRaw = pick(r, ["payment_type", "Típus", "Tipus"]);  // pl. "K - OTP - MC"
+                const txTypeRaw  = pick(r, ["transaction_type", "Jelleg"]);      // "Kiadás" / "Bevétel"
+
+
+                const statementRaw = pick(r, ["statement_item", "Kivonat sor", "Kivonatsor"]);
+
+                const dateIso = normalizeDateToIso(dateRaw);
+                const amountN = parseNumberHu(amountRaw);
+                
+                const normalizeMonth = (raw, fallbackDateIso) => {
+                const s = String(raw ?? "").trim();
+                if (!s) return deriveMonth(fallbackDateIso);
+
+                // 2025-09
+                if (/^\d{4}-\d{2}$/.test(s)) return s;
+
+                // 2025.09
+                const m1 = s.match(/^(\d{4})\.(\d{2})$/);
+                if (m1) return `${m1[1]}-${m1[2]}`;
+
+                // 202509
+                const m2 = s.match(/^(\d{4})(\d{2})$/);
+                if (m2) return `${m2[1]}-${m2[2]}`;
+
+                return deriveMonth(fallbackDateIso);
+                };
+
+
+                return {
+                    monthRaw: String(monthRaw || "").trim(),
+                    dateIso,
+                    amountN,
+                    title: String(titleRaw || "").trim(),
+                    category: String(categoryRaw || "").trim(),
+                    payment_type: String(paymentRaw || "").trim(),
+                    transaction_type: String(txTypeRaw || "").trim(),
+                    statement_item: String(statementRaw || "").trim(),
+                };
+            };
+
+            // Importálás soronként (JSONP miatt)
+            let ok = 0;
+            let fail = 0;
+
+            for (let idx = 0; idx < rows.length; idx++) {
+                const parsed = toTxPayload(rows[idx]);
+
+                // minimál validáció
+                if (!parsed.dateIso || parsed.amountN == null || !parsed.title) {
+                    fail++;
+                    setImportStatus(`Import fut... ${ok} sikeres, ${fail} kihagyva/hibás (sor: ${idx + 1})`);
+                    continue;
+                }
+
+                const month = normalizeMonth(parsed.monthRaw, parsed.dateIso);
+
+
+                // ha a CSV-ben negatív összeg van, az abs-ból indulunk, és a típus adja a mentési előjelet
+                const normalizeSignedAmountFromCsv = (amountN, txType) => {
+                const n = Number(amountN);
+                if (isNaN(n)) return "";
+
+                const t = String(txType || "").trim().toLowerCase();
+                const isExpense = t.includes("kiad"); // Kiadás
+                const isIncome  = t.includes("bev");  // Bevétel
+
+                const abs = Math.abs(n);
+
+                if (isExpense) return String(-abs);
+                if (isIncome)  return String(abs);
+
+                // ha nincs jelleg, akkor hagyjuk úgy, ahogy a CSV-ben van
+                return String(n);
+                };
+
+
+                const payload = {
+                    date: parsed.dateIso,
+                    month,
+                    amount: signedAmount,
+                    title: parsed.title,
+                    category: parsed.category,
+                    payment_type: parsed.payment_type,
+                    transaction_type: parsed.transaction_type,
+                    is_shared: "",          // importnál alapértelmezés: nem megosztott
+                    statement_item: parsed.statement_item
+                };
+
+                try {
+                    const resp = await api.addTransaction(payload);
+                    if (resp && resp.success) ok++;
+                    else fail++;
+                } catch (err) {
+                    fail++;
+                }
+
+                setImportStatus(`Import fut... ${ok} sikeres, ${fail} hibás/kihagyva (sor: ${idx + 1}/${rows.length})`);
+            }
+
+            setImportStatus(`Import kész. Sikeres: ${ok}, Hibás/kihagyva: ${fail}.`);
+
+            // frissítések
+            await loadDropdownValues();
+            await loadTransactions();
+            await loadSharedExpenses();
+
+        } finally {
+            // ugyanazt a fájlt is újra ki lehessen választani
+            e.target.value = "";
+        }
+    });
+
+
     // Tranzakció törlése modalból
 document.getElementById("txDeleteBtn")?.addEventListener("click", async () => {
     const form = document.getElementById("txForm");

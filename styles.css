@@ -10,11 +10,9 @@
     --accent: #6B9B7A;
     --light: #F7F7F7;
     --dark: #2A2A3E;
-
     --radius: 14px;
     --shadow: 0 8px 20px rgba(0,0,0,0.08);
     --shadow-light: 0 4px 12px rgba(0,0,0,0.05);
-
     --input-bg: #fff;
     --border: #ddd;
 }
@@ -36,20 +34,15 @@ h2 {
     font-size: 1.8rem;
     margin-bottom: 1rem;
     background: linear-gradient(135deg, #4a90e2, #F1E5AC);
-
     /* Standard property */
     background-clip: text;
-
     /* Vendor prefix for WebKit browsers */
     -webkit-background-clip: text;
-
     /* Fill text with gradient in WebKit browsers */
     -webkit-text-fill-color: transparent;
-
     /* Optional: Non-WebKit fallback (some browsers ignore it) */
     color: transparent;
 }
-
 
 /* ==========================================================================
    CARD
@@ -78,7 +71,6 @@ label {
     color: var(--primary);
     font-size: 0.95rem;
 }
-
 input,
 select {
     width: 100%;
@@ -92,8 +84,6 @@ select {
     line-height: 1.2;     /* stabilabb magasság */
     transition: all 0.2s ease;
 }
-
-
 input:focus,
 select:focus {
     border-color: var(--primary);
@@ -296,12 +286,20 @@ button.secondary {
 
 .tx-table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate; /* sticky kompatibilis */
+    border-spacing: 0;         /* ne legyen rés a cellák közt */
     background: white;
     border-radius: var(--radius);
-    overflow: hidden;
+    /* overflow: hidden;  <-- EZ VOLT A HIBÁS, KI KELL VENNI */
     box-shadow: var(--shadow);
 }
+/* Sticky table header (desktop/tablet) */
+.tx-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+
 /* A táblázat mindig igazodjon az ablak szélességéhez */
 .tx-table {
     display: table;
@@ -652,20 +650,21 @@ body {
    HAMBURGER BUTTON
    ============================ */
 .hamburger-btn {
-    display: none;
     position: fixed;
-    top: 15px;
-    left: 15px;
-    z-index: 200;
-    background: var(--primary);
-    color: white;
-    padding: 10px 14px;
-    border-radius: var(--radius);
-    font-size: 1.4rem;
-    border: none;
-    cursor: pointer;
-    box-shadow: var(--shadow);
+    top: 10px;
+    left: 10px;
+
+    width: 40px;
+    height: 40px;
+
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    z-index: 1100;
 }
+
 
 /* ============================
    SIDEBAR – összehúzható
@@ -767,13 +766,17 @@ body.sidebar-collapsed .hamburger-btn {
     }
 }
 .balance-box {
-    margin: 10px 0 15px 0;
-    padding: 10px 12px;
+    margin: 6px 0 10px 0;
+    padding: 6px 10px;
     background: #f7f7f7;
     border-radius: 6px;
     box-shadow: var(--shadow);
-    font-size: 1.1rem;
 }
+/* Transactions – típus szerinti egyenlegek: ugyanaz a szín, mint a label */
+#txTypeBalanceBox {
+    color: var(--primary);
+}
+
 .balance-zsolti {
     color: #1565c0; /* kék */
     font-weight: 700;
@@ -1000,4 +1003,12 @@ body.sidebar-collapsed .hamburger-btn {
     min-width: 80px;
     text-align: center;
     font-weight: 600;
+}
+/* ===== Header egyenlegek – ugyanaz, mint a label ===== */
+#txTypeBalances {
+    color: var(--primary);
+}
+/* Nyitott sidebar esetén NE jelenjen meg a hamburger */
+body:not(.sidebar-collapsed) .hamburger-btn {
+    display: none;
 }

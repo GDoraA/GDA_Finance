@@ -31,6 +31,13 @@
     <!-- Tranzakció lista -->
     <section id="page-transactions">
 <h2>Tranzakciók</h2>
+<div id="txTypeBalanceBox" class="balance-box">
+    <span><strong>Kiadás:</strong> <span id="txExpenseTotal">0</span></span>
+    &nbsp;|&nbsp;
+    <span><strong>Bevétel:</strong> <span id="txIncomeTotal">0</span></span>
+    &nbsp;|&nbsp;
+    <span><strong>Megtakarítás:</strong> <span id="txSavingTotal">0</span></span>
+</div>
 
 <div class="container">
 
@@ -85,6 +92,7 @@
     </div>
 
     <div id="transactions-result-count" class="result-count"></div>
+
 
     <div id="transactions-pagination" class="pagination">
         <button id="txFirstPageBtn" type="button" class="page-btn" aria-label="Első oldal">⏮</button>

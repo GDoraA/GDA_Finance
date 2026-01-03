@@ -1103,13 +1103,42 @@ if (txSortField) {
 }
 
 
-    // ===== ÚJ: találatok számának kijelzése =====
+// ===== Találatok kijelző elemek (csak referencia) =====
 const rcTop = document.getElementById("transactions-result-count");
 const rcBottom = document.getElementById("transactions-result-count-bottom");
-const txt = `Találatok: ${filtered.length} db`;
 
-if (rcTop) rcTop.textContent = txt;
-if (rcBottom) rcBottom.textContent = txt;
+// ===== Egyenlegek számítása típus alapján =====
+let expenseTotal = 0;
+let incomeTotal = 0;
+let savingTotal = 0;
+
+filtered.forEach(tx => {
+    const t = String(tx.transaction_type || "").trim().toLowerCase();
+    const amount = Number(tx.amount) || 0;
+
+    const isSaving  = t.includes("megtak") || t === "saving";
+    const isExpense = t.includes("kiad")  || t === "expense";
+    const isIncome  = t.includes("bev")   || t === "income";
+
+    if (isSaving) {
+        savingTotal += amount;
+    } else if (isExpense) {
+        expenseTotal += amount;
+    } else if (isIncome) {
+        incomeTotal += amount;
+    }
+});
+
+// ===== Egyenlegek kiírása (index.html ID-k alapján) =====
+const be = document.getElementById("txExpenseTotal");
+const bi = document.getElementById("txIncomeTotal");
+const bs = document.getElementById("txSavingTotal");
+
+if (be) be.textContent = `${formatAmount(expenseTotal)} Ft`;
+if (bi) bi.textContent = `${formatAmount(incomeTotal)} Ft`;
+if (bs) bs.textContent = `${formatAmount(savingTotal)} Ft`;
+
+
 
         // --- Kiírás ---
         if (filtered.length === 0) {
@@ -1159,6 +1188,10 @@ if (rcBottom) rcBottom.textContent = txt;
         } else {
             txCurrentPage = 1;
         }
+// ===== Találatok: megjelenített / összes =====
+const txt = `Találatok: ${visibleItems.length} / ${filtered.length} db`;
+if (rcTop) rcTop.textContent = txt;
+if (rcBottom) rcBottom.textContent = txt;
 
 
         let rows = "";

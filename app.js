@@ -412,16 +412,16 @@ loadTransactions();
     }
 });
 
-    // ===== Dátum → hónap =====
+// ===== Dátum → hónap (csak a tranzakciós formon belül) =====
+const txDateInput = document.querySelector("#txForm input[name='date']");
+const txMonthInput = document.querySelector("#txForm input[name='month']");
 
-const dateInput = document.querySelector("input[name='date']");
-const monthInput = document.querySelector("input[name='month']");
-
-dateInput?.addEventListener("change", () => {
-    if (dateInput.value && monthInput) {
-        monthInput.value = deriveMonth(dateInput.value);
+txDateInput?.addEventListener("change", () => {
+    if (txDateInput.value && txMonthInput) {
+        txMonthInput.value = deriveMonth(txDateInput.value);
     }
 });
+
 
 
 
@@ -435,6 +435,10 @@ dateInput?.addEventListener("change", () => {
         const form = new FormData(e.target);
         const formData = Object.fromEntries(form.entries());
         console.log("TX FORM SUBMIT RAW (BEFORE NORMALIZE):", formData);
+// Ha valamiért üres maradt a month, számoljuk a date-ből
+if (!formData.month && formData.date) {
+    formData.month = deriveMonth(formData.date);
+}
 
         // Megosztott checkbox → "x" / ""
         const isSharedCheckbox = document.querySelector("#txForm input[name='is_shared']");

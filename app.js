@@ -248,13 +248,22 @@ if (closeBtn && modal && overlay) {
             const bad = (s.match(/\uFFFD/g) || []).length;
             return bad >= 2; // küszöb: 2+ már gyanús
         };
+let usedEncoding = "utf-8";
+let text = await readFileTextWithEncoding(file, "utf-8");
 
-        let text = await readFileTextWithEncoding(file, "utf-8");
+// fallback: ha UTF-8 rossz, először ISO-8859-2, majd Windows-1250
+if (looksBad(text)) {
+    usedEncoding = "iso-8859-2";
+    text = await readFileTextWithEncoding(file, "iso-8859-2");
+}
+if (looksBad(text)) {
+    usedEncoding = "windows-1250";
+    text = await readFileTextWithEncoding(file, "windows-1250");
+}
 
-        // fallback: Excel/Windows CSV-k gyakran cp1250
-        if (looksBad(text)) {
-            text = await readFileTextWithEncoding(file, "windows-1250");
-        }
+setImportStatus(`CSV olvasása... (kódolás: ${usedEncoding})`);
+
+
             const linesRaw = text
                 .replace(/\r\n/g, "\n")
                 .replace(/\r/g, "\n")

@@ -52,13 +52,14 @@
                 <option value="utf-8" selected>UTF-8</option>
                 <option value="windows-1250">Windows-1250 (Excel)</option>
                 <option value="iso-8859-2">ISO-8859-2</option>
+                <option value="cp852">CP852 (DOS / régi export)</option>
                 </select>
             <button id="toggleFiltersBtn">Szűrők</button>
         </div>
 
         <div class="tx-toolbar-right">
             <button id="csvHelpBtn" type="button" class="secondary">
-                CSV súgó
+                TSV súgó
             </button>
         </div>
     </div>
@@ -68,14 +69,13 @@
     <input
         id="importCsvInput"
         type="file"
-        accept=".csv,text/csv"
+        accept=".tsv,.txt,text/tab-separated-values,text/tsv"
         style="display:none;"
     >
 
     <div id="importStatus" class="result-count"></div>
     <div id="csvHelpPanel" class="csv-help">
-        <div class="csv-help-title"><strong>CSV import – elvárt struktúra</strong></div>
-
+        <div class="csv-help-title"><strong>TSV import – elvárt struktúra</strong></div>
         <div class="csv-help-section">
             <strong>Kötelező oszlopok (legalább ezek):</strong>
             <ul>

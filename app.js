@@ -230,26 +230,70 @@ if (closeBtn && modal && overlay) {
 
         try {
             setImportStatus("CSV olvasása...");
+        // --- CP852 (DOS Central Europe) dekóder táblázat (0x80..0xFF) ---
+        const CP852_TABLE = [0xc7,0xfc,0xe9,0xe2,0xe4,0x16f,0x107,0xe7,0x142,0xeb,0x150,0x151,0xee,0x179,0xc4,0x106,0xc9,0x139,0x13a,0xf4,0xf6,0x13d,0x13e,0x15a,0x15b,0xd6,0xdc,0x164,0x165,0x141,0xd7,0x10d,0xe1,0xed,0xf3,0xfa,0x104,0x105,0x17d,0x17e,0x118,0x119,0xac,0x17a,0x10c,0x15f,0xab,0xbb,0x2591,0x2592,0x2593,0x2502,0x2524,0xc1,0xc2,0x11a,0x15e,0x2563,0x2551,0x2557,0x255d,0x17b,0x17c,0x2510,0x2514,0x2534,0x252c,0x251c,0x2500,0x253c,0x102,0x103,0x255a,0x2554,0x2569,0x2566,0x2560,0x2550,0x256c,0xa4,0x111,0x110,0x10e,0xcb,0x10f,0x147,0xcd,0xce,0x11b,0x2518,0x250c,0x2588,0x2584,0x162,0x16e,0x2580,0xd3,0xdf,0xd4,0x143,0x144,0x148,0x160,0x161,0x154,0xda,0x155,0x170,0xfd,0xdd,0x163,0xb4,0xad,0x2dd,0x2db,0x2c7,0x2d8,0xa7,0xf7,0xb8,0xb0,0xa8,0x2d9,0x171,0x158,0x159,0x25a0,0xa0];
 
+        const decodeCp852 = (buf) => {
+            const bytes = new Uint8Array(buf);
+            let out = "";
+            for (let i = 0; i < bytes.length; i++) {
+                const b = bytes[i];
+                if (b < 0x80) out += String.fromCharCode(b);
+                else out += String.fromCharCode(CP852_TABLE[b - 0x80]);
+            }
+            return out;
+        };
+    
         // --- CSV beolvasás biztos kódolással (UTF-8 + fallback Windows-1250) ---
-        const readFileTextWithEncoding = async (file, encoding) => {
-            const buf = await file.arrayBuffer();
-            const dec = new TextDecoder(encoding, { fatal: false });
-            let txt = dec.decode(buf);
+const readFileTextWithEncoding = async (file, encoding) => {
+    const buf = await file.arrayBuffer();
 
-            // UTF-8 BOM eltávolítása, ha van
-            if (txt.charCodeAt(0) === 0xFEFF) txt = txt.slice(1);
+    // CP852: egyedi dekóder (TextDecoder nem támogatja megbízhatóan)
+    if (String(encoding).toLowerCase() === "cp852") {
+        let txt = decodeCp852(buf);
+        if (txt.charCodeAt(0) === 0xFEFF) txt = txt.slice(1); // BOM remove, ha mégis lenne
+        return txt;
+    }
 
-            return txt;
-        };
+    const dec = new TextDecoder(encoding, { fatal: false });
+    let txt = dec.decode(buf);
 
-        // egyszerű heurisztika: ha sok a "�" replacement char, akkor valószínű rossz kódolás
+    if (txt.charCodeAt(0) === 0xFEFF) txt = txt.slice(1);
+    return txt;
+};
+
+
+
+        
+
+        // A dropdownból választott kódolással indulunk
+        const preferred = (csvEncodingSelect?.value || "utf-8").toLowerCase();
+
+        // Heurisztika: replacement char + tipikus "félrekódolás" jelek
         const looksBad = (s) => {
-            const bad = (s.match(/\uFFFD/g) || []).length;
-            return bad >= 2; // küszöb: 2+ már gyanús
+            const repl = (s.match(/\uFFFD/g) || []).length;
+            const weird = (s.match(/[ˇĄŁ¤]/g) || []).length;
+            return (repl >= 2) || (weird >= 2);
         };
-let usedEncoding = "utf-8";
-let text = await readFileTextWithEncoding(file, "utf-8");
+
+        let usedEncoding = preferred;
+        let text = await readFileTextWithEncoding(file, preferred);
+
+        // fallback sorrend (a preferred nélkül)
+        const fallbacks = ["utf-8", "windows-1250", "iso-8859-2", "cp852"]
+            .filter(enc => enc !== preferred);
+
+        if (looksBad(text)) {
+            for (const enc of fallbacks) {
+                usedEncoding = enc;
+                text = await readFileTextWithEncoding(file, enc);
+                if (!looksBad(text)) break;
+            }
+        }
+
+        setImportStatus(`CSV olvasása... (kódolás: ${usedEncoding})`);
+
+
 
 // fallback: ha UTF-8 rossz, először ISO-8859-2, majd Windows-1250
 if (looksBad(text)) {
@@ -270,13 +314,17 @@ setImportStatus(`CSV olvasása... (kódolás: ${usedEncoding})`);
                 .split("\n")
                 .map(l => l.trim())
                 .filter(l => l.length > 0);
+if (!text.includes("\t")) {
+    setImportStatus("Hiba: a fájl nem TSV (nem tartalmaz tabulátort). Kérlek UTF-8 TSV-t tölts fel.");
+    return;
+}
 
             if (linesRaw.length < 2) {
                 setImportStatus("A CSV üres vagy nincs benne adat.");
                 return;
             }
 
-            const delimiter = detectDelimiter(linesRaw[0]);
+            const delimiter = "\t"; // TSV import: fix tabulátor
             const headerCells = parseCsvLine(linesRaw[0], delimiter).map(h => h.trim());
 
             // sorobjektumok: {header: value}

@@ -110,7 +110,7 @@ input[list] {
    ========================================================================== */
 
 button {
-    width: 100%;
+    width: auto;              /* ← ez a lényeg */
     padding: 6px 10px;
     font-weight: 600;
     border: none;
@@ -121,18 +121,18 @@ button {
     box-shadow: var(--shadow-light);
     transition: all 0.25s ease;
 }
+
 /* Compact buttons – transactions page */
 #openModalBtn,
 #importCsvBtn,
-#toggleFiltersBtn {
-    width: auto !important;
-    padding: 6px 10px;
-    font-size: 0.85rem;
-    font-weight: 500;
+#toggleFiltersBtn, 
+#csvHelpBtn {
+
     line-height: 1.1;
     display: inline-flex;
     align-items: center;
 }
+
 #openModalBtn,
 #importCsvBtn {
     margin-right: 6px;
@@ -278,7 +278,6 @@ button:active {
 
 button.secondary {
     background: #bbb;
-    margin-top: 10px;
 }
 /* ==========================================================================
    TABLE DISPLAY
@@ -379,7 +378,6 @@ button.secondary {
 
 button.secondary {
     background: #bbb;
-    margin-top: 10px;
 }
 /* ============================
    TABLE SORT ICONS
@@ -858,6 +856,22 @@ body.sidebar-collapsed .hamburger-btn {
     gap: 8px;
     white-space: nowrap;
 }
+/* CSV encoding selector – legyen kompakt a toolbarban */
+#csvEncodingSelect {
+    width: auto !important;
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    line-height: 1.1;
+    margin-bottom: 0;              /* toolbarban ne tolja le */
+    display: inline-flex;
+    align-items: center;
+}
+
+.tx-toolbar-right {
+    margin-left: auto;   /* ← EZ tolja jobbra */
+    display: flex;
+    align-items: center;
+}
 
 /* a találatszám legyen középen, ne vegye fel az egész sort */
 .tx-toolbar .result-count {
@@ -1011,4 +1025,43 @@ body.sidebar-collapsed .hamburger-btn {
 /* Nyitott sidebar esetén NE jelenjen meg a hamburger */
 body:not(.sidebar-collapsed) .hamburger-btn {
     display: none;
+}
+
+/* ============================
+   CSV HELP PANEL
+   ============================ */
+.csv-help {
+    display: none;
+    margin: 10px 0 14px;
+    padding: 12px 14px;
+    background: #fff;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-light);
+}
+
+.csv-help.open {
+    display: block;
+}
+
+.csv-help-title {
+    margin-bottom: 8px;
+    color: var(--primary);
+}
+
+.csv-help-section {
+    margin-top: 10px;
+    font-size: 0.95rem;
+}
+
+.csv-help code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.csv-sample {
+    margin: 8px 0 0;
+    padding: 10px;
+    background: var(--light);
+    border-radius: 8px;
+    overflow: auto;
+    font-size: 0.9rem;
 }

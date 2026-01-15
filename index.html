@@ -37,16 +37,33 @@
     <span><strong>Bevétel:</strong> <span id="txIncomeTotal">0</span></span>
     &nbsp;|&nbsp;
     <span><strong>Megtakarítás:</strong> <span id="txSavingTotal">0</span></span>
+    &nbsp;|&nbsp;
+    <span><strong>Egyenleg:</strong> <span id="txNetBalance">0</span></span>
 </div>
 
 <div class="container">
 
     <!-- Tranzakciós gombsor -->
     <div class="tx-toolbar">
-        <button id="openModalBtn">Új tranzakció</button>
-        <button id="importCsvBtn" >CSV import</button>
-        <button id="toggleFiltersBtn">Szűrők</button>
+        <div class="tx-toolbar-left">
+            <button id="openModalBtn">Új tranzakció</button>
+            <button id="importCsvBtn">CSV import</button>
+                <select id="csvEncodingSelect">
+                <option value="utf-8" selected>UTF-8</option>
+                <option value="windows-1250">Windows-1250 (Excel)</option>
+                <option value="iso-8859-2">ISO-8859-2</option>
+                </select>
+            <button id="toggleFiltersBtn">Szűrők</button>
+        </div>
+
+        <div class="tx-toolbar-right">
+            <button id="csvHelpBtn" type="button" class="secondary">
+                CSV súgó
+            </button>
+        </div>
     </div>
+
+
 
     <input
         id="importCsvInput"
@@ -56,6 +73,47 @@
     >
 
     <div id="importStatus" class="result-count"></div>
+    <div id="csvHelpPanel" class="csv-help">
+        <div class="csv-help-title"><strong>CSV import – elvárt struktúra</strong></div>
+
+        <div class="csv-help-section">
+            <strong>Kötelező oszlopok (legalább ezek):</strong>
+            <ul>
+                <li><strong>Dátum</strong> (fejléc lehet: <code>date</code> / <code>Dátum</code> / <code>Datum</code>)</li>
+                <li><strong>Összeg</strong> (fejléc lehet: <code>amount</code> / <code>Összeg</code> / <code>Osszeg</code>)</li>
+                <li><strong>Jogcím</strong> (fejléc lehet: <code>title</code> / <code>Jogcím</code> / <code>Jogcim</code>)</li>
+            </ul>
+        </div>
+
+        <div class="csv-help-section">
+            <strong>Opcionális oszlopok (ha vannak, betöltjük):</strong>
+            <ul>
+                <li><strong>Hónap</strong>: <code>month</code> / <code>Hónap</code> / <code>Honap</code> (ha nincs, a dátumból számoljuk)</li>
+                <li><strong>Kategória</strong>: <code>category</code> / <code>Kategória</code> / <code>Kategoria</code></li>
+                <li><strong>Fizetési mód</strong>: <code>payment_type</code> / <code>Típus</code> / <code>Tipus</code></li>
+                <li><strong>Tranzakció jelleg</strong>: <code>transaction_type</code> / <code>Jelleg</code> (pl. <em>Kiadás</em> / <em>Bevétel</em>)</li>
+                <li><strong>Kivonat sor</strong>: <code>statement_item</code> / <code>Kivonat sor</code> / <code>Kivonatsor</code></li>
+            </ul>
+        </div>
+
+        <div class="csv-help-section">
+            <strong>Formátum szabályok:</strong>
+            <ul>
+                <li><strong>Elválasztó:</strong> <code>;</code> vagy <code>,</code> (automatikus detektálás)</li>
+                <li><strong>Dátum:</strong> <code>YYYY-MM-DD</code> vagy <code>YYYY.MM.DD</code> vagy <code>YYYY.MM.DD.</code></li>
+                <li><strong>Összeg:</strong> lehet <code>1 234</code>, <code>1 234,56</code>, <code>1234.56</code>, „Ft” szöveg is lehet benne</li>
+                <li><strong>Előjel:</strong> ha megadod a <em>Jelleg</em>-et (<em>Kiadás</em>/<em>Bevétel</em>), akkor a rendszer ahhoz igazítja az előjelet</li>
+            </ul>
+        </div>
+
+        <div class="csv-help-section">
+            <strong>Példa (pontos fejlécnevek és tipikus magyar formátum):</strong>
+            <pre class="csv-sample">Dátum;Összeg;Jogcím;Kategória;Típus;Jelleg;Kivonat sor
+    2026.01.10.;12 500;Élelmiszer;Bolt;Kártya;Kiadás;OTP 123
+    2026-01-12;250 000;Fizetés;Bér;Utalás;Bevétel;Employer</pre>
+        </div>
+    </div>
+
     <!-- Transactions Modal háttér -->
 <div id="modalOverlay" class="modal-overlay"></div>
 

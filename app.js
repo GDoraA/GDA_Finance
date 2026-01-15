@@ -91,6 +91,14 @@ if (closeBtn && modal && overlay) {
     const importBtn = document.getElementById("importCsvBtn");
     const importInput = document.getElementById("importCsvInput");
     const importStatus = document.getElementById("importStatus");
+    const csvEncodingSelect = document.getElementById("csvEncodingSelect");
+// CSV súgó panel toggle
+    const csvHelpBtn = document.getElementById("csvHelpBtn");
+    const csvHelpPanel = document.getElementById("csvHelpPanel");
+
+    csvHelpBtn?.addEventListener("click", () => {
+        csvHelpPanel?.classList.toggle("open");
+    });
 
     const setImportStatus = (msg) => {
         if (importStatus) importStatus.textContent = msg || "";
@@ -223,7 +231,30 @@ if (closeBtn && modal && overlay) {
         try {
             setImportStatus("CSV olvasása...");
 
-            const text = await file.text();
+        // --- CSV beolvasás biztos kódolással (UTF-8 + fallback Windows-1250) ---
+        const readFileTextWithEncoding = async (file, encoding) => {
+            const buf = await file.arrayBuffer();
+            const dec = new TextDecoder(encoding, { fatal: false });
+            let txt = dec.decode(buf);
+
+            // UTF-8 BOM eltávolítása, ha van
+            if (txt.charCodeAt(0) === 0xFEFF) txt = txt.slice(1);
+
+            return txt;
+        };
+
+        // egyszerű heurisztika: ha sok a "�" replacement char, akkor valószínű rossz kódolás
+        const looksBad = (s) => {
+            const bad = (s.match(/\uFFFD/g) || []).length;
+            return bad >= 2; // küszöb: 2+ már gyanús
+        };
+
+        let text = await readFileTextWithEncoding(file, "utf-8");
+
+        // fallback: Excel/Windows CSV-k gyakran cp1250
+        if (looksBad(text)) {
+            text = await readFileTextWithEncoding(file, "windows-1250");
+        }
             const linesRaw = text
                 .replace(/\r\n/g, "\n")
                 .replace(/\r/g, "\n")
@@ -1142,6 +1173,15 @@ if (be) be.textContent = `${formatAmount(expenseTotal)} Ft`;
 if (bi) bi.textContent = `${formatAmount(incomeTotal)} Ft`;
 if (bs) bs.textContent = `${formatAmount(savingTotal)} Ft`;
 
+// ===== Nettó egyenleg: Bevétel - Kiadás =====
+const netBalance = incomeTotal - Math.abs(expenseTotal);
+
+const nb = document.getElementById("txNetBalance");
+if (nb) {
+    const signClass = netBalance < 0 ? "amount-expense" : "amount-income";
+    nb.className = signClass;
+    nb.textContent = `${formatAmount(netBalance)} Ft`;
+}
 
 
         // --- Kiírás ---

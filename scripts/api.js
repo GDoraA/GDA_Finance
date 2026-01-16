@@ -1,6 +1,6 @@
 // ----------- API KONFIG -------------
 
-const API_URL = "https://script.google.com/macros/s/AKfycbxHqAsetBO5ZEwZRbXZ0NhC9SBf8AbDfg_TLzTNgESqkqalM5zuyow_V9KW73-vUME/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbx2zP5lI1fUo__9Zg1jI416q0kfgKlOHqLI0GcCHmZsMcNZsi-xBiCTjdfaPPzG1EA/exec";
 
 
 // ----------- JSONP HÍVÓ FUNKCIÓ -------------
@@ -21,7 +21,8 @@ function jsonp(action, params = {}) {
 
         const script = document.createElement("script");
         script.src = `${API_URL}?${urlParams.toString()}`;
-        script.onerror = () => reject("JSONP hiba");
+        script.onerror = () => reject(new Error("JSONP hiba (script betöltés sikertelen)"));
+
 
         document.body.appendChild(script);
     });
@@ -33,6 +34,9 @@ function jsonp(action, params = {}) {
 const api = {
     addTransaction(data) {
         return jsonp("addTransaction", data);
+    },
+        addTransactions(items) {
+        return jsonp("addTransactions", { items: JSON.stringify(items || []) });
     },
 
     getTransactions() {

@@ -47,13 +47,8 @@
     <div class="tx-toolbar">
         <div class="tx-toolbar-left">
             <button id="openModalBtn">Új tranzakció</button>
-            <button id="importCsvBtn">CSV import</button>
-                <select id="csvEncodingSelect">
-                <option value="utf-8" selected>UTF-8</option>
-                <option value="windows-1250">Windows-1250 (Excel)</option>
-                <option value="iso-8859-2">ISO-8859-2</option>
-                <option value="cp852">CP852 (DOS / régi export)</option>
-                </select>
+            <button id="importCsvBtn">Import</button>
+
             <button id="toggleFiltersBtn">Szűrők</button>
         </div>
 
@@ -74,6 +69,10 @@
     >
 
     <div id="importStatus" class="result-count"></div>
+    <div id="importErrors" class="csv-errors" style="display:none;"></div>
+    <button id="cancelImportBtn" class="secondary" style="display:none;">
+        Import leállítása
+    </button>
     <div id="csvHelpPanel" class="csv-help">
         <div class="csv-help-title"><strong>TSV import – elvárt struktúra</strong></div>
         <div class="csv-help-section">

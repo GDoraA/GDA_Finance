@@ -20,8 +20,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // induló állapot (desktopon mentett beállítás)
     if (!isMobile()) {
-        const saved = localStorage.getItem("sidebarCollapsed") === "1";
-        applyDesktopState(saved);
+// Sidebar state csak akkor, ha már app módban vagyunk (van auth token)
+const hasToken = !!localStorage.getItem("gda_auth_token");
+if (hasToken) {
+    const saved = localStorage.getItem("sidebarCollapsed") === "1";
+    applyDesktopState(saved);
+}
+
     }
 
     // Hamburger: mobilon open/close, desktopon collapsed toggle
@@ -1086,6 +1091,14 @@ const showApp = () => {
 document.getElementById("logoutBtn")?.addEventListener("click", async () => {
     try { await api.logout(); } catch (e) {}
     localStorage.removeItem("gda_auth_token");
+    // Teljes UI reset (sidebar + body classok)
+localStorage.setItem("sidebarCollapsed", "0");
+document.body.classList.remove("sidebar-collapsed");
+document.querySelector(".sidebar")?.classList.remove("collapsed");
+document.querySelector(".content-wrapper")?.classList.remove("sidebar-collapsed");
+
+// hamburger láthatóság reset (ha CSS/JS vezérli)
+document.getElementById("hamburgerBtn")?.classList.remove("hidden");
 
     // login UI reset
     const confirmBlock = document.getElementById("loginConfirmBlock");

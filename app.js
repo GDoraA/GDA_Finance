@@ -1116,6 +1116,16 @@ const ensureAuth = async () => {
     const resp = await api.whoami();
     return !!(resp && resp.success);
 };
+let myPermissions = {};
+
+const loadMyPermissions = async () => {
+    try {
+        const resp = await api.getMyPermissions();
+        myPermissions = (resp && resp.success && resp.permissions) ? resp.permissions : {};
+    } catch (e) {
+        myPermissions = {};
+    }
+};
 
 // Login submit
 document.getElementById("loginForm")?.addEventListener("submit", async (e) => {
@@ -1188,6 +1198,7 @@ document.querySelector(".content-wrapper")?.classList.remove("sidebar-collapsed"
     }
 
     // eredeti init
+    await loadMyPermissions();
     showPage("transactions");
     loadSharedExpenses();
 });
@@ -1203,6 +1214,7 @@ document.querySelector(".content-wrapper")?.classList.remove("sidebar-collapsed"
         return;
     }
     showApp();
+    await loadMyPermissions();
     showPage("transactions");
     loadSharedExpenses();
 

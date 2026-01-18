@@ -1,6 +1,6 @@
 // ----------- API KONFIG -------------
 
-const API_URL = "https://script.google.com/macros/s/AKfycbzaCg1XgLLoY37vw0tFmmxUIUz3z7WfRu99tNciljNP2Bv5GA7iz25mI4Dg9L_m4a8/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxZLH-O6dUUJVYIf3xCc6IR53ZAoLJ9Rpvuzbt-m8q9Q-s_lz039I_LUZGqfXm9oLM/exec";
 
 
 // ----------- JSONP HÍVÓ FUNKCIÓ -------------
@@ -39,6 +39,9 @@ const api = {
     },
     whoami() {
         return jsonp("whoami");
+    },
+    getMyPermissions() {
+        return jsonp("getMyPermissions");
     },
     logout() {
         const token = localStorage.getItem("gda_auth_token") || "";

@@ -620,30 +620,15 @@ body {
     width: calc(100% - 220px);
 }
 
-/* Mobil nézet */
+/* Mobil nézet – tartalom (a sidebar-t a hamburgeres blokk kezeli lentebb) */
 @media (max-width: 700px) {
-
-    .sidebar {
-        position: relative;
-        width: 100%;
-        min-height: auto;
-        flex-direction: row;
-        justify-content: center;
-    }
-
-    .sidebar-btn {
-        flex: 1;
-        text-align: center;
-        margin-bottom: 0;
-        margin-right: 10px;
-    }
-
     .content-wrapper {
         margin-left: 0;
         width: 100%;
-        padding: 15px;
+        padding: 20px;
     }
 }
+
 /* ============================
    HAMBURGER BUTTON
    ============================ */
@@ -737,23 +722,45 @@ body.sidebar-collapsed .hamburger-btn {
 }
 
 /* ============================
-   MOBIL nézet
+   MOBIL nézet (hamburgeres becsúszó sidebar)
    ============================ */
 @media (max-width: 700px) {
 
-    /* Hamburger gomb látszik */
+    /* Hamburger gomb látszik mobilon */
     .hamburger-btn {
-        display: block;
+        display: flex;
     }
 
-    /* Sidebar alapból csukva mobilon */
+    /* Sidebar: fix overlay, alapból csukva */
     .sidebar {
-        transform: translateX(-100%);
+        position: fixed;
+        top: 0;
+        left: 0;
+
         width: 220px;
+        height: 100vh;
+        min-height: 100vh;
+
+        display: flex;
+        flex-direction: column;
+
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+
+        z-index: 1000;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     .sidebar.open {
         transform: translateX(0);
+    }
+
+    /* Sidebar gombok mobilon: teljes szélesség, balra igazítva */
+    .sidebar-btn {
+        width: 100%;
+        text-align: left;
+        margin-right: 0;
     }
 
     /* Tartalom ne legyen eltolva mobilon */
@@ -763,6 +770,7 @@ body.sidebar-collapsed .hamburger-btn {
         padding: 20px;
     }
 }
+
 .balance-box {
     margin: 6px 0 10px 0;
     padding: 6px 10px;
@@ -1022,10 +1030,13 @@ body.sidebar-collapsed .hamburger-btn {
 #txTypeBalances {
     color: var(--primary);
 }
-/* Nyitott sidebar esetén NE jelenjen meg a hamburger */
-body:not(.sidebar-collapsed) .hamburger-btn {
-    display: none;
+/* Nyitott sidebar esetén NE jelenjen meg a hamburger – csak DESKTOPON */
+@media (min-width: 701px) {
+    body:not(.sidebar-collapsed) .hamburger-btn {
+        display: none;
+    }
 }
+
 
 /* ============================
    CSV HELP PANEL

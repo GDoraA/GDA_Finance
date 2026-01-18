@@ -9,6 +9,36 @@
 </head>
 
 <body>
+<section id="page-login" class="login-page">
+  <div class="card login-card">
+    <h2>Bejelentkezés</h2>
+
+    <form id="loginForm" autocomplete="on">
+      <label for="loginEmail">Email</label>
+      <input id="loginEmail"
+             name="email"
+             type="email"
+             autocomplete="username"
+             required>
+
+      <label for="loginPassword">Jelszó</label>
+      <input id="loginPassword"
+             name="password"
+             type="password"
+             autocomplete="current-password">
+        <div id="loginConfirmBlock" style="display:none;">
+  <label for="loginPassword2">Jelszó megerősítése</label>
+  <input id="loginPassword2"
+         name="password_confirm"
+         type="password"
+         autocomplete="new-password">
+</div>
+
+      <button type="submit">Belépés</button>
+      <div id="loginError" class="msg error" style="display:none;"></div>
+    </form>
+  </div>
+</section>
 <button id="hamburgerBtn" class="hamburger-btn">☰</button>
 <aside class="sidebar">
     <nav>
@@ -22,6 +52,7 @@
 
         <button id="showTransactionsBtn" class="sidebar-btn">Tranzakciók</button>
         <button id="showSharedExpensesBtn" class="sidebar-btn">Megosztott költségek</button>
+        <button id="logoutBtn" class="sidebar-btn secondary" type="button">Kijelentkezés</button>
     </nav>
 </aside>
 
@@ -54,7 +85,7 @@
 
         <div class="tx-toolbar-right">
             <button id="csvHelpBtn" type="button" class="secondary">
-                TSV súgó
+                Import súgó
             </button>
         </div>
     </div>
@@ -188,8 +219,8 @@
             <option value="10">10</option>
             <option value="20">20</option>
             <option value="50">50</option>
-            <option value="100">100</option>
-            <option value="all" selected>Összes</option>
+            <option value="100" selected>100</option>
+            <option value="all" >Összes</option>
         </select>
     </div>
 

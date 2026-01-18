@@ -1060,6 +1060,121 @@ filterFields.forEach(el => {
     // ===== Lista betöltése =====
     document.getElementById("loadListBtn").addEventListener("click", loadTransactions);
     // Kezdőlap indításakor
+    const loginPage = document.getElementById("page-login");
+const sidebar = document.querySelector(".sidebar");
+const content = document.querySelector(".content-wrapper");
+let loginMode = "login"; // "login" | "setup"
+const confirmBlock = document.getElementById("loginConfirmBlock");
+
+const showLogin = (msg) => {
+    if (loginPage) loginPage.style.display = "flex";
+    if (sidebar) sidebar.style.display = "none";
+    if (content) content.style.display = "none";
+
+    const box = document.getElementById("loginError");
+    if (box) {
+        box.style.display = msg ? "block" : "none";
+        box.textContent = msg || "";
+    }
+};
+
+const showApp = () => {
+    if (loginPage) loginPage.style.display = "none";
+    if (sidebar) sidebar.style.display = "";
+    if (content) content.style.display = "";
+};
+document.getElementById("logoutBtn")?.addEventListener("click", async () => {
+    try { await api.logout(); } catch (e) {}
+    localStorage.removeItem("gda_auth_token");
+
+    // login UI reset
+    const confirmBlock = document.getElementById("loginConfirmBlock");
+    if (confirmBlock) confirmBlock.style.display = "none";
+    const pw2 = document.getElementById("loginPassword2");
+    if (pw2) pw2.value = "";
+
+    showLogin("");
+});
+
+const ensureAuth = async () => {
+    const token = localStorage.getItem("gda_auth_token") || "";
+    if (!token) return false;
+
+    const resp = await api.whoami();
+    return !!(resp && resp.success);
+};
+
+// Login submit
+document.getElementById("loginForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const email = document.getElementById("loginEmail")?.value || "";
+    const password = document.getElementById("loginPassword")?.value || "";
+        if (loginMode === "setup") {
+        const p1 = document.getElementById("loginPassword")?.value || "";
+        const p2 = document.getElementById("loginPassword2")?.value || "";
+        if (!p1) {
+            showLogin("Adj meg egy jelszót.");
+            return;
+        }
+        if (p1 !== p2) {
+            showLogin("A két jelszó nem egyezik.");
+            return;
+        }
+    }
+
+    const resp = await api.login(email, password);
+    const confirmBlock = document.getElementById("loginConfirmBlock");
+
+    // Első belépés 1. kör: backend kéri a jelszó beállítását
+    if (resp && resp.setup_required) {
+        if (confirmBlock) confirmBlock.style.display = "block";
+        showLogin(resp.message || "Első belépés: állíts be jelszót, majd erősítsd meg.");
+        return;
+    }
+
+    // Ha látszik a confirm mező, akkor egyezőséget kérünk
+    if (confirmBlock && confirmBlock.style.display !== "none") {
+        const p1 = document.getElementById("loginPassword")?.value || "";
+        const p2 = document.getElementById("loginPassword2")?.value || "";
+        if (!p1) { showLogin("Adj meg egy jelszót."); return; }
+        if (p1 !== p2) { showLogin("A két jelszó nem egyezik."); return; }
+    }
+
+if (!resp || !resp.success || !resp.token) {
+        showLogin(resp?.error || "Sikertelen bejelentkezés.");
+        return;
+    }
+
+    localStorage.setItem("gda_auth_token", resp.token);
+    showApp();
+    // Böngésző jelszókezelő: mentés felajánlása SPA esetén is (Chrome/Edge tipikusan)
+    try {
+        const form = document.getElementById("loginForm");
+        if (form && "credentials" in navigator && window.PasswordCredential) {
+            await navigator.credentials.store(new PasswordCredential(form));
+        }
+    } catch (e2) {
+        // ha a böngésző nem támogatja, csendben ignoráljuk
+    }
+
+    // eredeti init
+    showPage("transactions");
+    loadSharedExpenses();
+});
+
+// indulás
+(async () => {
+    const ok = await ensureAuth();
+    if (!ok) {
+        showLogin("");
+        return;
+    }
+    showApp();
+
+
+})();
+
     showPage("transactions");
     loadSharedExpenses();
 });
@@ -1142,6 +1257,15 @@ function formatAmount(amount) {
     // ez teszi bele a szóközöket ezres csoportosítással
     return Math.abs(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 
+}
+function formatSignedAmount(amount) {
+    if (amount === null || amount === undefined) return "";
+
+    const num = Number(String(amount).replace(/\s/g, ""));
+    if (isNaN(num)) return String(amount);
+
+    const sign = num < 0 ? "-" : "";
+    return sign + formatAmount(Math.abs(num));
 }
 
 
@@ -1361,7 +1485,8 @@ let expenseTotal = 0;
 let incomeTotal = 0;
 let savingTotal = 0;
 
-filtered.forEach(tx => {
+(data || []).forEach(tx => {
+
     const t = String(tx.transaction_type || "").trim().toLowerCase();
     const amount = Number(tx.amount) || 0;
 
@@ -1394,7 +1519,8 @@ const nb = document.getElementById("txNetBalance");
 if (nb) {
     const signClass = netBalance < 0 ? "amount-expense" : "amount-income";
     nb.className = signClass;
-    nb.textContent = `${formatAmount(netBalance)} Ft`;
+    nb.textContent = `${formatSignedAmount(netBalance)} Ft`;
+
 }
 
 
@@ -1696,7 +1822,8 @@ const result = await api.getSharedExpenses();
 
 
         // A HTML-ben ezek az ID-k léteznek:contentReference[oaicite:2]{index=2}
-        if (box) box.textContent = Math.abs(headerNet).toFixed(0) + " Ft";
+        if (box) box.textContent = `${formatSignedAmount(headerNet)} Ft`;
+
 
         if (label) {
             if (headerNet > 0) {

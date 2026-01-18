@@ -17,6 +17,96 @@ function generatePrefixedId_(prefix) {
   const code = Utilities.getUuid().replace(/-/g, "").toUpperCase().slice(0, 10);
   return `${prefix}-${code}`;
 }
+// ================================
+// AUTH / USERS
+// ================================
+
+function login_(email, password) {
+  const user = getUserByEmail_(email);
+  if (!user) return { success: false, error: "Hibás email vagy jelszó." };
+
+  // app_access ellenőrzés
+  const access = String(user.app_access || "").trim().toLowerCase();
+  const hasAccess = (access === "x" || access === "1" || access === "true" || access === "yes");
+  if (!hasAccess) return { success: false, error: "Nincs jogosultság (app_access)." };
+
+  // jelszó ellenőrzés (jelenleg plain-text a Users lapon)
+  if (String(user.password || "") !== String(password || "")) {
+    return { success: false, error: "Hibás email vagy jelszó." };
+  }
+
+  const token = createSessionToken_(user);
+  return {
+    success: true,
+    token,
+    user: { id: user.id, name: user.name, email: user.email }
+  };
+}
+
+function logout_(token) {
+  if (!token) return { success: true };
+  CacheService.getScriptCache().remove("sess:" + token);
+  return { success: true };
+}
+
+function requireAuth_(p) {
+  const token = String(p.token || "").trim();
+  if (!token) throw new Error("Nincs bejelentkezés (token hiányzik).");
+
+  const raw = CacheService.getScriptCache().get("sess:" + token);
+  if (!raw) throw new Error("A munkamenet lejárt vagy érvénytelen. Jelentkezz be újra.");
+
+  const sess = JSON.parse(raw);
+  return sess; // {id,name,email}
+}
+
+function createSessionToken_(user) {
+  const token = Utilities.getUuid();
+  const sess = { id: user.id, name: user.name, email: user.email };
+
+  // 12 óra (másodpercben)
+  CacheService.getScriptCache().put("sess:" + token, JSON.stringify(sess), 60 * 60 * 12);
+  return token;
+}
+
+function getUserByEmail_(email) {
+  const em = String(email || "").trim().toLowerCase();
+  if (!em) return null;
+
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Users");
+  if (!sheet) throw new Error('Nem található a "Users" munkalap.');
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) return null;
+
+  const header = data[0].map(h => String(h || "").trim());
+  const col = (name) => header.indexOf(name);
+
+  const cId = col("id");
+  const cName = col("name");
+  const cEmail = col("email");
+  const cPw = col("password");
+  const cAcc = col("app_access");
+
+  if (cEmail === -1 || cPw === -1 || cAcc === -1) {
+    throw new Error('A "Users" fejléc hibás. Elvárt oszlopok: id, name, email, password, app_access, created_at');
+  }
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const rowEmail = String(row[cEmail] || "").trim().toLowerCase();
+    if (rowEmail === em) {
+      return {
+        id: cId !== -1 ? row[cId] : "",
+        name: cName !== -1 ? row[cName] : "",
+        email: row[cEmail],
+        password: row[cPw],
+        app_access: row[cAcc]
+      };
+    }
+  }
+  return null;
+}
 
 /**
  * GET alapú API (JSONP támogatással).
@@ -29,6 +119,14 @@ function doGet(e) {
   let result;
 
   try {
+        // --- AUTH: login külön, minden más tokenhez kötött ---
+    if (action === "login") {
+      result = login_(p.email || "", p.password || "");
+      return createJsonOrJsonpResponse_(result, callback);
+    }
+
+    // loginon kívül mindenhez kell érvényes token
+    const auth = requireAuth_(p);
 
     if (action === "addTransaction") {
       const tx = {
@@ -72,14 +170,39 @@ function doGet(e) {
 
     } else if (action === "getSharedExpenses") {
       result = getSharedExpenses_(p);
+
     } else if (action === "updateSharedExpense") {
       result = updateSharedExpense_(p.id, p.field, p.value);
 
+    } else if (action === "updateSharedExpenseRow") {
+      result = updateSharedExpenseRow_(p);
+    }
+    else if (action === "deleteTransaction") {
+    result = deleteTransaction_(p.id || "");
+
+
     } else if (action === "addSharedExpense") {
       result = addSharedExpense_(p);
+    } else if (action === "addTransactions") {
+      // items: JSON string (URL paraméterben)
+      const raw = p.items || "[]";
+      let items = [];
+      try {
+        items = JSON.parse(raw);
+      } catch (e) {
+        result = { success: false, error: "Hibás JSON a 'items' paraméterben." };
+        return createJsonOrJsonpResponse_(result, callback);
+      }
+
+      result = addTransactions_(items);
 
     } else if (action === "deleteSharedExpense") {
       result = deleteSharedExpense_(p.id || "");
+    } else if (action === "whoami") {
+      result = { success: true, user: { id: auth.id, name: auth.name, email: auth.email } };
+
+    } else if (action === "logout") {
+      result = logout_(p.token || "");
 
     } else {
       result = { success: false, error: "Ismeretlen action: " + action };
@@ -144,6 +267,101 @@ function addTransaction_(tx) {
   });
 
   return { success: true, id: id };
+}
+function addTransactions_(items) {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Transactions");
+  if (!sheet) throw new Error('Nem található a "Transactions" nevű munkalap.');
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return { success: true, ok: 0, fail: 0, results: [] };
+  }
+
+  // Transactions séma: ugyanaz a sorrend, mint addTransaction_()-ben
+  const results = [];
+  const rowsToInsert = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const p = items[i] || {};
+
+    // minimál validáció (frontenden is van, de itt is kell)
+    const date = (p.date || "").toString().trim();
+    const amount = (p.amount || "").toString().trim();
+    const title = (p.title || "").toString().trim();
+
+    if (!date || !amount || !title) {
+      results.push({ index: i, success: false, error: "Hiányzó kötelező mező (date/amount/title)." });
+      continue;
+    }
+
+    const id = generatePrefixedId_("TR");
+    const created_at = new Date();
+    const created_by = Session.getActiveUser().getEmail() || "unknown";
+
+    const tx = {
+      id,
+      month:            p.month            || "",
+      date:             p.date             || "",
+      amount:           p.amount           || "",
+      title:            p.title            || "",
+      category:         p.category         || "",
+      payment_type:     p.payment_type     || "",
+      transaction_type: p.transaction_type || "",
+      is_shared:        p.is_shared        || "",
+      statement_item:   p.statement_item   || "",
+      paid_by:          p.paid_by          || ""
+    };
+
+    const row = [
+      tx.id,
+      tx.month,
+      formatDateForStore_(tx.date),
+      tx.amount,
+      tx.title,
+      tx.category,
+      tx.payment_type,
+      tx.transaction_type,
+      tx.is_shared,
+      tx.statement_item,
+      created_by,
+      created_at
+    ];
+
+    rowsToInsert.push(row);
+    results.push({ index: i, success: true, id: id, _tx: tx }); // _tx: belső, később szinkronhoz
+  }
+
+  if (rowsToInsert.length > 0) {
+    const startRow = sheet.getLastRow() + 1;
+    sheet.getRange(startRow, 1, rowsToInsert.length, rowsToInsert[0].length).setValues(rowsToInsert);
+
+    // Value_Sets frissítés + shared sync (ugyanaz, mint addTransaction_)
+    for (const r of results) {
+      if (!r.success) continue;
+      const tx = r._tx;
+
+      addValueIfMissing_("title_values", tx.title);
+      addValueIfMissing_("category_values", tx.category);
+      addValueIfMissing_("payment_type_values", tx.payment_type);
+      addValueIfMissing_("transaction_type_values", tx.transaction_type);
+
+      syncSharedExpenseForTransaction_({
+        id:           tx.id,
+        month:        tx.month,
+        date:         tx.date,
+        amount:       tx.amount,
+        title:        tx.title,
+        is_shared:    tx.is_shared,
+        paid_by:      tx.paid_by
+      });
+
+      delete r._tx; // ne küldjük vissza
+    }
+  }
+
+  const ok = results.filter(x => x.success).length;
+  const fail = results.length - ok;
+
+  return { success: true, ok, fail, results };
 }
 
 /**
@@ -254,13 +472,25 @@ function getTransactions_() {
   const data = sheet.getDataRange().getValues();
 
   const header = data[0];
-  const rows = data.slice(1).map(row => {
-    const obj = {};
-    header.forEach((h, i) => {
-      obj[h] = row[i];
-    });
-    return obj;
+const tz = Session.getScriptTimeZone();
+
+const rows = data.slice(1).map(row => {
+  const obj = {};
+  header.forEach((name, idx) => {
+    const cell = row[idx];
+
+    // Dátumok időzóna-biztos visszaadása:
+    // ha a cella Date objektum, akkor formázzuk "yyyy-MM-dd"-re,
+    // így a frontend <input type="date"> is stabilan kezeli és nem lesz -1 nap.
+    if (name === "date" && Object.prototype.toString.call(cell) === "[object Date]") {
+      obj[name] = Utilities.formatDate(cell, tz, "yyyy-MM-dd");
+    } else {
+      obj[name] = cell;
+    }
   });
+  return obj;
+});
+
 
   return { success: true, data: rows };
 }
@@ -774,6 +1004,100 @@ function addSharedExpense_(p) {
 
   return { success: true, id: newId };
 }
+function updateSharedExpenseRow_(p) {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Shared_Expenses");
+  if (!sheet) {
+    return { success: false, error: 'Nem található a "Shared_Expenses" munkalap.' };
+  }
+
+  const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+  const colId            = header.indexOf("id");
+  const colMonth         = header.indexOf("month");
+  const colDate          = header.indexOf("date");
+  const colTitle         = header.indexOf("title");
+  const colAmount        = header.indexOf("amount");
+  const colPaidBy        = header.indexOf("paid_by");
+  const colZsoltiAmount  = header.indexOf("Zsolti_amount");
+  const colDoriAmount    = header.indexOf("Dori_amount");
+  const colRemaining     = header.indexOf("remaining_amount");
+  const colZsoltiBalance = header.indexOf("Zsolti_balance");
+  const colDoriBalance   = header.indexOf("Dori_balance");
+  const colBalanceImpact = header.indexOf("balance_impact");
+  const colNotes         = header.indexOf("notes");
+
+  const id = String(p.id || "").trim();
+  if (!id) return { success: false, error: "Hiányzó id (szerkesztéshez kötelező)." };
+  if (colId === -1) return { success: false, error: 'Hiányzó "id" oszlop a Shared_Expenses lapon.' };
+
+  // sor keresése ID alapján
+  const data = sheet.getDataRange().getValues();
+  let rowIndex = -1;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][colId]).trim() === id) {
+      rowIndex = i + 1; // sheet 1-indexelt
+      break;
+    }
+  }
+  if (rowIndex === -1) return { success: false, error: "Nincs ilyen ID: " + id };
+
+  // bejövő értékek
+  const dateRaw = String(p.date || "").trim();
+  const title   = String(p.title || "").trim();
+  const notes   = String(p.notes || "").trim();
+  const paidByRaw = String(p.paid_by || "").trim();
+  const paidByNorm = paidByRaw.toLowerCase();
+
+  const amountAbs = Math.abs(Number(p.amount) || 0);
+
+  // törlesztés felismerés: settlement flag vagy cím alapján
+  const isSettlement = String(p.settlement || "").trim().toLowerCase() === "x"
+    || title.toLowerCase().includes("törleszt");
+
+  const zAbs = isSettlement ? 0 : Math.abs(Number(p.Zsolti_amount) || 0);
+  const dAbs = isSettlement ? 0 : Math.abs(Number(p.Dori_amount) || 0);
+
+  // számítások
+  let remaining = "";
+  let zsoltiBal = "";
+  let doriBal   = "";
+  let balanceImpact = 0;
+
+  if (isSettlement) {
+    balanceImpact = amountAbs; // törlesztés: teljes összeg
+  } else {
+    remaining = amountAbs - dAbs - zAbs;
+    const halfRemaining = remaining / 2;
+
+    zsoltiBal = halfRemaining + zAbs;
+    doriBal   = halfRemaining + dAbs;
+
+    if (paidByNorm === "dóri" || paidByNorm === "dori") {
+      balanceImpact = zsoltiBal;
+    } else if (paidByNorm === "zsolti") {
+      balanceImpact = doriBal;
+    } else {
+      balanceImpact = 0;
+    }
+  }
+
+  // visszaírás (csak létező oszlopokba)
+  if (colMonth !== -1)         sheet.getRange(rowIndex, colMonth + 1).setValue(p.month || deriveMonthFromDate_(dateRaw));
+  if (colDate !== -1)          sheet.getRange(rowIndex, colDate + 1).setValue(formatDateForStore_(dateRaw));
+  if (colTitle !== -1)         sheet.getRange(rowIndex, colTitle + 1).setValue(title);
+  if (colAmount !== -1)        sheet.getRange(rowIndex, colAmount + 1).setValue(amountAbs);
+  if (colPaidBy !== -1)        sheet.getRange(rowIndex, colPaidBy + 1).setValue(paidByRaw);
+  if (colZsoltiAmount !== -1)  sheet.getRange(rowIndex, colZsoltiAmount + 1).setValue(zAbs);
+  if (colDoriAmount !== -1)    sheet.getRange(rowIndex, colDoriAmount + 1).setValue(dAbs);
+  if (colNotes !== -1)         sheet.getRange(rowIndex, colNotes + 1).setValue(notes);
+
+  if (colRemaining !== -1)     sheet.getRange(rowIndex, colRemaining + 1).setValue(remaining);
+  if (colZsoltiBalance !== -1) sheet.getRange(rowIndex, colZsoltiBalance + 1).setValue(zsoltiBal);
+  if (colDoriBalance !== -1)   sheet.getRange(rowIndex, colDoriBalance + 1).setValue(doriBal);
+  if (colBalanceImpact !== -1) sheet.getRange(rowIndex, colBalanceImpact + 1).setValue(balanceImpact);
+
+  return { success: true, id: id };
+}
 
 function deleteSharedExpense_(id) {
   const seId = String(id || "").trim();
@@ -800,27 +1124,47 @@ function deleteSharedExpense_(id) {
     return { success: false, error: "Nincs ilyen megosztott tétel ID: " + seId };
   }
 
+  // --- ÚJ: csak törlesztés vagy paid_by = Zsolti törölhető ---
+  const header = data[0];
+  const titleCol = header.indexOf("title");
+  const paidByCol = header.indexOf("paid_by");
+
+  const row = data[rowIndex - 1]; // data 0-indexelt, sheet 1-indexelt
+  const title = (titleCol !== -1 ? String(row[titleCol] || "") : "").trim().toLowerCase();
+  const paidBy = (paidByCol !== -1 ? String(row[paidByCol] || "") : "").trim().toLowerCase();
+
+  const isSettlement = title.includes("törleszt");
+  const isPaidByZsolti = (paidBy === "zsolti");
+
+  if (!isSettlement && !isPaidByZsolti) {
+    return { success: false, error: "Csak törlesztés vagy paid_by = Zsolti tétel törölhető." };
+  }
+
   seSheet.deleteRow(rowIndex);
   return { success: true, id: seId };
+
 }
-
-
 /**
- * Dátum egységes tárolási formátumra alakítása: YYYY.MM.DD
+ * Dátum egységes tárolási formátumra alakítása: YYYY.MM.DD.
+ * Időzóna-biztos: a "YYYY-MM-DD" inputot NEM Date-objektummal parse-oljuk.
  */
 function formatDateForStore_(value) {
   if (!value) return "";
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return value;
-  return (
-    d.getFullYear() +
-    "." +
-    String(d.getMonth() + 1).padStart(2, "0") +
-    "." +
-    String(d.getDate()).padStart(2, "0") +
-    "."
-  );
+
+  const s = String(value).trim();
+
+  // 1) Ha a frontend <input type="date"> formátumot küldi: "YYYY-MM-DD"
+  //    Ne Date()-tel parse-oljuk (időzóna miatt csúszhat), hanem stringből alakítsuk.
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return `${m[1]}.${m[2]}.${m[3]}.`;
+
+  // 2) Egyéb eset: Date/ISO string -> Utilities.formatDate a script időzónájával
+  const d = (Object.prototype.toString.call(value) === "[object Date]") ? value : new Date(value);
+  if (isNaN(d.getTime())) return s;
+
+  return Utilities.formatDate(d, Session.getScriptTimeZone(), "yyyy.MM.dd.");
 }
+
 function deriveMonthFromDate_(value) {
   if (!value) return "";
   const d = new Date(value);

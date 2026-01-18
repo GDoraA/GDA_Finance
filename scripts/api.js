@@ -1,6 +1,6 @@
 // ----------- API KONFIG -------------
 
-const API_URL = "https://script.google.com/macros/s/AKfycbx2zP5lI1fUo__9Zg1jI416q0kfgKlOHqLI0GcCHmZsMcNZsi-xBiCTjdfaPPzG1EA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzxgIW9o0FDrr2nJ-ZxB3LUGUPU5YU0pJ_U-op2afUtZqpsrOMPIWoHcQMeT0mnIvQ/exec";
 
 
 // ----------- JSONP HÍVÓ FUNKCIÓ -------------
@@ -16,7 +16,9 @@ function jsonp(action, params = {}) {
             resolve(response);
         };
 
-        const urlParams = new URLSearchParams({ action, callback: callbackName, _: Date.now() });
+        const token = localStorage.getItem("gda_auth_token") || "";
+        const urlParams = new URLSearchParams({ action, callback: callbackName, token, _: Date.now() });
+
         Object.entries(params).forEach(([k, v]) => urlParams.set(k, v));
 
         const script = document.createElement("script");
@@ -32,6 +34,16 @@ function jsonp(action, params = {}) {
 // ----------- API METÓDUSOK -------------
 
 const api = {
+        login(email, password) {
+        return jsonp("login", { email, password });
+    },
+    whoami() {
+        return jsonp("whoami");
+    },
+    logout() {
+        const token = localStorage.getItem("gda_auth_token") || "";
+        return jsonp("logout", { token });
+    },
     addTransaction(data) {
         return jsonp("addTransaction", data);
     },

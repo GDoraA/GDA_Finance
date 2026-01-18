@@ -1158,6 +1158,12 @@ try {
 }
 
     showApp();
+    // Login után: sidebar kinyitása (ha korábban el volt csukva)
+localStorage.setItem("sidebarCollapsed", "0");
+document.body.classList.remove("sidebar-collapsed");
+document.querySelector(".sidebar")?.classList.remove("collapsed");
+document.querySelector(".content-wrapper")?.classList.remove("sidebar-collapsed");
+
     // Böngésző jelszókezelő: mentés felajánlása SPA esetén is (Chrome/Edge tipikusan)
     try {
         const form = document.getElementById("loginForm");

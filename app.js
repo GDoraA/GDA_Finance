@@ -1698,33 +1698,45 @@ function openTransactionEditor(tx) {
 
 // Váltás a két panel között
 function showPage(page) {
-    const txPage   = document.getElementById("page-transactions");
+    const txPage     = document.getElementById("page-transactions");
     const sharedPage = document.getElementById("page-shared-expenses");
+    const adminPage  = document.getElementById("page-admin-users");
 
-    const txBtn    = document.getElementById("showTransactionsBtn");
-    const sharedBtn = document.getElementById("showSharedExpensesBtn");
+    const txBtn      = document.getElementById("showTransactionsBtn");
+    const sharedBtn  = document.getElementById("showSharedExpensesBtn");
+    const adminBtn   = document.getElementById("showAdminUsersBtn");
+
+    // alap: mindent elrejt, gomb active reset
+    txPage.classList.add("hidden");
+    sharedPage.classList.add("hidden");
+    adminPage.classList.add("hidden");
+
+    txBtn.classList.remove("active");
+    sharedBtn.classList.remove("active");
+    adminBtn.classList.remove("active");
 
     if (page === "transactions") {
         txPage.classList.remove("hidden");
-        sharedPage.classList.add("hidden");
-
         txBtn.classList.add("active");
-        sharedBtn.classList.remove("active");
-
-        // tranzakciók újratöltése, ha kell
         loadTransactions();
+        return;
+    }
 
-    } else if (page === "shared") {
-        txPage.classList.add("hidden");
+    if (page === "shared") {
         sharedPage.classList.remove("hidden");
-
-        txBtn.classList.remove("active");
         sharedBtn.classList.add("active");
-
-        // megosztott költségek betöltése
         loadSharedExpenses();
+        return;
+    }
+
+    if (page === "admin-users") {
+        adminPage.classList.remove("hidden");
+        adminBtn.classList.add("active");
+        loadAdminUsers();
+        return;
     }
 }
+
 
 document.getElementById("showTransactionsBtn").addEventListener("click", () => {
     showPage("transactions");
@@ -1732,6 +1744,9 @@ document.getElementById("showTransactionsBtn").addEventListener("click", () => {
 
 document.getElementById("showSharedExpensesBtn").addEventListener("click", () => {
     showPage("shared");
+});
+document.getElementById("showAdminUsersBtn").addEventListener("click", () => {
+    showPage("admin-users");
 });
 
 async function loadSharedExpenses() {
@@ -1980,6 +1995,74 @@ const result = await api.getSharedExpenses();
         console.error("Hiba a megosztott költségek betöltésekor:", err);
     }
 }
+async function loadAdminUsers() {
+    const tbody = document.getElementById("adminUsersBody");
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+    const resp = await api.getUsers();
+
+    if (!resp || !resp.success) {
+        tbody.innerHTML = `<tr><td colspan="4">Nincs jogosultság vagy hiba: ${resp?.error || "ismeretlen"}</td></tr>`;
+        return;
+    }
+
+    const users = resp.users || [];
+    for (const u of users) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${escapeHtml(u.name || "")}</td>
+            <td>${escapeHtml(u.email || "")}</td>
+            <td>${escapeHtml(u.app_access || "")}</td>
+            <td>${escapeHtml(u.is_admin || "")}</td>
+        `;
+        tbody.appendChild(tr);
+    }
+}
+
+// egyszerű HTML escape (ha nincs már ilyen helpered máshol)
+function escapeHtml(s) {
+    return String(s ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll("\"", "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+document.getElementById("adminUserForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const name = document.getElementById("adminUserName")?.value?.trim() || "";
+    const email = document.getElementById("adminUserEmail")?.value?.trim() || "";
+
+    const msg = document.getElementById("adminUserMsg");
+    if (msg) { msg.style.display = "none"; msg.className = "msg"; msg.textContent = ""; }
+
+    const resp = await api.addUser(name, email);
+
+    if (!resp || !resp.success) {
+        if (msg) {
+            msg.style.display = "block";
+            msg.className = "msg error";
+            msg.textContent = resp?.error || "Hiba történt.";
+        }
+        return;
+    }
+
+    // reset + újratöltés
+    document.getElementById("adminUserName").value = "";
+    document.getElementById("adminUserEmail").value = "";
+
+    if (msg) {
+        msg.style.display = "block";
+        msg.className = "msg success";
+        msg.textContent = "Felhasználó hozzáadva.";
+    }
+
+    await loadAdminUsers();
+});
+
 function parseHuNumber(v) {
   const s = String(v ?? "")
     .trim()

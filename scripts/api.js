@@ -1,6 +1,6 @@
 // ----------- API KONFIG -------------
 
-const API_URL = "https://script.google.com/macros/s/AKfycbzxgIW9o0FDrr2nJ-ZxB3LUGUPU5YU0pJ_U-op2afUtZqpsrOMPIWoHcQMeT0mnIvQ/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzQEUmkBakKPN4y6WVLSnYXvg8qBChlREba0Oqv-qOlIVWKtXxeOgpylli_Ple1SfM/exec";
 
 
 // ----------- JSONP HÍVÓ FUNKCIÓ -------------
@@ -85,6 +85,12 @@ const api = {
     },
     updateSharedExpenseRow(data) {
     return jsonp("updateSharedExpenseRow", data);
+    },
+        getUsers() {
+        return jsonp("getUsers");
+    },
+    addUser(name, email) {
+        return jsonp("addUser", { name, email });
     },
 
 

@@ -54,6 +54,7 @@
 
         <button id="showTransactionsBtn" class="sidebar-btn">Tranzakciók</button>
         <button id="showSharedExpensesBtn" class="sidebar-btn">Megosztott költségek</button>
+        <button id="showAdminUsersBtn" class="sidebar-btn">Admin</button>
         <button id="logoutBtn" class="sidebar-btn secondary" type="button">Kijelentkezés</button>
     </nav>
 </aside>
@@ -340,6 +341,40 @@
                 <tbody id="sharedExpensesBody"></tbody>
             </table>
     </section>
+<!-- Admin – Users -->
+<section id="page-admin-users" class="hidden">
+    <h2>Admin – Felhasználók</h2>
+
+    <div class="card">
+        <h3 style="margin-top:0;">Új felhasználó felvétele</h3>
+
+        <form id="adminUserForm">
+            <label for="adminUserName">Név</label>
+            <input id="adminUserName" name="name" required>
+
+            <label for="adminUserEmail">E-mail</label>
+            <input id="adminUserEmail" name="email" type="email" required>
+
+            <button type="submit">Felhasználó hozzáadása</button>
+            <div id="adminUserMsg" class="msg" style="display:none;"></div>
+        </form>
+    </div>
+
+    <div class="card">
+        <h3 style="margin-top:0;">Felhasználók</h3>
+        <table class="tx-table">
+            <thead>
+                <tr>
+                    <th>Név</th>
+                    <th>E-mail</th>
+                    <th>Hozzáférés</th>
+                    <th>Admin</th>
+                </tr>
+            </thead>
+            <tbody id="adminUsersBody"></tbody>
+        </table>
+    </div>
+</section>
 
 <script src="utils/helpers.js"></script>
 <script src="scripts/api.js"></script>

@@ -1,11 +1,14 @@
-const CACHE_NAME = "gda-finance-cache-v2";
+const CACHE_NAME = "gda-finance-cache-v3";
 const ASSETS = [
-  "index.html",
-  "styles.css",
-  "app.js",
-  "scripts/api.js",
-  "utils/helpers.js"
+  "./",
+  "./index.html",
+  "./styles.css",
+  "./app.js",
+  "./scripts/api.js",
+  "./utils/helpers.js",
+  "./manifest.json"
 ];
+
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
@@ -29,7 +32,18 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  const req = event.request;
+
+  // SPA navigáció: mindig az index.html-t addjuk vissza cache-ből (repo alútvonalon is)
+  if (req.mode === "navigate") {
+    event.respondWith(
+      caches.match("./index.html").then((resp) => resp || fetch(req))
+    );
+    return;
+  }
+
   event.respondWith(
-    caches.match(event.request).then((resp) => resp || fetch(event.request))
+    caches.match(req).then((resp) => resp || fetch(req))
   );
 });
+

@@ -1147,6 +1147,16 @@ if (!resp || !resp.success || !resp.token) {
     }
 
     localStorage.setItem("gda_auth_token", resp.token);
+    // Password manager (SPA): explicit credential store (ha támogatott)
+try {
+    const form = document.getElementById("loginForm");
+    if (form && "credentials" in navigator && window.PasswordCredential) {
+        await navigator.credentials.store(new PasswordCredential(form));
+    }
+} catch (e2) {
+    // nem támogatott / nem secure context -> ignoráljuk
+}
+
     showApp();
     // Böngésző jelszókezelő: mentés felajánlása SPA esetén is (Chrome/Edge tipikusan)
     try {

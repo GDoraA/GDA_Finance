@@ -13,7 +13,7 @@
   <div class="card login-card">
     <h2>Bejelentkezés</h2>
 
-    <form id="loginForm" autocomplete="on">
+    <form id="loginForm" method="post" action="#"  autocomplete="on">
       <label for="loginEmail">Email</label>
       <input id="loginEmail"
              name="email"
@@ -27,12 +27,12 @@
              type="password"
              autocomplete="current-password">
         <div id="loginConfirmBlock" style="display:none;">
-  <label for="loginPassword2">Jelszó megerősítése</label>
-  <input id="loginPassword2"
-         name="password_confirm"
-         type="password"
-         autocomplete="new-password">
-</div>
+            <label for="loginPassword2">Jelszó megerősítése</label>
+            <input id="loginPassword2"
+                    name="password_confirm"
+                    type="password"
+                    autocomplete="new-password">
+        </div>
 
       <button type="submit">Belépés</button>
       <div id="loginError" class="msg error" style="display:none;"></div>

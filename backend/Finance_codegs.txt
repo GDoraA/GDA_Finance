@@ -65,7 +65,6 @@ function logout_(token) {
   CacheService.getScriptCache().remove("sess:" + token);
   return { success: true };
 }
-
 function requireAuth_(p) {
   const token = String(p.token || "").trim();
   if (!token) throw new Error("Nincs bejelentkezés (token hiányzik).");
@@ -76,6 +75,20 @@ function requireAuth_(p) {
   const sess = JSON.parse(raw);
   return sess; // {id,name,email}
 }
+function requireAdmin_(auth) {
+  const u = getUserByEmail_(auth.email);
+  if (!u) throw new Error("Admin ellenőrzés: felhasználó nem található.");
+
+  // Kötelező oszlop: is_admin
+  if (typeof u.is_admin === "undefined") {
+    throw new Error('Hiányzik az "is_admin" oszlop a Users lapon.');
+  }
+
+  const v = String(u.is_admin || "").trim().toLowerCase();
+  const ok = (v === "x" || v === "1" || v === "true" || v === "yes");
+  if (!ok) throw new Error("Nincs admin jogosultság.");
+}
+
 
 function createSessionToken_(user) {
   const token = Utilities.getUuid();
@@ -149,6 +162,8 @@ function getUserByEmail_(email) {
   const cEmail = col("email");
   const cPw = col("password");
   const cAcc = col("app_access");
+  const cAdmin = col("is_admin");
+
 
   if (cEmail === -1 || cPw === -1 || cAcc === -1) {
     throw new Error('A "Users" fejléc hibás. Elvárt oszlopok: id, name, email, password, app_access, created_at');
@@ -164,6 +179,7 @@ function getUserByEmail_(email) {
         email: row[cEmail],
         password: row[cPw],
         app_access: row[cAcc],
+        is_admin: cAdmin !== -1 ? row[cAdmin] : undefined,
         _rowIndex1Based: i + 1,
         _colPw1Based: cPw + 1
       };
@@ -178,6 +194,82 @@ function setUserPasswordByEmail_(email, newPassword) {
 
   const sheet = SpreadsheetApp.getActive().getSheetByName("Users");
   sheet.getRange(u._rowIndex1Based, u._colPw1Based).setValue(String(newPassword || ""));
+}
+function getUsers_() {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Users");
+  if (!sheet) throw new Error('Nem található a "Users" munkalap.');
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) return { success: true, users: [] };
+
+  const header = data[0].map(h => String(h || "").trim());
+  const col = (name) => header.indexOf(name);
+
+  const cName = col("name");
+  const cEmail = col("email");
+  const cAcc = col("app_access");
+  const cAdmin = col("is_admin");
+
+  const users = [];
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    users.push({
+      name: cName !== -1 ? row[cName] : "",
+      email: cEmail !== -1 ? row[cEmail] : "",
+      app_access: cAcc !== -1 ? row[cAcc] : "",
+      is_admin: cAdmin !== -1 ? row[cAdmin] : ""
+    });
+  }
+
+  return { success: true, users };
+}
+
+function addUser_(name, email) {
+  const nm = String(name || "").trim();
+  const em = String(email || "").trim().toLowerCase();
+  if (!nm) throw new Error("A név kötelező.");
+  if (!em) throw new Error("Az e-mail kötelező.");
+
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Users");
+  if (!sheet) throw new Error('Nem található a "Users" munkalap.');
+
+  const data = sheet.getDataRange().getValues();
+  const header = data[0].map(h => String(h || "").trim());
+  const col = (name) => header.indexOf(name);
+
+  const cId = col("id");
+  const cName = col("name");
+  const cEmail = col("email");
+  const cPw = col("password");
+  const cAcc = col("app_access");
+  const cCreated = col("created_at");
+  const cAdmin = col("is_admin"); // opcionális, de admin UI-hoz ajánlott
+
+  if (cId === -1 || cName === -1 || cEmail === -1 || cPw === -1 || cAcc === -1 || cCreated === -1) {
+    throw new Error('A "Users" fejléc hibás. Elvárt oszlopok: id, name, email, password, app_access, created_at (és opcionálisan is_admin).');
+  }
+
+  // duplikáció check
+  for (let i = 1; i < data.length; i++) {
+    const rowEmail = String(data[i][cEmail] || "").trim().toLowerCase();
+    if (rowEmail === em) throw new Error("Már létezik ilyen e-maillel felhasználó.");
+  }
+
+  const id = generatePrefixedId_("US");
+  const created_at = new Date();
+
+  const newRow = new Array(header.length).fill("");
+  newRow[cId] = id;
+  newRow[cName] = nm;
+  newRow[cEmail] = em;
+  newRow[cPw] = "";          // üres jelszó -> első belépéskor beállítás (a jelenlegi login_ logikád szerint)
+  newRow[cAcc] = "x";        // kapjon app hozzáférést
+  newRow[cCreated] = created_at;
+  if (cAdmin !== -1) newRow[cAdmin] = ""; // nem admin alapból
+
+  sheet.appendRow(newRow);
+
+  return { success: true, id };
 }
 
 /**
@@ -214,6 +306,13 @@ function doGet(e) {
         paid_by:          p.paid_by          || ""
       };
       result = addTransaction_(tx);
+        } else if (action === "getUsers") {
+      requireAdmin_(auth);
+      result = getUsers_();
+
+    } else if (action === "addUser") {
+      requireAdmin_(auth);
+      result = addUser_(p.name || "", p.email || "");
 
     } else if (action === "getTransactions") {
       result = getTransactions_();

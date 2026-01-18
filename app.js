@@ -1195,17 +1195,20 @@ document.querySelector(".content-wrapper")?.classList.remove("sidebar-collapsed"
 // indulás
 (async () => {
     const ok = await ensureAuth();
+    
+    // döntés után lehet “felébreszteni” a UI-t
+    document.body.classList.remove("boot");
     if (!ok) {
         showLogin("");
         return;
     }
     showApp();
-
+    showPage("transactions");
+    loadSharedExpenses();
 
 })();
 
-    showPage("transactions");
-    loadSharedExpenses();
+
 });
 
 // ===== SZŰRŐK TÖRLÉSE =====

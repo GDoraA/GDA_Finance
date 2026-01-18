@@ -1091,3 +1091,10 @@ body.sidebar-collapsed .hamburger-btn {
     width: 100%;
     max-width: 420px;
 }
+/* Boot state: induláskor ne villanjon fel sem a login, sem az app UI */
+body.boot #page-login,
+body.boot .sidebar,
+body.boot .content-wrapper,
+body.boot .hamburger-btn {
+    display: none !important;
+}

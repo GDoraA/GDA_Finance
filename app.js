@@ -1117,6 +1117,23 @@ const ensureAuth = async () => {
     return !!(resp && resp.success);
 };
 let myPermissions = {};
+function applySidebarPermissions() {
+    const adminUsersBtn = document.getElementById("showAdminUsersBtn");
+    const adminFunctionsBtn = document.getElementById("showAdminFunctionsBtn");
+    const adminPermissionsBtn = document.getElementById("showAdminPermissionsBtn");
+
+    if (!myPermissions?.admin_users && adminUsersBtn) {
+        adminUsersBtn.style.display = "none";
+    }
+
+    if (!myPermissions?.admin_functions && adminFunctionsBtn) {
+        adminFunctionsBtn.style.display = "none";
+    }
+
+    if (!myPermissions?.admin_permissions && adminPermissionsBtn) {
+        adminPermissionsBtn.style.display = "none";
+    }
+}
 
 const loadMyPermissions = async () => {
     try {
@@ -1199,7 +1216,9 @@ document.querySelector(".content-wrapper")?.classList.remove("sidebar-collapsed"
 
     // eredeti init
     await loadMyPermissions();
+    applySidebarPermissions();
     showPage("transactions");
+
     loadSharedExpenses();
 });
 
@@ -1215,7 +1234,9 @@ document.querySelector(".content-wrapper")?.classList.remove("sidebar-collapsed"
     }
     showApp();
     await loadMyPermissions();
+    applySidebarPermissions();
     showPage("transactions");
+
     loadSharedExpenses();
 
 })();

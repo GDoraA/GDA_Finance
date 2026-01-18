@@ -88,6 +88,55 @@ function requireAdmin_(auth) {
   const ok = (v === "x" || v === "1" || v === "true" || v === "yes");
   if (!ok) throw new Error("Nincs admin jogosultság.");
 }
+function getUserAccess_(email, function_key) {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Permissions");
+  if (!sheet) return "none";
+
+  const em = String(email || "").trim().toLowerCase();
+  const fk = String(function_key || "").trim();
+  if (!em || !fk) return "none";
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) return "none";
+
+  const header = (data[0] || []).map(h => String(h || "").trim());
+  const col = (name) => header.indexOf(name);
+
+  const cEmail = col("email");
+  const cKey   = col("function_key");
+  const cAcc   = col("access");
+  if (cEmail === -1 || cKey === -1 || cAcc === -1) return "none";
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const rowEmail = String(row[cEmail] || "").trim().toLowerCase();
+    const rowKey   = String(row[cKey] || "").trim();
+
+    if (rowEmail === em && rowKey === fk) {
+      const acc = String(row[cAcc] || "").trim().toLowerCase();
+      return ["none", "read", "write"].includes(acc) ? acc : "none";
+    }
+  }
+  return "none";
+}
+
+function requirePermission_(auth, function_key, level) {
+  // level: "read" | "write"
+  const need = String(level || "").trim().toLowerCase();
+  const fk = String(function_key || "").trim();
+  if (!fk) throw new Error("Hiányzó function_key.");
+
+  // Admin mindent vihet (megtartjuk a jelenlegi admin logikát)
+  try { requireAdmin_(auth); return; } catch (_) {}
+
+  const email = (auth && auth.email) ? String(auth.email).trim().toLowerCase() : "";
+  const acc = getUserAccess_(email, fk);
+
+  const rank = { none: 0, read: 1, write: 2 };
+  if ((rank[acc] || 0) < (rank[need] || 0)) {
+    throw new Error("Nincs jogosultság (" + fk + ":" + need + ").");
+  }
+}
 
 
 function createSessionToken_(user) {
@@ -271,6 +320,166 @@ function addUser_(name, email) {
 
   return { success: true, id };
 }
+function getFunctions_() {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Functions");
+  if (!sheet) throw new Error('Nem található a "Functions" munkalap.');
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) return { success: true, functions: [] };
+
+  const header = data[0].map(h => String(h || "").trim());
+  const col = (name) => header.indexOf(name);
+
+  const cKey  = col("function_key");
+  const cName = col("name");
+  const cDesc = col("description");
+
+  if (cKey === -1 || cName === -1 || cDesc === -1) {
+    throw new Error('A "Functions" fejléc hibás. Elvárt oszlopok: function_key, name, description');
+  }
+
+  const functions = [];
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const key = String(row[cKey] || "").trim();
+    if (!key) continue;
+
+    functions.push({
+      function_key: key,
+      name: String(row[cName] || "").trim(),
+      description: String(row[cDesc] || "").trim()
+    });
+  }
+
+  return { success: true, functions };
+}
+function getPermissions_() {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Permissions");
+  if (!sheet) throw new Error('Nem található a "Permissions" munkalap.');
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) return { success: true, permissions: [] };
+
+  const header = data[0].map(h => String(h || "").trim());
+  const col = (name) => header.indexOf(name);
+
+  const cEmail = col("email");
+  const cKey   = col("function_key");
+  const cAcc   = col("access");
+
+  if (cEmail === -1 || cKey === -1 || cAcc === -1) {
+    throw new Error('A "Permissions" fejléc hibás. Elvárt oszlopok: email, function_key, access');
+  }
+
+  const permissions = [];
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+
+    const email = String(row[cEmail] || "").trim().toLowerCase();
+    const function_key = String(row[cKey] || "").trim();
+    const accessRaw = String(row[cAcc] || "").trim().toLowerCase();
+
+    if (!email || !function_key) continue;
+
+    let access = accessRaw;
+    if (!["none", "read", "write"].includes(access)) access = "none";
+
+    permissions.push({ email, function_key, access });
+  }
+
+  return { success: true, permissions };
+}
+function setPermission_(email, function_key, access) {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Permissions");
+  if (!sheet) throw new Error('Nem található a "Permissions" munkalap.');
+
+  const em = String(email || "").trim().toLowerCase();
+  const fk = String(function_key || "").trim();
+  let acc = String(access || "").trim().toLowerCase();
+
+  if (!em) throw new Error("Hiányzó email.");
+  if (!fk) throw new Error("Hiányzó function_key.");
+  if (!["none", "read", "write"].includes(acc)) acc = "none";
+
+  const data = sheet.getDataRange().getValues();
+  const header = (data[0] || []).map(h => String(h || "").trim());
+  const col = (name) => header.indexOf(name);
+
+  const cEmail = col("email");
+  const cKey   = col("function_key");
+  const cAcc   = col("access");
+
+  if (cEmail === -1 || cKey === -1 || cAcc === -1) {
+    throw new Error('A "Permissions" fejléc hibás. Elvárt oszlopok: email, function_key, access');
+  }
+
+  // Keressük a meglévő sort (email + function_key)
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const rowEmail = String(row[cEmail] || "").trim().toLowerCase();
+    const rowKey   = String(row[cKey] || "").trim();
+
+    if (rowEmail === em && rowKey === fk) {
+      sheet.getRange(i + 1, cAcc + 1).setValue(acc);
+      return { success: true, updated: true };
+    }
+  }
+
+  // Ha nincs meg, új sor
+  sheet.appendRow([em, fk, acc]);
+  return { success: true, created: true };
+}
+function getUserAccess_(email, function_key) {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Permissions");
+  if (!sheet) return "none";
+
+  const em = String(email || "").trim().toLowerCase();
+  const fk = String(function_key || "").trim();
+  if (!em || !fk) return "none";
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) return "none";
+
+  const header = (data[0] || []).map(h => String(h || "").trim());
+  const col = (name) => header.indexOf(name);
+
+  const cEmail = col("email");
+  const cKey   = col("function_key");
+  const cAcc   = col("access");
+  if (cEmail === -1 || cKey === -1 || cAcc === -1) return "none";
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const rowEmail = String(row[cEmail] || "").trim().toLowerCase();
+    const rowKey   = String(row[cKey] || "").trim();
+    if (rowEmail === em && rowKey === fk) {
+      const acc = String(row[cAcc] || "").trim().toLowerCase();
+      return ["none", "read", "write"].includes(acc) ? acc : "none";
+    }
+  }
+  return "none";
+}
+
+function requirePermission_(auth, function_key, level) {
+  // level: "read" | "write"
+  const need = String(level || "").trim().toLowerCase();
+  const fk = String(function_key || "").trim();
+  if (!fk) throw new Error("Hiányzó function_key.");
+
+  // Admin mindig mehet (megtartjuk a meglévő admin logikát)
+  try {
+    requireAdmin_(auth);
+    return;
+  } catch (_) {}
+
+  const email = (auth && auth.email) ? String(auth.email).trim().toLowerCase() : "";
+  const acc = getUserAccess_(email, fk);
+
+  const rank = { none: 0, read: 1, write: 2 };
+  const ok = (rank[acc] || 0) >= (rank[need] || 0);
+
+  if (!ok) throw new Error("Nincs jogosultság (" + fk + ":" + need + ").");
+}
 
 /**
  * GET alapú API (JSONP támogatással).
@@ -293,6 +502,9 @@ function doGet(e) {
     const auth = requireAuth_(p);
 
     if (action === "addTransaction") {
+      
+      requirePermission_(auth, "tx_create", "write");
+
       const tx = {
         month:            p.month            || "",
         date:             p.date             || "",
@@ -309,13 +521,24 @@ function doGet(e) {
         } else if (action === "getUsers") {
       requireAdmin_(auth);
       result = getUsers_();
+          } else if (action === "getPermissions") {
+      requireAdmin_(auth);
+      result = getPermissions_();
+      } else if (action === "setPermission") {
+      requireAdmin_(auth);
+      result = setPermission_(p.email || "", p.function_key || "", p.access || "");
+
+    } else if (action === "getFunctions") {
+      requireAdmin_(auth);
+      result = getFunctions_();
 
     } else if (action === "addUser") {
       requireAdmin_(auth);
       result = addUser_(p.name || "", p.email || "");
 
     } else if (action === "getTransactions") {
-      result = getTransactions_();
+      requirePermission_(auth, "tx_read", "read");
+      result = getTransactions_(p);
 
     } else if (action === "getValueSets") {
       result = getValueSets_();
@@ -340,7 +563,9 @@ function doGet(e) {
       result = addValueToSet_(p);
 
     } else if (action === "getSharedExpenses") {
+      requirePermission_(auth, "se_read", "read");
       result = getSharedExpenses_(p);
+
 
     } else if (action === "updateSharedExpense") {
       result = updateSharedExpense_(p.id, p.field, p.value);

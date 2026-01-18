@@ -1,6 +1,6 @@
 // ----------- API KONFIG -------------
 
-const API_URL = "https://script.google.com/macros/s/AKfycbzQEUmkBakKPN4y6WVLSnYXvg8qBChlREba0Oqv-qOlIVWKtXxeOgpylli_Ple1SfM/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzaCg1XgLLoY37vw0tFmmxUIUz3z7WfRu99tNciljNP2Bv5GA7iz25mI4Dg9L_m4a8/exec";
 
 
 // ----------- JSONP HÍVÓ FUNKCIÓ -------------
@@ -89,7 +89,16 @@ const api = {
         getUsers() {
         return jsonp("getUsers");
     },
-    addUser(name, email) {
+      getFunctions() {
+    return jsonp("getFunctions");
+    },
+      getPermissions() {
+    return jsonp("getPermissions");
+    },
+      setPermission(email, function_key, access) {
+    return jsonp("setPermission", { email, function_key, access });
+  },
+addUser(name, email) {
         return jsonp("addUser", { name, email });
     },
 

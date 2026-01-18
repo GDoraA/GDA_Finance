@@ -1701,19 +1701,30 @@ function showPage(page) {
     const txPage     = document.getElementById("page-transactions");
     const sharedPage = document.getElementById("page-shared-expenses");
     const adminPage  = document.getElementById("page-admin-users");
+    const adminFunctionsPage = document.getElementById("page-admin-functions");
+    const adminPermissionsPage = document.getElementById("page-admin-permissions");
 
     const txBtn      = document.getElementById("showTransactionsBtn");
     const sharedBtn  = document.getElementById("showSharedExpensesBtn");
     const adminBtn   = document.getElementById("showAdminUsersBtn");
+    const adminFunctionsBtn = document.getElementById("showAdminFunctionsBtn");
+    const adminPermissionsBtn = document.getElementById("showAdminPermissionsBtn");
+
 
     // alap: mindent elrejt, gomb active reset
     txPage.classList.add("hidden");
     sharedPage.classList.add("hidden");
     adminPage.classList.add("hidden");
+    adminFunctionsPage.classList.add("hidden");
+    adminPermissionsPage.classList.add("hidden");
 
     txBtn.classList.remove("active");
     sharedBtn.classList.remove("active");
     adminBtn.classList.remove("active");
+    adminFunctionsBtn.classList.remove("active");
+    adminPermissionsBtn.classList.remove("active");
+
+
 
     if (page === "transactions") {
         txPage.classList.remove("hidden");
@@ -1735,6 +1746,18 @@ function showPage(page) {
         loadAdminUsers();
         return;
     }
+    if (page === "admin-functions") {
+        adminFunctionsPage.classList.remove("hidden");
+        adminFunctionsBtn.classList.add("active");
+        loadAdminFunctions();
+        return;
+    }
+    if (page === "admin-permissions") {
+        adminPermissionsPage.classList.remove("hidden");
+        adminPermissionsBtn.classList.add("active");
+        loadAdminPermissions();
+        return;
+    }
 }
 
 
@@ -1747,6 +1770,12 @@ document.getElementById("showSharedExpensesBtn").addEventListener("click", () =>
 });
 document.getElementById("showAdminUsersBtn").addEventListener("click", () => {
     showPage("admin-users");
+});
+document.getElementById("showAdminFunctionsBtn").addEventListener("click", () => {
+  showPage("admin-functions");
+});
+document.getElementById("showAdminPermissionsBtn").addEventListener("click", () => {
+  showPage("admin-permissions");
 });
 
 async function loadSharedExpenses() {
@@ -2016,6 +2045,97 @@ async function loadAdminUsers() {
             <td>${escapeHtml(u.app_access || "")}</td>
             <td>${escapeHtml(u.is_admin || "")}</td>
         `;
+        tbody.appendChild(tr);
+    }
+}
+async function loadAdminFunctions() {
+    const tbody = document.getElementById("adminFunctionsBody");
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+
+    let resp;
+    try {
+        resp = await api.getFunctions();
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="3">Hiba a funkciók betöltésekor</td></tr>`;
+        return;
+    }
+
+    if (!resp || !resp.success) {
+        tbody.innerHTML = `<tr><td colspan="3">Nincs jogosultság vagy hiba: ${resp?.error || "ismeretlen"}</td></tr>`;
+        return;
+    }
+
+    const functions = resp.functions || [];
+    for (const fn of functions) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${escapeHtml(fn.function_key || "")}</td>
+            <td>${escapeHtml(fn.name || "")}</td>
+            <td>${escapeHtml(fn.description || "")}</td>
+        `;
+        tbody.appendChild(tr);
+    }
+}
+async function loadAdminPermissions() {
+    const tbody = document.getElementById("adminPermissionsBody");
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+
+    let resp;
+    try {
+        resp = await api.getPermissions();
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="3">Hiba a jogosultságok betöltésekor</td></tr>`;
+        return;
+    }
+
+    if (!resp || !resp.success) {
+        tbody.innerHTML = `<tr><td colspan="3">Nincs jogosultság vagy hiba: ${resp?.error || "ismeretlen"}</td></tr>`;
+        return;
+    }
+
+    const rows = resp.permissions || [];
+    if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="3">Nincs jogosultság beállítás</td></tr>`;
+        return;
+    }
+
+    for (const r of rows) {
+        const tr = document.createElement("tr");
+        const current = String(r.access || "").toLowerCase();
+        const val = (["none", "read", "write"].includes(current) ? current : "none");
+
+        tr.innerHTML = `
+            <td>${escapeHtml(r.email || "")}</td>
+            <td>${escapeHtml(r.function_key || "")}</td>
+            <td>
+              <select class="perm-access" data-email="${escapeHtml(r.email || "")}" data-function="${escapeHtml(r.function_key || "")}">
+                <option value="none" ${val === "none" ? "selected" : ""}>none</option>
+                <option value="read" ${val === "read" ? "selected" : ""}>read</option>
+                <option value="write" ${val === "write" ? "selected" : ""}>write</option>
+              </select>
+            </td>
+        `;
+    tbody.querySelectorAll("select.perm-access").forEach(sel => {
+        sel.addEventListener("change", async () => {
+            const email = sel.getAttribute("data-email");
+            const function_key = sel.getAttribute("data-function");
+            const access = sel.value;
+
+            try {
+                const resp = await api.setPermission(email, function_key, access);
+                if (!resp || !resp.success) {
+                    alert("Nem sikerült menteni a jogosultságot.");
+                }
+            } catch (e) {
+                alert("Hiba a jogosultság mentésekor.");
+            }
+        });
+    });
+
         tbody.appendChild(tr);
     }
 }

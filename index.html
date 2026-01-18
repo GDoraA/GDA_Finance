@@ -55,6 +55,8 @@
         <button id="showTransactionsBtn" class="sidebar-btn">Tranzakciók</button>
         <button id="showSharedExpensesBtn" class="sidebar-btn">Megosztott költségek</button>
         <button id="showAdminUsersBtn" class="sidebar-btn">Admin</button>
+        <button id="showAdminFunctionsBtn" class="sidebar-btn">Funkciók</button>
+        <button id="showAdminPermissionsBtn" class="sidebar-btn">Jogosultságok</button>
         <button id="logoutBtn" class="sidebar-btn secondary" type="button">Kijelentkezés</button>
     </nav>
 </aside>
@@ -374,6 +376,48 @@
             <tbody id="adminUsersBody"></tbody>
         </table>
     </div>
+</section>
+<section id="page-admin-functions" class="page hidden">
+  <div class="page-header">
+    <h2>Funkciók</h2>
+    <p class="muted">A Functions munkalap tartalma (csak admin).</p>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>function_key</th>
+            <th>Név</th>
+            <th>Leírás</th>
+          </tr>
+        </thead>
+        <tbody id="adminFunctionsBody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+<section id="page-admin-permissions" class="page hidden">
+  <div class="page-header">
+    <h2>Jogosultságok</h2>
+    <p class="muted">Funkciónkénti hozzáférés (none / read / write) felhasználónként.</p>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Felhasználó (email)</th>
+            <th>Funkció (function_key)</th>
+            <th>Hozzáférés</th>
+          </tr>
+        </thead>
+        <tbody id="adminPermissionsBody"></tbody>
+      </table>
+    </div>
+  </div>
 </section>
 
 <script src="utils/helpers.js"></script>

@@ -6,6 +6,7 @@
 
     <link rel="stylesheet" href="styles.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="./manifest.json">
 </head>
 
 <body>
@@ -342,6 +343,14 @@
 <script src="utils/helpers.js"></script>
 <script src="scripts/api.js"></script>
 <script src="app.js"></script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+  });
+}
+</script>
+
 </div> <!-- content-wrapper -->
 
 </body>

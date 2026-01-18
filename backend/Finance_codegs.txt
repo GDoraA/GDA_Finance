@@ -25,23 +25,40 @@ function login_(email, password) {
   const user = getUserByEmail_(email);
   if (!user) return { success: false, error: "Hibás email vagy jelszó." };
 
-  // app_access ellenőrzés
+  // app_access ellenőrzés (megtartva a jelenlegi logikát)
   const access = String(user.app_access || "").trim().toLowerCase();
   const hasAccess = (access === "x" || access === "1" || access === "true" || access === "yes");
   if (!hasAccess) return { success: false, error: "Nincs jogosultság (app_access)." };
 
-  // jelszó ellenőrzés (jelenleg plain-text a Users lapon)
-  if (String(user.password || "") !== String(password || "")) {
-    return { success: false, error: "Hibás email vagy jelszó." };
+  const stored = String(user.password || "").trim();
+  const incoming = String(password || "");
+
+  // Első belépés: még nincs jelszó beállítva
+  if (!stored) {
+    if (!incoming) {
+      return { success: false, setup_required: true, message: "Első belépés: állíts be jelszót." };
+    }
+    // jelszó beállítása hash-elve
+    setUserPasswordHash_(user, incoming);
+
+    const token = createSessionToken_(user);
+    return { success: true, token, user: { id: user.id, name: user.name, email: user.email } };
+  }
+
+  // Normál belépés (hash vagy legacy)
+  const ok = verifyPassword_(stored, incoming);
+  if (!ok) return { success: false, error: "Hibás email vagy jelszó." };
+
+  // Legacy migráció: ha plain-text volt, sikeres belépés után hash-eljük
+  if (!isHashedPassword_(stored)) {
+    setUserPasswordHash_(user, incoming);
   }
 
   const token = createSessionToken_(user);
-  return {
-    success: true,
-    token,
-    user: { id: user.id, name: user.name, email: user.email }
-  };
+  return { success: true, token, user: { id: user.id, name: user.name, email: user.email } };
 }
+
+
 
 function logout_(token) {
   if (!token) return { success: true };
@@ -67,6 +84,51 @@ function createSessionToken_(user) {
   // 12 óra (másodpercben)
   CacheService.getScriptCache().put("sess:" + token, JSON.stringify(sess), 60 * 60 * 12);
   return token;
+}
+function isHashedPassword_(stored) {
+  return /^sha256\$/i.test(String(stored || "").trim());
+}
+
+function makeSalt_() {
+  return Utilities.getUuid().replace(/-/g, "");
+}
+
+function toHex_(bytes) {
+  return bytes.map(b => ("0" + (b & 0xff).toString(16)).slice(-2)).join("");
+}
+
+// Formátum: sha256$<salt>$<hexhash>
+function hashPassword_(plain, salt) {
+  const pw = String(plain ?? "");
+  const s  = String(salt ?? "");
+  const bytes = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    s + pw,
+    Utilities.Charset.UTF_8
+  );
+  return `sha256$${s}$${toHex_(bytes)}`;
+}
+
+function verifyPassword_(stored, incomingPlain) {
+  const st = String(stored || "").trim();
+  const pw = String(incomingPlain ?? "");
+
+  if (!isHashedPassword_(st)) return st === pw; // legacy/plain-text
+
+  const parts = st.split("$");
+  if (parts.length !== 3) return false;
+
+  const salt = parts[1];
+  const hex  = parts[2];
+  const recomputed = hashPassword_(pw, salt);
+  return recomputed === `sha256$${salt}$${hex}`;
+}
+
+function setUserPasswordHash_(user, newPlainPassword) {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Users");
+  const salt = makeSalt_();
+  const hashed = hashPassword_(newPlainPassword, salt);
+  sheet.getRange(user._rowIndex1Based, user._colPw1Based).setValue(hashed);
 }
 
 function getUserByEmail_(email) {
@@ -101,11 +163,21 @@ function getUserByEmail_(email) {
         name: cName !== -1 ? row[cName] : "",
         email: row[cEmail],
         password: row[cPw],
-        app_access: row[cAcc]
+        app_access: row[cAcc],
+        _rowIndex1Based: i + 1,
+        _colPw1Based: cPw + 1
       };
+
     }
   }
   return null;
+}
+function setUserPasswordByEmail_(email, newPassword) {
+  const u = getUserByEmail_(email);
+  if (!u) throw new Error("Felhasználó nem található jelszó beállításhoz.");
+
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Users");
+  sheet.getRange(u._rowIndex1Based, u._colPw1Based).setValue(String(newPassword || ""));
 }
 
 /**

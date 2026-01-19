@@ -1117,23 +1117,56 @@ const ensureAuth = async () => {
     return !!(resp && resp.success);
 };
 let myPermissions = {};
+
 function applySidebarPermissions() {
+    const txBtn = document.getElementById("showTransactionsBtn");
+    const seBtn = document.getElementById("showSharedExpensesBtn");
     const adminUsersBtn = document.getElementById("showAdminUsersBtn");
     const adminFunctionsBtn = document.getElementById("showAdminFunctionsBtn");
     const adminPermissionsBtn = document.getElementById("showAdminPermissionsBtn");
 
-    if (!myPermissions?.admin_users && adminUsersBtn) {
-        adminUsersBtn.style.display = "none";
-    }
+    // A permissions táblában az access tipikusan: none / read / write
+    const hasAccess = (key) => {
+        const v = myPermissions?.[key];
+        if (!v) return false;
+        const s = String(v).trim().toLowerCase();
+        return s === "read" || s === "write";
+    };
 
-    if (!myPermissions?.admin_functions && adminFunctionsBtn) {
-        adminFunctionsBtn.style.display = "none";
-    }
+    // RESET: ha korábban el volt rejtve (display:none), most legyen visszaállítva,
+    // különben “beragad” és hiába kap jogot, nem jelenik meg.
+    [txBtn, seBtn, adminUsersBtn, adminFunctionsBtn, adminPermissionsBtn].forEach((b) => {
+        if (b) b.style.display = "";
+    });
 
-    if (!myPermissions?.admin_permissions && adminPermissionsBtn) {
-        adminPermissionsBtn.style.display = "none";
-    }
+    // Oldal-gombok: ha nincs jog, ne jelenjenek meg
+    if (!hasAccess("tx_read") && txBtn) txBtn.style.display = "none";
+    if (!hasAccess("se_read") && seBtn) seBtn.style.display = "none";
+
+    // Admin gombok: ha nincs jog, ne jelenjenek meg
+    if (!hasAccess("admin_users") && adminUsersBtn) adminUsersBtn.style.display = "none";
+    if (!hasAccess("admin_functions") && adminFunctionsBtn) adminFunctionsBtn.style.display = "none";
+    if (!hasAccess("admin_permissions") && adminPermissionsBtn) adminPermissionsBtn.style.display = "none";
 }
+
+function getLandingPage() {
+    const hasAccess = (key) => {
+        const v = myPermissions?.[key];
+        return !!v && String(v).toLowerCase() !== "none";
+    };
+
+    if (hasAccess("tx_read")) return "transactions";
+    if (hasAccess("se_read")) return "shared";
+
+    // admin oldalak – első elérhető
+    if (hasAccess("admin_users")) return "admin-users";
+    if (hasAccess("admin_functions")) return "admin-functions";
+    if (hasAccess("admin_permissions")) return "admin-permissions";
+
+    // ha semmi sincs, maradjon a shared (vagy teheted "transactions"-ra, de ez legalább működő oldalt ad)
+    return "shared";
+}
+
 
 const loadMyPermissions = async () => {
     try {
@@ -1223,7 +1256,8 @@ if (!resp || !resp.success || !resp.token) {
     // eredeti init
     await loadMyPermissions();
     applySidebarPermissions();
-    showPage("transactions");
+    showPage(getLandingPage());
+
 
     loadSharedExpenses();
 });
@@ -1241,7 +1275,8 @@ if (!resp || !resp.success || !resp.token) {
     showApp();
     await loadMyPermissions();
     applySidebarPermissions();
-    showPage("transactions");
+    showPage(getLandingPage());
+
 
     loadSharedExpenses();
 

@@ -389,6 +389,44 @@ function getPermissions_() {
 
   return { success: true, permissions };
 }
+function getMyPermissions_(email) {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Permissions");
+  if (!sheet) return { success: true, permissions: {} };
+
+  const em = String(email || "").trim().toLowerCase();
+  if (!em) return { success: true, permissions: {} };
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) return { success: true, permissions: {} };
+
+  const header = (data[0] || []).map(h => String(h || "").trim());
+  const col = (name) => header.indexOf(name);
+
+  const cEmail = col("email");
+  const cKey   = col("function_key");
+  const cAcc   = col("access");
+  if (cEmail === -1 || cKey === -1 || cAcc === -1) {
+    throw new Error('A "Permissions" fejléc hibás. Elvárt oszlopok: email, function_key, access');
+  }
+
+  const out = {};
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const rowEmail = String(row[cEmail] || "").trim().toLowerCase();
+    if (rowEmail !== em) continue;
+
+    const fk = String(row[cKey] || "").trim();
+    if (!fk) continue;
+
+    const accRaw = String(row[cAcc] || "").trim().toLowerCase();
+    const acc = (["none", "read", "write"].includes(accRaw) ? accRaw : "none");
+
+    out[fk] = acc;
+  }
+
+  return { success: true, permissions: out };
+}
+
 function setPermission_(email, function_key, access) {
   const sheet = SpreadsheetApp.getActive().getSheetByName("Permissions");
   if (!sheet) throw new Error('Nem található a "Permissions" munkalap.');
@@ -518,23 +556,26 @@ function doGet(e) {
         paid_by:          p.paid_by          || ""
       };
       result = addTransaction_(tx);
-        } else if (action === "getUsers") {
-      requireAdmin_(auth);
+    } else if (action === "getUsers") {
+      requirePermission_(auth, "admin_users", "read");
       result = getUsers_();
-          } else if (action === "getPermissions") {
-      requireAdmin_(auth);
+
+    } else if (action === "getPermissions") {
+      requirePermission_(auth, "admin_permissions", "read");
       result = getPermissions_();
-      } else if (action === "setPermission") {
-      requireAdmin_(auth);
+
+    } else if (action === "setPermission") {
+      requirePermission_(auth, "admin_permissions", "write");
       result = setPermission_(p.email || "", p.function_key || "", p.access || "");
 
     } else if (action === "getFunctions") {
-      requireAdmin_(auth);
+      requirePermission_(auth, "admin_functions", "read");
       result = getFunctions_();
 
     } else if (action === "addUser") {
-      requireAdmin_(auth);
+      requirePermission_(auth, "admin_users", "write");
       result = addUser_(p.name || "", p.email || "");
+
 
     } else if (action === "getTransactions") {
       requirePermission_(auth, "tx_read", "read");
@@ -557,6 +598,7 @@ function doGet(e) {
         statement_item:   p.statement_item   || "",
         paid_by:          p.paid_by          || ""
       };
+      requirePermission_(auth, "tx_update", "write");
       result = updateTransaction_(tx);
 
     } else if (action === "addValueToSet") {
@@ -568,18 +610,23 @@ function doGet(e) {
 
 
     } else if (action === "updateSharedExpense") {
+      requirePermission_(auth, "se_update", "write");
       result = updateSharedExpense_(p.id, p.field, p.value);
 
     } else if (action === "updateSharedExpenseRow") {
+      requirePermission_(auth, "se_inline_update", "write");
       result = updateSharedExpenseRow_(p);
     }
     else if (action === "deleteTransaction") {
+      requirePermission_(auth, "tx_delete", "write");
     result = deleteTransaction_(p.id || "");
 
 
     } else if (action === "addSharedExpense") {
+      requirePermission_(auth, "se_create", "write");
       result = addSharedExpense_(p);
     } else if (action === "addTransactions") {
+      requirePermission_(auth, "tx_import", "write");
       // items: JSON string (URL paraméterben)
       const raw = p.items || "[]";
       let items = [];
@@ -593,9 +640,16 @@ function doGet(e) {
       result = addTransactions_(items);
 
     } else if (action === "deleteSharedExpense") {
+      requirePermission_(auth, "se_delete", "write");
       result = deleteSharedExpense_(p.id || "");
+    } else if (action === "getMyPermissions") {
+      result = getMyPermissions_(auth.email);
     } else if (action === "whoami") {
       result = { success: true, user: { id: auth.id, name: auth.name, email: auth.email } };
+    } else if (action === "getMyPermissions") {
+      // Frontend nem küld email paramétert, ezért a session-ből vesszük
+      // Ha nálad getMyPermissions_ emailt vár (ahogy most írtad), ez így kompatibilis:
+      result = getMyPermissions_(auth.email);
 
     } else if (action === "logout") {
       result = logout_(p.token || "");

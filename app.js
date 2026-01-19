@@ -1170,6 +1170,14 @@ document.getElementById("loginForm")?.addEventListener("submit", async (e) => {
     if (resp && resp.setup_required) {
         if (confirmBlock) confirmBlock.style.display = "block";
         showLogin(resp.message || "Első belépés: állíts be jelszót, majd erősítsd meg.");
+        // setup módban a böngészőnek jelezzük: új jelszó beállítása
+        const pw1 = document.getElementById("loginPassword");
+        const pw2 = document.getElementById("loginPassword2");
+        if (pw1) pw1.setAttribute("autocomplete", "new-password");
+        if (pw2) {
+            pw2.setAttribute("autocomplete", "new-password");
+            pw2.required = true;
+        }
         return;
     }
 
@@ -1187,32 +1195,30 @@ if (!resp || !resp.success || !resp.token) {
     }
 
     localStorage.setItem("gda_auth_token", resp.token);
-    // Password manager (SPA): explicit credential store (ha támogatott)
-try {
-    const form = document.getElementById("loginForm");
-    if (form && "credentials" in navigator && window.PasswordCredential) {
-        await navigator.credentials.store(new PasswordCredential(form));
+    // login módban: mentett jelszó használata
+    const pw1 = document.getElementById("loginPassword");
+    const pw2 = document.getElementById("loginPassword2");
+    if (pw1) pw1.setAttribute("autocomplete", "current-password");
+    if (pw2) {
+        pw2.required = false;
+        pw2.value = "";
     }
-} catch (e2) {
-    // nem támogatott / nem secure context -> ignoráljuk
-}
-
-    showApp();
-    // Login után: sidebar kinyitása (ha korábban el volt csukva)
-localStorage.setItem("sidebarCollapsed", "0");
-document.body.classList.remove("sidebar-collapsed");
-document.querySelector(".sidebar")?.classList.remove("collapsed");
-document.querySelector(".content-wrapper")?.classList.remove("sidebar-collapsed");
-
-    // Böngésző jelszókezelő: mentés felajánlása SPA esetén is (Chrome/Edge tipikusan)
+    // Password manager (SPA): explicit credential store (ha támogatott)
     try {
         const form = document.getElementById("loginForm");
         if (form && "credentials" in navigator && window.PasswordCredential) {
             await navigator.credentials.store(new PasswordCredential(form));
         }
     } catch (e2) {
-        // ha a böngésző nem támogatja, csendben ignoráljuk
+        // nem támogatott / nem secure context -> ignoráljuk
     }
+
+    showApp();
+    // Login után: sidebar kinyitása (ha korábban el volt csukva)
+    localStorage.setItem("sidebarCollapsed", "0");
+    document.body.classList.remove("sidebar-collapsed");
+    document.querySelector(".sidebar")?.classList.remove("collapsed");
+    document.querySelector(".content-wrapper")?.classList.remove("sidebar-collapsed");
 
     // eredeti init
     await loadMyPermissions();

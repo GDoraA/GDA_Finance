@@ -1124,29 +1124,69 @@ function applySidebarPermissions() {
     const adminUsersBtn = document.getElementById("showAdminUsersBtn");
     const adminFunctionsBtn = document.getElementById("showAdminFunctionsBtn");
     const adminPermissionsBtn = document.getElementById("showAdminPermissionsBtn");
+    // Oldalon belüli akciógombok
+    const txCreateBtn = document.getElementById("openModalBtn");            // Új tranzakció
+    const txImportBtn = document.getElementById("importCsvBtn");            // Import
+    const seCreateBtn = document.getElementById("addSharedExpenseBtn");     // + Új megosztott tétel
+    const seSettleBtn = document.getElementById("addSettlementInlineBtn");  // + Törlesztés
 
-    // A permissions táblában az access tipikusan: none / read / write
-    const hasAccess = (key) => {
-        const v = myPermissions?.[key];
-        if (!v) return false;
-        const s = String(v).trim().toLowerCase();
-        return s === "read" || s === "write";
+    // Kényszerített megjelenítés: ne üres stringgel “reseteljünk”, mert az nem mindig hozza vissza
+    const setBtnVisible = (btn, visible) => {
+        if (!btn) return;
+        btn.style.display = visible ? "inline-flex" : "none";
     };
+
+
+// A permissions táblában az access tipikusan: none / read / write
+// De UI szempontból: bármi, ami nem "none", hozzáférésnek számít (konzisztens a getLandingPage()-gel)
+const hasAccess = (key) => {
+    const v = myPermissions?.[key];
+    if (v === undefined || v === null) return false;
+    return String(v).trim().toLowerCase() !== "none";
+};
+
 
     // RESET: ha korábban el volt rejtve (display:none), most legyen visszaállítva,
     // különben “beragad” és hiába kap jogot, nem jelenik meg.
-    [txBtn, seBtn, adminUsersBtn, adminFunctionsBtn, adminPermissionsBtn].forEach((b) => {
+    [txBtn, seBtn, adminUsersBtn, adminFunctionsBtn, adminPermissionsBtn,
+     txCreateBtn, txImportBtn, seCreateBtn, seSettleBtn].forEach((b) => {
         if (b) b.style.display = "";
     });
 
-    // Oldal-gombok: ha nincs jog, ne jelenjenek meg
-    if (!hasAccess("tx_read") && txBtn) txBtn.style.display = "none";
-    if (!hasAccess("se_read") && seBtn) seBtn.style.display = "none";
 
-    // Admin gombok: ha nincs jog, ne jelenjenek meg
-    if (!hasAccess("admin_users") && adminUsersBtn) adminUsersBtn.style.display = "none";
-    if (!hasAccess("admin_functions") && adminFunctionsBtn) adminFunctionsBtn.style.display = "none";
-    if (!hasAccess("admin_permissions") && adminPermissionsBtn) adminPermissionsBtn.style.display = "none";
+    // Oldal-gombok: ha nincs jog, ne jelenjenek meg
+    // Fontos: az oldal akkor is legyen elérhető/látható, ha bármely tx_* / se_* funkcióhoz van jog,
+    // nem csak akkor, ha konkrétan tx_read / se_read van kiosztva.
+    const hasAny = (prefix) =>
+        Object.keys(myPermissions || {}).some((k) => k.startsWith(prefix) && hasAccess(k));
+
+    const canSeeTxPage = hasAny("tx_");
+    const canSeeSePage = hasAny("se_");
+
+// Oldalmenü – oldal szintű jogosultságok
+if (!canSeeTxPage && txBtn) txBtn.style.display = "none";
+if (!canSeeSePage && seBtn) seBtn.style.display = "none";
+
+// Admin menüpontok – kizárólag saját admin jog alapján
+if (!hasAccess("admin_users") && adminUsersBtn) adminUsersBtn.style.display = "none";
+if (!hasAccess("admin_functions") && adminFunctionsBtn) adminFunctionsBtn.style.display = "none";
+if (!hasAccess("admin_permissions") && adminPermissionsBtn) adminPermissionsBtn.style.display = "none";
+
+    // Transactions akciók
+    if (!hasAccess("tx_create") && txCreateBtn) txCreateBtn.style.display = "none";
+    if (!hasAccess("tx_import") && txImportBtn) txImportBtn.style.display = "none";
+
+    // Shared Expenses akciók
+    if (!hasAccess("se_create") && seCreateBtn) seCreateBtn.style.display = "none";
+    if (!hasAccess("se_settlement_create") && seSettleBtn) seSettleBtn.style.display = "none";
+        // Transactions akciógombok
+    setBtnVisible(txCreateBtn, hasAccess("tx_create"));
+    setBtnVisible(txImportBtn, hasAccess("tx_import"));
+
+    // Shared Expenses akciógombok
+    setBtnVisible(seCreateBtn, hasAccess("se_create"));
+    setBtnVisible(seSettleBtn, hasAccess("se_settlement_create"));
+
 }
 
 function getLandingPage() {
@@ -1763,7 +1803,6 @@ function openTransactionEditor(tx) {
 
     // a szerkesztendő ID-t eltároljuk a formban (nem látszik, de szükséges)
     document.getElementById("txForm").setAttribute("data-edit-id", tx.id);
-    document.getElementById("txDeleteBtn")?.style.setProperty("display", "inline-block");
 
     // modal megnyitása
     modal.classList.add("open");
@@ -1804,6 +1843,7 @@ function showPage(page) {
         txPage.classList.remove("hidden");
         txBtn.classList.add("active");
         loadTransactions();
+        applySidebarPermissions();
         return;
     }
 
@@ -1811,6 +1851,7 @@ function showPage(page) {
         sharedPage.classList.remove("hidden");
         sharedBtn.classList.add("active");
         loadSharedExpenses();
+        applySidebarPermissions();
         return;
     }
 
@@ -1818,18 +1859,21 @@ function showPage(page) {
         adminPage.classList.remove("hidden");
         adminBtn.classList.add("active");
         loadAdminUsers();
+        applySidebarPermissions();
         return;
     }
     if (page === "admin-functions") {
         adminFunctionsPage.classList.remove("hidden");
         adminFunctionsBtn.classList.add("active");
         loadAdminFunctions();
+        applySidebarPermissions();
         return;
     }
     if (page === "admin-permissions") {
         adminPermissionsPage.classList.remove("hidden");
         adminPermissionsBtn.classList.add("active");
         loadAdminPermissions();
+        applySidebarPermissions();
         return;
     }
 }

@@ -77,6 +77,10 @@ if (openBtn && modal && overlay) {
         if (form) {
             form.reset();
             form.removeAttribute("data-edit-id");
+            const delBtn  = document.getElementById("txDeleteBtn");
+            const copyBtn = document.getElementById("txCopyBtn");
+            if (delBtn)  delBtn.style.display = "none";
+            if (copyBtn) copyBtn.style.display = "none";
         }
         modal.classList.add("open");
         overlay.classList.add("open");
@@ -660,6 +664,29 @@ loadTransactions();
         console.error("deleteTransaction error:", err);
         alert("Váratlan hiba történt a törlés során.");
     }
+});
+// Tranzakció másolása (date + month nélkül)
+document.getElementById("txCopyBtn")?.addEventListener("click", () => {
+    const form = document.getElementById("txForm");
+    if (!form) return;
+
+    // Csak a dátum + hónap ürül, minden más marad
+    const dateEl  = form.querySelector("input[name='date']");
+    const monthEl = form.querySelector("input[name='month']");
+
+    if (dateEl)  dateEl.value = "";
+    if (monthEl) monthEl.value = "";
+
+    // ÚJ rekord lesz (ne módosítson)
+    form.removeAttribute("data-edit-id");
+
+    // Törlés gomb ne látszódjon új rekordnál
+    const delBtn = document.getElementById("txDeleteBtn");
+    if (delBtn) delBtn.style.display = "none";
+
+    // Másolás gomb maradhat elérhető (ha egymás után több másolat kell)
+    const copyBtn = document.getElementById("txCopyBtn");
+    if (copyBtn) copyBtn.style.display = "inline-block";
 });
 
 // ===== Dátum → hónap (csak a tranzakciós formon belül) =====
@@ -1803,6 +1830,11 @@ function openTransactionEditor(tx) {
 
     // a szerkesztendő ID-t eltároljuk a formban (nem látszik, de szükséges)
     document.getElementById("txForm").setAttribute("data-edit-id", tx.id);
+    // Szerkesztés módban a Törlés + Másolás gomb látszódjon
+    const delBtn  = document.getElementById("txDeleteBtn");
+    const copyBtn = document.getElementById("txCopyBtn");
+    if (delBtn)  delBtn.style.display = "inline-block";
+    if (copyBtn) copyBtn.style.display = "inline-block";
 
     // modal megnyitása
     modal.classList.add("open");

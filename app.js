@@ -679,6 +679,8 @@ document.getElementById("txCopyBtn")?.addEventListener("click", () => {
 
     // ÚJ rekord lesz (ne módosítson)
     form.removeAttribute("data-edit-id");
+const submitBtn = form.querySelector("button[type='submit'], #txSubmitBtn");
+if (submitBtn) submitBtn.textContent = "Mentés";
 
     // Törlés gomb ne látszódjon új rekordnál
     const delBtn = document.getElementById("txDeleteBtn");
@@ -687,6 +689,21 @@ document.getElementById("txCopyBtn")?.addEventListener("click", () => {
     // Másolás gomb maradhat elérhető (ha egymás után több másolat kell)
     const copyBtn = document.getElementById("txCopyBtn");
     if (copyBtn) copyBtn.style.display = "inline-block";
+    // Fókusz az új dátum mezőre
+    if (dateEl) {
+        dateEl.focus();
+        // ha supported, nyissa meg a date pickert
+        if (typeof dateEl.showPicker === "function") {
+            try { dateEl.showPicker(); } catch (e) {}
+        }
+    }
+
+    // Ha van olyan logikád, ami dátumból számolja a hónapot,
+    // itt érdemes meghívni/triggerelni (különben marad üres és a user tölti).
+    if (dateEl && monthEl) {
+        // ha a month valahol change-re/blur-re számolódik, ezt triggereljük
+        dateEl.dispatchEvent(new Event("change", { bubbles: true }));
+    }
 });
 
 // ===== Dátum → hónap (csak a tranzakciós formon belül) =====

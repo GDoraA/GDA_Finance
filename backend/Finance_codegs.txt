@@ -93,7 +93,7 @@ function getUserAccess_(email, function_key) {
   if (!sheet) return "none";
 
   const em = String(email || "").trim().toLowerCase();
-  const fk = String(function_key || "").trim();
+const fk = String(function_key || "").trim().toLowerCase();
   if (!em || !fk) return "none";
 
   const data = sheet.getDataRange().getValues();
@@ -110,7 +110,7 @@ function getUserAccess_(email, function_key) {
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     const rowEmail = String(row[cEmail] || "").trim().toLowerCase();
-    const rowKey   = String(row[cKey] || "").trim();
+const rowKey   = String(row[cKey] || "").trim().toLowerCase();
 
     if (rowEmail === em && rowKey === fk) {
       const acc = String(row[cAcc] || "").trim().toLowerCase();
@@ -276,6 +276,7 @@ function getUsers_() {
 function addUser_(name, email) {
   const nm = String(name || "").trim();
   const em = String(email || "").trim().toLowerCase();
+
   if (!nm) throw new Error("A név kötelező.");
   if (!em) throw new Error("Az e-mail kötelező.");
 
@@ -316,9 +317,68 @@ function addUser_(name, email) {
   newRow[cCreated] = created_at;
   if (cAdmin !== -1) newRow[cAdmin] = ""; // nem admin alapból
 
-  sheet.appendRow(newRow);
+  // --- "Tranzakció-szerű" végrehajtás: user + default permissions, rollback hibára ---
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
 
-  return { success: true, id };
+  // előre eltesszük, hova fogunk beszúrni
+  const userRowIndex1Based = sheet.getLastRow() + 1;
+
+  let permSheet = null;
+  let permStartRow1Based = null;
+  let permInsertedCount = 0;
+
+  try {
+    // 1) User beszúrás
+    sheet.appendRow(newRow);
+
+    // 2) Default jogosultságok létrehozása (minden function_key -> none)
+    const fnSheet = SpreadsheetApp.getActive().getSheetByName("Functions");
+    permSheet = SpreadsheetApp.getActive().getSheetByName("Permissions");
+
+    if (!fnSheet) throw new Error('Nem található a "Functions" munkalap.');
+    if (!permSheet) throw new Error('Nem található a "Permissions" munkalap.');
+
+    const fnData = fnSheet.getDataRange().getValues();
+    // ha csak fejléc van, akkor nincs mit beszúrni
+    if (fnData.length > 1) {
+      permStartRow1Based = permSheet.getLastRow() + 1;
+
+      for (let i = 1; i < fnData.length; i++) {
+        const functionKey = String(fnData[i][0] || "").trim(); // function_key az első oszlopban
+        if (!functionKey) continue;
+
+      const sp = setPermission_(em, functionKey, "none");
+      // csak akkor számoljuk "beszúrtnak", ha nem update volt
+      if (!sp || !sp.updated) permInsertedCount++;
+
+
+      }
+    }
+
+    return { success: true, id };
+
+  } catch (err) {
+    // --- rollback: permissions (ha már beszúrtunk), majd user sor ---
+    try {
+      if (permSheet && permStartRow1Based && permInsertedCount > 0) {
+        permSheet.deleteRows(permStartRow1Based, permInsertedCount);
+      }
+    } catch (e) {}
+
+    try {
+      // csak akkor töröljük, ha tényleg beszúrtuk: a lastRow legalább akkora, mint az elmentett index
+      if (sheet.getLastRow() >= userRowIndex1Based) {
+        sheet.deleteRow(userRowIndex1Based);
+      }
+    } catch (e) {}
+
+    throw err;
+
+  } finally {
+    try { lock.releaseLock(); } catch (e) {}
+  }
+
 }
 function getFunctions_() {
   const sheet = SpreadsheetApp.getActive().getSheetByName("Functions");
@@ -415,7 +475,7 @@ function getMyPermissions_(email) {
     const rowEmail = String(row[cEmail] || "").trim().toLowerCase();
     if (rowEmail !== em) continue;
 
-    const fk = String(row[cKey] || "").trim();
+    const fk = String(row[cKey] || "").trim().toLowerCase();
     if (!fk) continue;
 
     const accRaw = String(row[cAcc] || "").trim().toLowerCase();
@@ -432,7 +492,7 @@ function setPermission_(email, function_key, access) {
   if (!sheet) throw new Error('Nem található a "Permissions" munkalap.');
 
   const em = String(email || "").trim().toLowerCase();
-  const fk = String(function_key || "").trim();
+const fk = String(function_key || "").trim().toLowerCase();
   let acc = String(access || "").trim().toLowerCase();
 
   if (!em) throw new Error("Hiányzó email.");
@@ -455,7 +515,7 @@ function setPermission_(email, function_key, access) {
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     const rowEmail = String(row[cEmail] || "").trim().toLowerCase();
-    const rowKey   = String(row[cKey] || "").trim();
+const rowKey   = String(row[cKey] || "").trim().toLowerCase();
 
     if (rowEmail === em && rowKey === fk) {
       sheet.getRange(i + 1, cAcc + 1).setValue(acc);
@@ -472,7 +532,7 @@ function getUserAccess_(email, function_key) {
   if (!sheet) return "none";
 
   const em = String(email || "").trim().toLowerCase();
-  const fk = String(function_key || "").trim();
+const fk = String(function_key || "").trim().toLowerCase();
   if (!em || !fk) return "none";
 
   const data = sheet.getDataRange().getValues();

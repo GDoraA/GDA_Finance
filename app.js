@@ -70,6 +70,12 @@ const modal = document.getElementById("txModal");
 const overlay = document.getElementById("modalOverlay");
 const openBtn = document.getElementById("openModalBtn");
 const closeBtn = document.getElementById("closeModalBtn");
+function hideTxModalMessages() {
+    const s = document.getElementById("successMsg");
+    const e = document.getElementById("errorMsg");
+    if (s) s.style.display = "none";
+    if (e) e.style.display = "none";
+}
 
 if (openBtn && modal && overlay) {
     openBtn.addEventListener("click", () => {
@@ -794,6 +800,7 @@ if (!formData.month && formData.date) {
 
             if (result && result.success) {
                 s.style.display = "block";
+                setTimeout(() => { s.style.display = "none"; }, 1500);
 
                 // form ürítése
                 e.target.reset();

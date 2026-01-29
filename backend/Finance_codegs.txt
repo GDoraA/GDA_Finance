@@ -698,6 +698,20 @@ function doGet(e) {
       }
 
       result = addTransactions_(items);
+    } else if (action === "addBankTransactions") {
+      // jogosultság: egyelőre a meglévő import jogot használjuk
+      requirePermission_(auth, "tx_import", "write");
+
+      const raw = p.items || "[]";
+      let items = [];
+      try {
+        items = JSON.parse(raw);
+      } catch (e) {
+        result = { success: false, error: "Hibás JSON a 'items' paraméterben." };
+        return createJsonOrJsonpResponse_(result, callback);
+      }
+
+      result = addBankTransactions_(items);
 
     } else if (action === "deleteSharedExpense") {
       requirePermission_(auth, "se_delete", "write");
@@ -866,6 +880,72 @@ function addTransactions_(items) {
 
       delete r._tx; // ne küldjük vissza
     }
+  }
+
+  const ok = results.filter(x => x.success).length;
+  const fail = results.length - ok;
+
+  return { success: true, ok, fail, results };
+}
+function addBankTransactions_(items) {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Bank_Transactions");
+  if (!sheet) throw new Error('Nem található a "Bank_Transactions" nevű munkalap.');
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return { success: true, ok: 0, fail: 0, results: [] };
+  }
+
+  const results = [];
+  const rowsToInsert = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const p = items[i] || {};
+
+    // minimál validáció: a banki sor értelmezhető legyen
+    const txDate = (p.transaction_date || "").toString().trim();
+    const amount = (p.amount || "").toString().trim();
+
+    if (!txDate || !amount) {
+      results.push({ index: i, success: false, error: "Hiányzó kötelező mező (transaction_date/amount)." });
+      continue;
+    }
+
+    const id = generatePrefixedId_("BT");
+    const created_at = new Date();
+    const created_by = Session.getActiveUser().getEmail() || "unknown";
+
+    // month: ha nem jön a front-endről, képezzük transaction_date-ből
+    const month = (p.month || "").toString().trim() || deriveMonthFromDate_(txDate);
+
+    // A Bank_Transactions fejléc szerinti sorrend (amit most hoztál létre)
+    const row = [
+      id,                                 // id
+      month,                              // month
+      formatDateForStore_(txDate),        // transaction_date
+      formatDateForStore_(p.posting_date || ""), // posting_date
+      p.type || "",                       // type
+      p.direction || "",                  // direction
+      p.partner_name || "",               // partner_name
+      p.partner_account || "",            // partner_account
+      p.spend_category || "",             // spend_category
+      p.memo || "",                       // memo
+      p.account_name || "",               // account_name
+      p.account_number || "",             // account_number
+      p.amount || "",                     // amount
+      p.currency || "",                   // currency
+      p.source_file || "",                // source_file
+      p.import_batch_id || "",            // import_batch_id
+      created_by,                         // created_by
+      created_at                          // created_at
+    ];
+
+    rowsToInsert.push(row);
+    results.push({ index: i, success: true, id });
+  }
+
+  if (rowsToInsert.length > 0) {
+    const startRow = sheet.getLastRow() + 1;
+    sheet.getRange(startRow, 1, rowsToInsert.length, rowsToInsert[0].length).setValues(rowsToInsert);
   }
 
   const ok = results.filter(x => x.success).length;

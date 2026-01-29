@@ -1172,6 +1172,7 @@ let myPermissions = {};
 function applySidebarPermissions() {
     const txBtn = document.getElementById("showTransactionsBtn");
     const seBtn = document.getElementById("showSharedExpensesBtn");
+    const bankImportBtn = document.getElementById("showBankImportBtn");
     const adminUsersBtn = document.getElementById("showAdminUsersBtn");
     const adminFunctionsBtn = document.getElementById("showAdminFunctionsBtn");
     const adminPermissionsBtn = document.getElementById("showAdminPermissionsBtn");
@@ -1199,8 +1200,9 @@ const hasAccess = (key) => {
 
     // RESET: ha korábban el volt rejtve (display:none), most legyen visszaállítva,
     // különben “beragad” és hiába kap jogot, nem jelenik meg.
-    [txBtn, seBtn, adminUsersBtn, adminFunctionsBtn, adminPermissionsBtn,
+    [txBtn, seBtn, bankImportBtn, adminUsersBtn, adminFunctionsBtn, adminPermissionsBtn,
      txCreateBtn, txImportBtn, seCreateBtn, seSettleBtn].forEach((b) => {
+
         if (b) b.style.display = "";
     });
 
@@ -1217,6 +1219,8 @@ const hasAccess = (key) => {
 // Oldalmenü – oldal szintű jogosultságok
 if (!canSeeTxPage && txBtn) txBtn.style.display = "none";
 if (!canSeeSePage && seBtn) seBtn.style.display = "none";
+// Bank import: ugyanahhoz a jogosultsághoz kötjük, mint a tranzakció importot
+if (!hasAccess("tx_import") && bankImportBtn) bankImportBtn.style.display = "none";
 
 // Admin menüpontok – kizárólag saját admin jog alapján
 if (!hasAccess("admin_users") && adminUsersBtn) adminUsersBtn.style.display = "none";
@@ -1869,11 +1873,13 @@ function openTransactionEditor(tx) {
 function showPage(page) {
     const txPage     = document.getElementById("page-transactions");
     const sharedPage = document.getElementById("page-shared-expenses");
+    const bankImportPage = document.getElementById("page-bank-import");
     const adminPage  = document.getElementById("page-admin-users");
     const adminFunctionsPage = document.getElementById("page-admin-functions");
     const adminPermissionsPage = document.getElementById("page-admin-permissions");
 
     const txBtn      = document.getElementById("showTransactionsBtn");
+    const bankImportBtn = document.getElementById("showBankImportBtn");
     const sharedBtn  = document.getElementById("showSharedExpensesBtn");
     const adminBtn   = document.getElementById("showAdminUsersBtn");
     const adminFunctionsBtn = document.getElementById("showAdminFunctionsBtn");
@@ -1884,11 +1890,13 @@ function showPage(page) {
     txPage.classList.add("hidden");
     sharedPage.classList.add("hidden");
     adminPage.classList.add("hidden");
+    bankImportPage.classList.add("hidden");
     adminFunctionsPage.classList.add("hidden");
     adminPermissionsPage.classList.add("hidden");
 
     txBtn.classList.remove("active");
     sharedBtn.classList.remove("active");
+    bankImportBtn.classList.remove("active");
     adminBtn.classList.remove("active");
     adminFunctionsBtn.classList.remove("active");
     adminPermissionsBtn.classList.remove("active");
@@ -1907,6 +1915,12 @@ function showPage(page) {
         sharedPage.classList.remove("hidden");
         sharedBtn.classList.add("active");
         loadSharedExpenses();
+        applySidebarPermissions();
+        return;
+    }
+    if (page === "bank-import") {
+        bankImportPage.classList.remove("hidden");
+        bankImportBtn.classList.add("active");
         applySidebarPermissions();
         return;
     }
@@ -1941,6 +1955,241 @@ document.getElementById("showTransactionsBtn").addEventListener("click", () => {
 
 document.getElementById("showSharedExpensesBtn").addEventListener("click", () => {
     showPage("shared");
+});
+document.getElementById("showBankImportBtn").addEventListener("click", () => {
+    showPage("bank-import");
+});
+// =========================
+// BANK IMPORT (XLS/XLSX)
+// =========================
+let bankImportItems = [];
+
+const bankPickBtn   = document.getElementById("bankImportPickFileBtn");
+const bankUploadBtn = document.getElementById("bankImportUploadBtn");
+const bankFileInput = document.getElementById("bankImportFileInput");
+const bankStatus    = document.getElementById("bankImportStatus");
+
+const bankHeadRow = document.getElementById("bankImportPreviewHead");
+const bankBody    = document.getElementById("bankImportPreviewBody");
+
+const setBankStatus = (msg) => { if (bankStatus) bankStatus.textContent = msg || ""; };
+
+const toIsoDate = (v) => {
+  if (!v) return "";
+  if (v instanceof Date && !isNaN(v.getTime())) return v.toISOString().slice(0, 10);
+
+  // ha string (pl. 2026.01.29 vagy 2026-01-29)
+  const s = String(v).trim();
+  if (!s) return "";
+
+  // yyyy.mm.dd
+  const m1 = s.match(/^(\d{4})\.(\d{2})\.(\d{2})/);
+  if (m1) return `${m1[1]}-${m1[2]}-${m1[3]}`;
+
+  // yyyy-mm-dd
+  const m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m2) return `${m2[1]}-${m2[2]}-${m2[3]}`;
+
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+};
+
+const toMonthYYYYMM = (isoDate) => {
+  // isoDate: YYYY-MM-DD
+  if (!isoDate || isoDate.length < 7) return "";
+  return isoDate.slice(0, 4) + isoDate.slice(5, 7);
+};
+
+const normalizeAmount = (v) => {
+  // XLS-ből jöhet number, string "1 234,56", stb.
+  if (v == null) return "";
+  if (typeof v === "number") return v;
+  const s = String(v).trim()
+    .replace(/\s+/g, "")
+    .replace(/ft/ig, "")
+    .replace(",", ".");
+  const n = Number(s);
+  return isNaN(n) ? "" : n;
+};
+
+const renderBankPreview = (items) => {
+  if (!bankHeadRow || !bankBody) return;
+
+  bankHeadRow.innerHTML = "";
+  bankBody.innerHTML = "";
+
+  const cols = [
+    "transaction_date","posting_date","type","direction","partner_name","partner_account",
+    "spend_category","memo","account_name","account_number","amount","currency"
+  ];
+
+  // head
+  cols.forEach(c => {
+    const th = document.createElement("th");
+    th.textContent = c;
+    bankHeadRow.appendChild(th);
+  });
+
+  // body (max 200 sor preview)
+  (items || []).slice(0, 200).forEach(it => {
+    const tr = document.createElement("tr");
+    cols.forEach(c => {
+      const td = document.createElement("td");
+      td.textContent = (it[c] ?? "").toString();
+      tr.appendChild(td);
+    });
+    bankBody.appendChild(tr);
+  });
+};
+
+bankPickBtn?.addEventListener("click", () => bankFileInput?.click());
+
+bankFileInput?.addEventListener("change", async (e) => {
+  try {
+    bankImportItems = [];
+    if (bankUploadBtn) bankUploadBtn.disabled = true;
+    setBankStatus("");
+
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (typeof XLSX === "undefined") {
+      setBankStatus("Hiba: XLSX könyvtár nem töltődött be (xlsx.full.min.js).");
+      return;
+    }
+
+    setBankStatus("Fájl beolvasása…");
+
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array", cellDates: true });
+
+    const firstSheetName = wb.SheetNames?.[0];
+    if (!firstSheetName) {
+      setBankStatus("Hiba: nem található munkalap az XLS/XLSX fájlban.");
+      return;
+    }
+
+    const ws = wb.Sheets[firstSheetName];
+    // 1. sor: header
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" });
+
+    if (!rows || rows.length < 2) {
+      setBankStatus("Nincs importálható adat (üres vagy csak fejléc).");
+      return;
+    }
+
+    const header = rows[0].map(h => String(h || "").trim());
+    const idx = (name) => header.findIndex(h => h === name);
+
+    // Banki fejlécek (a user által megadottak)
+    const H = {
+      txDate: "Tranzakció dátuma",
+      bookDate: "Könyvelés dátuma",
+      type: "Típus",
+      dir: "Bejövő/Kimenő",
+      partnerName: "Partner neve",
+      partnerAcc: "Partner számlaszáma/azonosítója",
+      cat: "Költési kategória",
+      memo: "Közlemény",
+      accName: "Számla név",
+      accNo: "Számla szám",
+      amount: "Összeg",
+      curr: "Pénznem"
+    };
+
+    // minimál ellenőrzés: dátum + összeg
+    const iTxDate = idx(H.txDate);
+    const iAmt    = idx(H.amount);
+    if (iTxDate < 0 || iAmt < 0) {
+      setBankStatus(`Hiba: hiányzó kötelező fejléc. Kell: "${H.txDate}" és "${H.amount}".`);
+      return;
+    }
+
+    const iBook = idx(H.bookDate);
+    const iType = idx(H.type);
+    const iDir  = idx(H.dir);
+    const iPN   = idx(H.partnerName);
+    const iPA   = idx(H.partnerAcc);
+    const iCat  = idx(H.cat);
+    const iMemo = idx(H.memo);
+    const iAN   = idx(H.accName);
+    const iANo  = idx(H.accNo);
+    const iCur  = idx(H.curr);
+
+    const items = [];
+    for (let r = 1; r < rows.length; r++) {
+      const row = rows[r] || [];
+      const txDateIso = toIsoDate(row[iTxDate]);
+      const amount = normalizeAmount(row[iAmt]);
+
+      if (!txDateIso || amount === "") continue;
+
+      const it = {
+        month: toMonthYYYYMM(txDateIso),
+        transaction_date: txDateIso,
+        posting_date: toIsoDate(iBook >= 0 ? row[iBook] : ""),
+        type: iType >= 0 ? row[iType] : "",
+        direction: iDir >= 0 ? row[iDir] : "",
+        partner_name: iPN >= 0 ? row[iPN] : "",
+        partner_account: iPA >= 0 ? row[iPA] : "",
+        spend_category: iCat >= 0 ? row[iCat] : "",
+        memo: iMemo >= 0 ? row[iMemo] : "",
+        account_name: iAN >= 0 ? row[iAN] : "",
+        account_number: iANo >= 0 ? row[iANo] : "",
+        amount,
+        currency: iCur >= 0 ? row[iCur] : "",
+        source_file: file.name,
+        import_batch_id: "BI_" + Date.now()
+      };
+
+      items.push(it);
+    }
+
+    bankImportItems = items;
+    renderBankPreview(items);
+
+    if (bankUploadBtn) bankUploadBtn.disabled = (items.length === 0);
+
+    setBankStatus(`Beolvasva: ${items.length} sor. (Preview max 200)`);
+  } catch (err) {
+    console.error(err);
+    setBankStatus("Hiba a fájl beolvasásakor / feldolgozásakor.");
+    if (bankUploadBtn) bankUploadBtn.disabled = true;
+  }
+});
+
+bankUploadBtn?.addEventListener("click", async () => {
+  try {
+    if (!bankImportItems || bankImportItems.length === 0) {
+      setBankStatus("Nincs importálható sor.");
+      return;
+    }
+
+    if (!api?.addBankTransactions) {
+      setBankStatus("Hiba: api.addBankTransactions nincs definiálva (api.js).");
+      return;
+    }
+
+    setBankStatus("Mentés folyamatban…");
+    bankUploadBtn.disabled = true;
+
+    const res = await api.addBankTransactions(bankImportItems);
+
+    if (!res || !res.success) {
+      console.error("Bank import mentés hiba:", res);
+      setBankStatus("Hiba a mentés során (API).");
+      bankUploadBtn.disabled = false;
+      return;
+    }
+
+    setBankStatus(`Mentve. OK: ${res.ok ?? "?"}, Hiba: ${res.fail ?? "?"}`);
+    // opcionálisan: ürítés
+    // bankImportItems = [];
+  } catch (err) {
+    console.error(err);
+    setBankStatus("Hiba a mentés során.");
+    bankUploadBtn.disabled = false;
+  }
 });
 document.getElementById("showAdminUsersBtn").addEventListener("click", () => {
     showPage("admin-users");

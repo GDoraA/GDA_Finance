@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="hu">
+
 <head>
     <meta charset="UTF-8" />
     <title>GDA Finance</title>
@@ -11,294 +12,290 @@
 
 <body class="boot">
 
-<section id="page-login" class="login-page">
-  <div class="card login-card">
-    <h2>Bejelentkezés</h2>
+    <section id="page-login" class="login-page">
+        <div class="card login-card">
+            <h2>Bejelentkezés</h2>
 
-    <form id="loginForm" method="post"  autocomplete="on">
-      <label for="loginEmail">Email</label>
-        <input id="loginEmail"
-            name="username"
-            type="email"
-            autocomplete="username"
-            required>
+            <form id="loginForm" method="post" autocomplete="on">
+                <label for="loginEmail">Email</label>
+                <input id="loginEmail" name="username" type="email" autocomplete="username" required>
 
 
-        <label for="loginPassword">Jelszó</label>
-        <input id="loginPassword"
-            name="password"
-            type="password"
-            autocomplete="current-password"
-            required>
+                <label for="loginPassword">Jelszó</label>
+                <input id="loginPassword" name="password" type="password" autocomplete="current-password" required>
 
-        <div id="loginConfirmBlock" style="display:none;">
-            <label for="loginPassword2">Jelszó megerősítése</label>
-            <input id="loginPassword2"
-                    name="password_confirm"
-                    type="password"
-                    autocomplete="new-password">
+                <div id="loginConfirmBlock" style="display:none;">
+                    <label for="loginPassword2">Jelszó megerősítése</label>
+                    <input id="loginPassword2" name="password_confirm" type="password" autocomplete="new-password">
+                </div>
+
+                <button type="submit">Belépés</button>
+                <div id="loginError" class="msg error" style="display:none;"></div>
+            </form>
         </div>
-
-      <button type="submit">Belépés</button>
-      <div id="loginError" class="msg error" style="display:none;"></div>
-    </form>
-  </div>
-</section>
-<button id="hamburgerBtn" class="hamburger-btn">☰</button>
-<aside class="sidebar">
-    <nav>
-        <button id="sidebarToggleBtn"
-                class="sidebar-toggle-btn icon-only"
-                type="button"
+    </section>
+    <button id="hamburgerBtn" class="hamburger-btn">☰</button>
+    <aside class="sidebar">
+        <nav>
+            <button id="sidebarToggleBtn" class="sidebar-toggle-btn icon-only" type="button"
                 aria-label="Menü elrejtése / megjelenítése">
-            ◀
-        </button>
-
-
-        <button id="showTransactionsBtn" class="sidebar-btn">Tranzakciók</button>
-        <button id="showSharedExpensesBtn" class="sidebar-btn">Megosztott költségek</button>
-        <button id="showBankImportBtn" class="sidebar-btn">Bank import</button>
-        <button id="showAdminUsersBtn" class="sidebar-btn">Admin</button>
-        <button id="showAdminFunctionsBtn" class="sidebar-btn">Funkciók</button>
-        <button id="showAdminPermissionsBtn" class="sidebar-btn">Jogosultságok</button>
-        <button id="logoutBtn" class="sidebar-btn secondary" type="button">Kijelentkezés</button>
-    </nav>
-</aside>
-
-
-<div class="content-wrapper">
-
-    <!-- Tranzakció lista -->
-    <section id="page-transactions">
-<h2>Tranzakciók</h2>
-<div id="txTypeBalanceBox" class="balance-box">
-    <span><strong>Kiadás:</strong> <span id="txExpenseTotal">0</span></span>
-    &nbsp;|&nbsp;
-    <span><strong>Bevétel:</strong> <span id="txIncomeTotal">0</span></span>
-    &nbsp;|&nbsp;
-    <span><strong>Megtakarítás:</strong> <span id="txSavingTotal">0</span></span>
-    &nbsp;|&nbsp;
-    <span><strong>Egyenleg:</strong> <span id="txNetBalance">0</span></span>
-</div>
-
-<div class="container">
-
-    <!-- Tranzakciós gombsor -->
-    <div class="tx-toolbar">
-        <div class="tx-toolbar-left">
-            <button id="openModalBtn">Új tranzakció</button>
-            <button id="importCsvBtn">Import</button>
-
-            <button id="toggleFiltersBtn">Szűrők</button>
-        </div>
-
-        <div class="tx-toolbar-right">
-            <button id="csvHelpBtn" type="button" class="secondary">
-                Import súgó
+                ◀
             </button>
-        </div>
-    </div>
+
+
+            <button id="showTransactionsBtn" class="sidebar-btn">Tranzakciók</button>
+            <button id="showSharedExpensesBtn" class="sidebar-btn">Megosztott költségek</button>
+            <button id="showBankImportBtn" class="sidebar-btn">Bank import</button>
+            <button id="showAdminUsersBtn" class="sidebar-btn">Admin</button>
+            <button id="showAdminFunctionsBtn" class="sidebar-btn">Funkciók</button>
+            <button id="showAdminPermissionsBtn" class="sidebar-btn">Jogosultságok</button>
+            <button id="logoutBtn" class="sidebar-btn secondary" type="button">Kijelentkezés</button>
+        </nav>
+    </aside>
+
+
+    <div class="content-wrapper">
+
+        <!-- Tranzakció lista -->
+        <section id="page-transactions">
+            <h2>Tranzakciók</h2>
+            <div id="txTypeBalanceBox" class="balance-box">
+                <span><strong>Kiadás:</strong> <span id="txExpenseTotal">0</span></span>
+                &nbsp;|&nbsp;
+                <span><strong>Bevétel:</strong> <span id="txIncomeTotal">0</span></span>
+                &nbsp;|&nbsp;
+                <span><strong>Megtakarítás:</strong> <span id="txSavingTotal">0</span></span>
+                &nbsp;|&nbsp;
+                <span><strong>Egyenleg:</strong> <span id="txNetBalance">0</span></span>
+            </div>
+
+            <div class="container">
+
+                <!-- Tranzakciós gombsor -->
+                <div class="tx-toolbar">
+                    <div class="tx-toolbar-left">
+                        <button id="openModalBtn">Új tranzakció</button>
+                        <button id="importCsvBtn">Import</button>
+
+                        <button id="toggleFiltersBtn">Szűrők</button>
+                    </div>
+
+                    <div class="tx-toolbar-right">
+                        <button id="csvHelpBtn" type="button" class="secondary">
+                            Import súgó
+                        </button>
+                    </div>
+                </div>
 
 
 
-    <input
-        id="importCsvInput"
-        type="file"
-        accept=".tsv,.txt,text/tab-separated-values,text/tsv"
-        style="display:none;"
-    >
+                <input id="importCsvInput" type="file" accept=".tsv,.txt,text/tab-separated-values,text/tsv"
+                    style="display:none;">
 
-    <div id="importStatus" class="result-count"></div>
-    <div id="importErrors" class="csv-errors" style="display:none;"></div>
-    <button id="cancelImportBtn" class="secondary" style="display:none;">
-        Import leállítása
-    </button>
-    <div id="csvHelpPanel" class="csv-help">
-        <div class="csv-help-title"><strong>TSV import – elvárt struktúra</strong></div>
-        <div class="csv-help-section">
-            <strong>Kötelező oszlopok (legalább ezek):</strong>
-            <ul>
-                <li><strong>Dátum</strong> (fejléc lehet: <code>date</code> / <code>Dátum</code> / <code>Datum</code>)</li>
-                <li><strong>Összeg</strong> (fejléc lehet: <code>amount</code> / <code>Összeg</code> / <code>Osszeg</code>)</li>
-                <li><strong>Jogcím</strong> (fejléc lehet: <code>title</code> / <code>Jogcím</code> / <code>Jogcim</code>)</li>
-            </ul>
-        </div>
+                <div id="importStatus" class="result-count"></div>
+                <div id="importErrors" class="csv-errors" style="display:none;"></div>
+                <button id="cancelImportBtn" class="secondary" style="display:none;">
+                    Import leállítása
+                </button>
+                <div id="csvHelpPanel" class="csv-help">
+                    <div class="csv-help-title"><strong>TSV import – elvárt struktúra</strong></div>
+                    <div class="csv-help-section">
+                        <strong>Kötelező oszlopok (legalább ezek):</strong>
+                        <ul>
+                            <li><strong>Dátum</strong> (fejléc lehet: <code>date</code> / <code>Dátum</code> /
+                                <code>Datum</code>)</li>
+                            <li><strong>Összeg</strong> (fejléc lehet: <code>amount</code> / <code>Összeg</code> /
+                                <code>Osszeg</code>)</li>
+                            <li><strong>Jogcím</strong> (fejléc lehet: <code>title</code> / <code>Jogcím</code> /
+                                <code>Jogcim</code>)</li>
+                        </ul>
+                    </div>
 
-        <div class="csv-help-section">
-            <strong>Opcionális oszlopok (ha vannak, betöltjük):</strong>
-            <ul>
-                <li><strong>Hónap</strong>: <code>month</code> / <code>Hónap</code> / <code>Honap</code> (ha nincs, a dátumból számoljuk)</li>
-                <li><strong>Kategória</strong>: <code>category</code> / <code>Kategória</code> / <code>Kategoria</code></li>
-                <li><strong>Fizetési mód</strong>: <code>payment_type</code> / <code>Típus</code> / <code>Tipus</code></li>
-                <li><strong>Tranzakció jelleg</strong>: <code>transaction_type</code> / <code>Jelleg</code> (pl. <em>Kiadás</em> / <em>Bevétel</em>)</li>
-                <li><strong>Kivonat sor</strong>: <code>statement_item</code> / <code>Kivonat sor</code> / <code>Kivonatsor</code></li>
-            </ul>
-        </div>
+                    <div class="csv-help-section">
+                        <strong>Opcionális oszlopok (ha vannak, betöltjük):</strong>
+                        <ul>
+                            <li><strong>Hónap</strong>: <code>month</code> / <code>Hónap</code> / <code>Honap</code> (ha
+                                nincs, a dátumból számoljuk)</li>
+                            <li><strong>Kategória</strong>: <code>category</code> / <code>Kategória</code> /
+                                <code>Kategoria</code></li>
+                            <li><strong>Fizetési mód</strong>: <code>payment_type</code> / <code>Típus</code> /
+                                <code>Tipus</code></li>
+                            <li><strong>Tranzakció jelleg</strong>: <code>transaction_type</code> / <code>Jelleg</code>
+                                (pl. <em>Kiadás</em> / <em>Bevétel</em>)</li>
+                            <li><strong>Kivonat sor</strong>: <code>statement_item</code> / <code>Kivonat sor</code> /
+                                <code>Kivonatsor</code></li>
+                        </ul>
+                    </div>
 
-        <div class="csv-help-section">
-            <strong>Formátum szabályok:</strong>
-            <ul>
-                <li><strong>Elválasztó:</strong> <code>;</code> vagy <code>,</code> (automatikus detektálás)</li>
-                <li><strong>Dátum:</strong> <code>YYYY-MM-DD</code> vagy <code>YYYY.MM.DD</code> vagy <code>YYYY.MM.DD.</code></li>
-                <li><strong>Összeg:</strong> lehet <code>1 234</code>, <code>1 234,56</code>, <code>1234.56</code>, „Ft” szöveg is lehet benne</li>
-                <li><strong>Előjel:</strong> ha megadod a <em>Jelleg</em>-et (<em>Kiadás</em>/<em>Bevétel</em>), akkor a rendszer ahhoz igazítja az előjelet</li>
-            </ul>
-        </div>
+                    <div class="csv-help-section">
+                        <strong>Formátum szabályok:</strong>
+                        <ul>
+                            <li><strong>Elválasztó:</strong> <code>;</code> vagy <code>,</code> (automatikus detektálás)
+                            </li>
+                            <li><strong>Dátum:</strong> <code>YYYY-MM-DD</code> vagy <code>YYYY.MM.DD</code> vagy
+                                <code>YYYY.MM.DD.</code></li>
+                            <li><strong>Összeg:</strong> lehet <code>1 234</code>, <code>1 234,56</code>,
+                                <code>1234.56</code>, „Ft” szöveg is lehet benne</li>
+                            <li><strong>Előjel:</strong> ha megadod a <em>Jelleg</em>-et
+                                (<em>Kiadás</em>/<em>Bevétel</em>), akkor a rendszer ahhoz igazítja az előjelet</li>
+                        </ul>
+                    </div>
 
-        <div class="csv-help-section">
-            <strong>Példa (pontos fejlécnevek és tipikus magyar formátum):</strong>
-            <pre class="csv-sample">Dátum;Összeg;Jogcím;Kategória;Típus;Jelleg;Kivonat sor
+                    <div class="csv-help-section">
+                        <strong>Példa (pontos fejlécnevek és tipikus magyar formátum):</strong>
+                        <pre class="csv-sample">Dátum;Összeg;Jogcím;Kategória;Típus;Jelleg;Kivonat sor
     2026.01.10.;12 500;Élelmiszer;Bolt;Kártya;Kiadás;OTP 123
     2026-01-12;250 000;Fizetés;Bér;Utalás;Bevétel;Employer</pre>
-        </div>
-    </div>
-
-    <!-- Transactions Modal háttér -->
-<div id="modalOverlay" class="modal-overlay"></div>
-
-<!-- Transactions Modal -->
-<div id="txModal" class="modal">
-  <div class="modal-content">
-    <h2>Tranzakció</h2>
-
-    <form id="txForm">
-      <input type="date" name="date" placeholder="Dátum">
-      <input name="month" placeholder="Hónap (YYYYMM)" disabled>
-      <input name="title" list="titlesList" placeholder="Megnevezés">
-      <input name="amount" inputmode="decimal" placeholder="Összeg">
-      <input name="category" list="categoriesList" placeholder="Kategória">
-      <input name="payment_type" list="paymentTypesList" placeholder="Fizetési mód">
-      <input name="transaction_type" list="transactionTypesList" placeholder="Típus">
-      <label style="display:block; margin-top:10px;">
-        <input type="checkbox" name="is_shared">
-        Megosztott?
-      </label>
-
-      <input name="statement_item" placeholder="Kivonat sor">
-
-      <button type="submit">Mentés</button>
-
-      <div id="successMsg" class="msg success" style="display:none;">Sikeresen mentve!</div>
-      <div id="errorMsg" class="msg error" style="display:none;">Hiba történt.</div>
-
-      <button id="txDeleteBtn" type="button" class="secondary" style="display:none;">Törlés</button>
-      <button id="txCopyBtn" type="button" class="secondary" style="display:none;">Másolás</button>
-      <button id="closeModalBtn" type="button" class="secondary">Mégse</button>
-    </form>
-
-    <!-- Modal datalist-ek (app.js ezeket tölti) -->
-    <datalist id="titlesList"></datalist>
-    <datalist id="categoriesList"></datalist>
-    <datalist id="paymentTypesList"></datalist>
-    <datalist id="transactionTypesList"></datalist>
-    <datalist id="paidByList"></datalist>
-    <datalist id="sharedTitlesList"></datalist>
-
-  </div>
-</div>
-
-    <div id="filtersPanel" class="filters collapsed">
-        <input id="filterMonth" placeholder="Hónap (YYYYMM)">
-        <input type="date" id="filterDate" placeholder="Dátum (YYYY.MM.DD.)">
-        <input id="filterAmount" placeholder="Összeg (pl. 5000, >10000)">
-        <input id="filterTitle" list="filterTitlesList" placeholder="Megnevezés">
-            <datalist id="filterTitlesList"></datalist>
-        <input id="filterCategory" list="filterCategoriesList" placeholder="Kategória">
-            <datalist id="filterCategoriesList"></datalist>
-        <input id="filterPaymentType" list="filterPaymentsList" placeholder="Fizetési mód">
-            <datalist id="filterPaymentsList"></datalist>
-        <input id="filterType" list="filterTypesList" placeholder="Típus">
-        <datalist id="filterTypesList"></datalist>
-        </select>
-        <select id="filterShared">
-            <option value="">Mindegy</option>
-            <option value="x">Megosztott</option>
-            <option value="0">Nem megosztott</option>
-        </select>
-        <input id="filterStatement" placeholder="Kivonat sor">
-        <button id="clearFiltersBtn" class="secondary">Szűrők törlése</button>
-        <button id="loadListBtn">Lista betöltése</button>
-    </div>
-<div class="tx-toolbar">
-    <div class="tx-toolbar-left">
-        <label for="itemsPerPage">Tételek oldalanként:</label>
-        <select id="itemsPerPage">
-            <option value="10">10</option>
-            <option value="20">20</option>
-            <option value="50">50</option>
-            <option value="100" selected>100</option>
-            <option value="all" >Összes</option>
-        </select>
-    </div>
-
-    <div id="transactions-result-count" class="result-count"></div>
-
-
-    <div id="transactions-pagination" class="pagination">
-        <button id="txFirstPageBtn" type="button" class="page-btn" aria-label="Első oldal">⏮</button>
-        <button id="txPrevPageBtn"  type="button" class="page-btn" aria-label="Előző oldal">◀</button>
-
-        <span id="txPageInfo" class="page-info"></span>
-
-        <button id="txNextPageBtn"  type="button" class="page-btn" aria-label="Következő oldal">▶</button>
-        <button id="txLastPageBtn"  type="button" class="page-btn" aria-label="Utolsó oldal">⏭</button>
-    </div>
-</div>
-
-        <table id="transactionsTable" class="tx-table">
-
-        <thead>
-            <tr>
-                <th data-sort="month">Hónap</th>
-                <th data-sort="date">Dátum</th>
-                <th data-sort="amount">Összeg</th>
-                <th data-sort="title">Jogcím</th>
-                <th data-sort="category">Kategória</th>
-                <th data-sort="payment_type">Fizetési mód</th>
-                <th data-sort="transaction_type">Típus</th>
-                <th data-sort="is_shared">Megosztott?</th>
-                <th data-sort="statement_item">Kivonat sor</th>
-            </tr>
-        </thead>
-
-            <tbody id="transactionsBody"></tbody>
-        </table>
-    </div>
-    </section>
-    <section id="page-bank-import" class="hidden">
-        <h2>Bank import</h2>
-
-        <div class="container">
-            <div class="tx-toolbar">
-                <div class="tx-toolbar-left">
-                    <button id="bankImportPickFileBtn" type="button">XLS kiválasztása</button>
-                    <button id="bankImportUploadBtn" type="button" class="secondary" disabled>Import mentése</button>
+                    </div>
                 </div>
-            </div>
 
-            <input
-                id="bankImportFileInput"
-                type="file"
-                accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                style="display:none;"
-            >
+                <!-- Transactions Modal háttér -->
+                <div id="modalOverlay" class="modal-overlay"></div>
 
-            <div id="bankImportStatus" class="result-count"></div>
+                <!-- Transactions Modal -->
+                <div id="txModal" class="modal">
+                    <div class="modal-content">
+                        <h2>Tranzakció</h2>
 
-            <div class="table-wrapper">
-                <table id="bankImportPreviewTable">
+                        <form id="txForm">
+                            <input type="date" name="date" placeholder="Dátum">
+                            <input name="month" placeholder="Hónap (YYYYMM)" disabled>
+                            <input name="title" list="titlesList" placeholder="Megnevezés">
+                            <input name="amount" inputmode="decimal" placeholder="Összeg">
+                            <input name="category" list="categoriesList" placeholder="Kategória">
+                            <input name="payment_type" list="paymentTypesList" placeholder="Fizetési mód">
+                            <input name="transaction_type" list="transactionTypesList" placeholder="Típus">
+                            <label style="display:block; margin-top:10px;">
+                                <input type="checkbox" name="is_shared">
+                                Megosztott?
+                            </label>
+
+                            <input name="statement_item" placeholder="Kivonat sor">
+
+                            <button type="submit">Mentés</button>
+
+                            <div id="successMsg" class="msg success" style="display:none;">Sikeresen mentve!</div>
+                            <div id="errorMsg" class="msg error" style="display:none;">Hiba történt.</div>
+
+                            <button id="txDeleteBtn" type="button" class="secondary"
+                                style="display:none;">Törlés</button>
+                            <button id="txCopyBtn" type="button" class="secondary"
+                                style="display:none;">Másolás</button>
+                            <button id="closeModalBtn" type="button" class="secondary">Mégse</button>
+                        </form>
+
+                        <!-- Modal datalist-ek (app.js ezeket tölti) -->
+                        <datalist id="titlesList"></datalist>
+                        <datalist id="categoriesList"></datalist>
+                        <datalist id="paymentTypesList"></datalist>
+                        <datalist id="transactionTypesList"></datalist>
+                        <datalist id="paidByList"></datalist>
+                        <datalist id="sharedTitlesList"></datalist>
+
+                    </div>
+                </div>
+
+                <div id="filtersPanel" class="filters collapsed">
+                    <input id="filterMonth" placeholder="Hónap (YYYYMM)">
+                    <input type="date" id="filterDate" placeholder="Dátum (YYYY.MM.DD.)">
+                    <input id="filterAmount" placeholder="Összeg (pl. 5000, >10000)">
+                    <input id="filterTitle" list="filterTitlesList" placeholder="Megnevezés">
+                    <datalist id="filterTitlesList"></datalist>
+                    <input id="filterCategory" list="filterCategoriesList" placeholder="Kategória">
+                    <datalist id="filterCategoriesList"></datalist>
+                    <input id="filterPaymentType" list="filterPaymentsList" placeholder="Fizetési mód">
+                    <datalist id="filterPaymentsList"></datalist>
+                    <input id="filterType" list="filterTypesList" placeholder="Típus">
+                    <datalist id="filterTypesList"></datalist>
+                    </select>
+                    <select id="filterShared">
+                        <option value="">Mindegy</option>
+                        <option value="x">Megosztott</option>
+                        <option value="0">Nem megosztott</option>
+                    </select>
+                    <input id="filterStatement" placeholder="Kivonat sor">
+                    <button id="clearFiltersBtn" class="secondary">Szűrők törlése</button>
+                    <button id="loadListBtn">Lista betöltése</button>
+                </div>
+                <div class="tx-toolbar">
+                    <div class="tx-toolbar-left">
+                        <label for="itemsPerPage">Tételek oldalanként:</label>
+                        <select id="itemsPerPage">
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="100" selected>100</option>
+                            <option value="all">Összes</option>
+                        </select>
+                    </div>
+
+                    <div id="transactions-result-count" class="result-count"></div>
+
+
+                    <div id="transactions-pagination" class="pagination">
+                        <button id="txFirstPageBtn" type="button" class="page-btn" aria-label="Első oldal">⏮</button>
+                        <button id="txPrevPageBtn" type="button" class="page-btn" aria-label="Előző oldal">◀</button>
+
+                        <span id="txPageInfo" class="page-info"></span>
+
+                        <button id="txNextPageBtn" type="button" class="page-btn"
+                            aria-label="Következő oldal">▶</button>
+                        <button id="txLastPageBtn" type="button" class="page-btn" aria-label="Utolsó oldal">⏭</button>
+                    </div>
+                </div>
+
+                <table id="transactionsTable" class="tx-table">
+
                     <thead>
-                        <tr id="bankImportPreviewHead"></tr>
+                        <tr>
+                            <th data-sort="month">Hónap</th>
+                            <th data-sort="date">Dátum</th>
+                            <th data-sort="amount">Összeg</th>
+                            <th data-sort="title">Jogcím</th>
+                            <th data-sort="category">Kategória</th>
+                            <th data-sort="payment_type">Fizetési mód</th>
+                            <th data-sort="transaction_type">Típus</th>
+                            <th data-sort="is_shared">Megosztott?</th>
+                            <th data-sort="statement_item">Kivonat sor</th>
+                        </tr>
                     </thead>
-                    <tbody id="bankImportPreviewBody"></tbody>
+
+                    <tbody id="transactionsBody"></tbody>
                 </table>
             </div>
-        </div>
-    </section>
+        </section>
+        <section id="page-bank-import" class="hidden">
+            <h2>Bank import</h2>
 
-<!-- Shared Expenses Panel -->
-    <section id="page-shared-expenses" class="hidden">
-        <h2>Megosztott költségek</h2>
+            <div class="container">
+                <div class="tx-toolbar">
+                    <div class="tx-toolbar-left">
+                        <button id="bankImportPickFileBtn" type="button">XLS kiválasztása</button>
+                        <button id="bankImportUploadBtn" type="button" class="secondary" disabled>Import
+                            mentése</button>
+                    </div>
+                </div>
+
+                <input id="bankImportFileInput" type="file"
+                    accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    style="display:none;">
+
+                <div id="bankImportStatus" class="result-count"></div>
+
+                <div class="table-wrapper">
+                    <table id="bankImportPreviewTable">
+                        <thead>
+                            <tr id="bankImportPreviewHead"></tr>
+                        </thead>
+                        <tbody id="bankImportPreviewBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Shared Expenses Panel -->
+        <section id="page-shared-expenses" class="hidden">
+            <h2>Megosztott költségek</h2>
             <button id="addSharedExpenseBtn" class="btn-primary">
                 + Új megosztott tétel
             </button>
@@ -310,33 +307,34 @@
 
             <!-- Shared Expenses Modal -->
             <div id="seModal" class="modal">
-            <div class="modal-content">
-                <h2 id="seModalTitle">Megosztott tétel</h2>
+                <div class="modal-content">
+                    <h2 id="seModalTitle">Megosztott tétel</h2>
 
-                <form id="seForm">
-                <input type="date" id="seDate" name="date" placeholder="Dátum">
-                <input id="seMonth" name="month" placeholder="Hónap (YYYYMM)" readonly>
+                    <form id="seForm">
+                        <input type="date" id="seDate" name="date" placeholder="Dátum">
+                        <input id="seMonth" name="month" placeholder="Hónap (YYYYMM)" readonly>
 
-                <input id="seTitle" name="title" list="titlesList" placeholder="Megnevezés">
-                <input id="seAmount" name="amount" inputmode="decimal" placeholder="Összeg">
+                        <input id="seTitle" name="title" list="titlesList" placeholder="Megnevezés">
+                        <input id="seAmount" name="amount" inputmode="decimal" placeholder="Összeg">
 
-                <input id="sePaidBy" name="paid_by" list="paidByList" placeholder="Fizette (Dóri/Zsolti)">
+                        <input id="sePaidBy" name="paid_by" list="paidByList" placeholder="Fizette (Dóri/Zsolti)">
 
-                <!-- Megosztott bontás – törlesztésnél majd elrejtjük -->
-                <div id="seSplitBlock">
-                    <input id="seZsoltiAmount" name="Zsolti_amount" inputmode="decimal" placeholder="Zsolti része">
-                    <input id="seDoriAmount" name="Dori_amount" inputmode="decimal" placeholder="Dóri része">
+                        <!-- Megosztott bontás – törlesztésnél majd elrejtjük -->
+                        <div id="seSplitBlock">
+                            <input id="seZsoltiAmount" name="Zsolti_amount" inputmode="decimal"
+                                placeholder="Zsolti része">
+                            <input id="seDoriAmount" name="Dori_amount" inputmode="decimal" placeholder="Dóri része">
+                        </div>
+
+                        <input id="seNotes" name="notes" placeholder="Megjegyzés">
+
+                        <button id="seSaveBtn" type="submit">Mentés</button>
+                        <div id="seSuccessMsg" class="msg success">Sikeresen mentve!</div>
+                        <div id="seErrorMsg" class="msg error">Hiba történt.</div>
+                        <button id="seDeleteBtn" type="button" class="secondary" style="display:none">Törlés</button>
+                        <button id="seCloseBtn" type="button" class="secondary">Mégse</button>
+                    </form>
                 </div>
-
-                <input id="seNotes" name="notes" placeholder="Megjegyzés">
-
-                <button id="seSaveBtn" type="submit">Mentés</button>
-                <div id="seSuccessMsg" class="msg success">Sikeresen mentve!</div>
-                <div id="seErrorMsg" class="msg error">Hiba történt.</div>
-                <button id="seDeleteBtn" type="button" class="secondary" style="display:none">Törlés</button>
-                <button id="seCloseBtn" type="button" class="secondary">Mégse</button>
-                </form>
-            </div>
             </div>
 
             <!-- Összesített egyenleg kijelzése -->
@@ -374,97 +372,98 @@
                 </thead>
                 <tbody id="sharedExpensesBody"></tbody>
             </table>
-    </section>
-<!-- Admin – Users -->
-<section id="page-admin-users" class="hidden">
-    <h2>Admin – Felhasználók</h2>
+        </section>
+        <!-- Admin – Users -->
+        <section id="page-admin-users" class="hidden">
+            <h2>Admin – Felhasználók</h2>
 
-    <div class="card">
-        <h3 style="margin-top:0;">Új felhasználó felvétele</h3>
+            <div class="card">
+                <h3 style="margin-top:0;">Új felhasználó felvétele</h3>
 
-        <form id="adminUserForm">
-            <label for="adminUserName">Név</label>
-            <input id="adminUserName" name="name" required>
+                <form id="adminUserForm">
+                    <label for="adminUserName">Név</label>
+                    <input id="adminUserName" name="name" required>
 
-            <label for="adminUserEmail">E-mail</label>
-            <input id="adminUserEmail" name="email" type="email" required>
+                    <label for="adminUserEmail">E-mail</label>
+                    <input id="adminUserEmail" name="email" type="email" required>
 
-            <button type="submit">Felhasználó hozzáadása</button>
-            <div id="adminUserMsg" class="msg" style="display:none;"></div>
-        </form>
-    </div>
+                    <button type="submit">Felhasználó hozzáadása</button>
+                    <div id="adminUserMsg" class="msg" style="display:none;"></div>
+                </form>
+            </div>
 
-    <div class="card">
-        <h3 style="margin-top:0;">Felhasználók</h3>
-        <table class="tx-table">
-            <thead>
-                <tr>
-                    <th>Név</th>
-                    <th>E-mail</th>
-                    <th>Hozzáférés</th>
-                    <th>Admin</th>
-                </tr>
-            </thead>
-            <tbody id="adminUsersBody"></tbody>
-        </table>
-    </div>
-</section>
-<section id="page-admin-functions" class="page hidden">
-  <div class="page-header">
-    <h2>Funkciók</h2>
-    <p class="muted">A Functions munkalap tartalma (csak admin).</p>
-  </div>
+            <div class="card">
+                <h3 style="margin-top:0;">Felhasználók</h3>
+                <table class="tx-table">
+                    <thead>
+                        <tr>
+                            <th>Név</th>
+                            <th>E-mail</th>
+                            <th>Hozzáférés</th>
+                            <th>Admin</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminUsersBody"></tbody>
+                </table>
+            </div>
+        </section>
+        <section id="page-admin-functions" class="page hidden">
+            <div class="page-header">
+                <h2>Funkciók</h2>
+                <p class="muted">A Functions munkalap tartalma (csak admin).</p>
+            </div>
 
-  <div class="card">
-    <div class="table-wrap">
-      <table class="tx-table">
-        <thead>
-          <tr>
-            <th>Funkció</th>
-            <th>Név</th>
-            <th>Leírás</th>
-          </tr>
-        </thead>
-        <tbody id="adminFunctionsBody"></tbody>
-      </table>
-    </div>
-  </div>
-</section>
-<section id="page-admin-permissions" class="page hidden">
-  <div class="page-header">
-    <h2>Jogosultságok</h2>
-    <p class="muted">Funkciónkénti hozzáférés (none / read / write) felhasználónként.</p>
-  </div>
+            <div class="card">
+                <div class="table-wrap">
+                    <table class="tx-table">
+                        <thead>
+                            <tr>
+                                <th>Funkció</th>
+                                <th>Név</th>
+                                <th>Leírás</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminFunctionsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        <section id="page-admin-permissions" class="page hidden">
+            <div class="page-header">
+                <h2>Jogosultságok</h2>
+                <p class="muted">Funkciónkénti hozzáférés (none / read / write) felhasználónként.</p>
+            </div>
 
-  <div class="card">
-    <div class="table-wrap">
-      <table class="tx-table">
-        <thead>
-          <tr>
-            <th>Felhasználó (email)</th>
-            <th>Funkció</th>
-            <th>Hozzáférés</th>
-          </tr>
-        </thead>
-        <tbody id="adminPermissionsBody"></tbody>
-      </table>
-    </div>
-  </div>
-</section>
+            <div class="card">
+                <div class="table-wrap">
+                    <table class="tx-table">
+                        <thead>
+                            <tr>
+                                <th>Felhasználó (email)</th>
+                                <th>Funkció</th>
+                                <th>Hozzáférés</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminPermissionsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
 
-<script src="utils/helpers.js"></script>
-<script src="scripts/api.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="app.js"></script>
-<script>
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./service-worker.js").catch(() => {});
-  });
-}
-</script>
+        <script src="utils/helpers.js"></script>
+        <script src="scripts/api.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+        <script src="app.js"></script>
+        <script>
+            if ("serviceWorker" in navigator) {
+                window.addEventListener("load", () => {
+                    navigator.serviceWorker.register("./service-worker.js").catch(() => { });
+                });
+            }
+        </script>
 
-</div> <!-- content-wrapper -->
+    </div> <!-- content-wrapper -->
 
 </body>
+
 </html>

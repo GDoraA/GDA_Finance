@@ -1,6 +1,6 @@
 // ----------- API KONFIG -------------
 
-const API_URL = "https://script.google.com/macros/s/AKfycbxeqtEmQB3E4foeLHQtAo672iOz_lqs6lQvpzLVX990yy6hoSmFEb_bWwJLndf7kA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbznsv4nhRoJ8blT-BTb84zeGNpIyMUGcdFpRsG-4NuqBXN3JfCN4MmZKYYFj0Ft_lQ/exec";
 
 
 // ----------- JSONP HÍVÓ FUNKCIÓ -------------
@@ -59,6 +59,9 @@ const api = {
 
     getTransactions() {
         return jsonp("getTransactions");
+    },
+    getBankTransactions() {
+        return jsonp("getBankTransactions");
     },
 
     updateTransaction(data) {

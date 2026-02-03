@@ -469,10 +469,14 @@ button.secondary {
 
 @media (max-width: 600px) {
 
-    /* Elrejtjük a táblázat fejléceit */
+    /* Elrejtjük a táblázat fejléceit (kivéve a bank import preview-t) */
     .tx-table thead {
         display: none;
     }
+    #bankImportPreviewTable thead {
+        display: table-header-group;
+    }
+
 
     /* A sorok kártyákká alakulnak */
     .tx-table tr {

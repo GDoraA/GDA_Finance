@@ -1918,12 +1918,22 @@ function showPage(page) {
         applySidebarPermissions();
         return;
     }
-    if (page === "bank-import") {
+if (page === "bank-import") {
         bankImportPage.classList.remove("hidden");
         bankImportBtn.classList.add("active");
         applySidebarPermissions();
+
+        // a táblázat/fejléc azonnal látszódjon (akkor is, ha még nincs adat)
+        renderBankPreview(bankImportItems);
+
+        // majd töltsük be a már mentett banki sorokat és frissítsük a táblát
+        loadBankTransactions(); // sheetből betöltés + render
+
         return;
     }
+
+
+
 
     if (page === "admin-users") {
         adminPage.classList.remove("hidden");
@@ -1960,9 +1970,12 @@ document.getElementById("showBankImportBtn").addEventListener("click", () => {
     showPage("bank-import");
 });
 // =========================
-// BANK IMPORT (XLS/XLSX)
+// BANK IMPORT (CSV)
 // =========================
 let bankImportItems = [];
+let bankImportSelectedFile = null;
+let bankImportBatchId = "";
+
 
 const bankPickBtn = document.getElementById("bankImportPickFileBtn");
 const bankUploadBtn = document.getElementById("bankImportUploadBtn");
@@ -2001,7 +2014,7 @@ const toMonthYYYYMM = (isoDate) => {
 };
 
 const normalizeAmount = (v) => {
-    // XLS-ből jöhet number, string "1 234,56", stb.
+    // CSV-ből jöhet string "1 234,56", stb.
     if (v == null) return "";
     if (typeof v === "number") return v;
     const s = String(v).trim()
@@ -2011,159 +2024,316 @@ const normalizeAmount = (v) => {
     const n = Number(s);
     return isNaN(n) ? "" : n;
 };
-
 const renderBankPreview = (items) => {
     if (!bankHeadRow || !bankBody) return;
 
-    bankHeadRow.innerHTML = "";
-    bankBody.innerHTML = "";
-
+    // a sheet (backend) 18 mezős struktúrája
     const cols = [
-        "transaction_date", "posting_date", "type", "direction", "partner_name", "partner_account",
-        "spend_category", "memo", "account_name", "account_number", "amount", "currency"
+        "id",
+        "month",
+        "transaction_date",
+        "posting_date",
+        "type",
+        "direction",
+        "partner_name",
+        "partner_account",
+        "spend_category",
+        "memo",
+        "account_name",
+        "account_number",
+        "amount",
+        "currency",
+        "source_file",
+        "import_batch_id",
+        "created_by",
+        "created_at"
     ];
 
-    // head
-    cols.forEach(c => {
+    const labels = {
+        id: "ID",
+        month: "Hónap",
+        transaction_date: "Tranzakció dátum",
+        posting_date: "Könyvelés dátum",
+        type: "Típus",
+        direction: "Irány",
+        partner_name: "Partner neve",
+        partner_account: "Partner számla",
+        spend_category: "Költési kategória",
+        memo: "Közlemény",
+        account_name: "Számla neve",
+        account_number: "Számlaszám",
+        amount: "Összeg",
+        currency: "Deviza",
+        source_file: "Forrás fájl",
+        import_batch_id: "Import batch ID",
+        created_by: "Rögzítette",
+        created_at: "Rögzítés ideje"
+    };
+
+    // fejléc
+    bankHeadRow.innerHTML = "";
+    cols.forEach((c) => {
         const th = document.createElement("th");
-        th.textContent = c;
+        th.textContent = labels[c] || c;
         bankHeadRow.appendChild(th);
     });
 
     // body (max 200 sor preview)
-    (items || []).slice(0, 200).forEach(it => {
+    bankBody.innerHTML = "";
+    const safeItems = Array.isArray(items) ? items : [];
+    safeItems.slice(0, 200).forEach((it) => {
         const tr = document.createElement("tr");
-        cols.forEach(c => {
+        cols.forEach((c) => {
             const td = document.createElement("td");
-            td.textContent = (it[c] ?? "").toString();
+            const v = (it && it[c] != null) ? it[c] : "";
+            td.textContent = String(v);
             tr.appendChild(td);
         });
         bankBody.appendChild(tr);
     });
 };
+async function loadBankTransactions() {
+    try {
+        if (!api?.getBankTransactions) {
+            setBankStatus("Hiba: api.getBankTransactions nincs definiálva (api.js).");
+            return;
+        }
+
+        setBankStatus("Banki adatok betöltése…");
+        const res = await api.getBankTransactions();
+
+        if (!res || !res.success) {
+            console.error("Nem sikerült betölteni a banki tranzakciókat.", res);
+            setBankStatus("Nem sikerült betölteni a banki adatokat (API).");
+            return;
+        }
+
+        bankImportItems = Array.isArray(res.data) ? res.data : [];
+        renderBankPreview(bankImportItems);
+        setBankStatus(`Betöltve: ${bankImportItems.length} sor.`);
+
+    } catch (err) {
+        console.error(err);
+        setBankStatus("Hiba a banki adatok betöltése során.");
+    }
+}
+
+
+const parseBankImportFile = async (file) => {
+
+    const buf = await file.arrayBuffer();
+
+    const decode = (enc) => {
+        const dec = new TextDecoder(enc, { fatal: false });
+        let txt = dec.decode(buf);
+        if (txt && txt.charCodeAt(0) === 0xFEFF) txt = txt.slice(1); // BOM
+        return txt;
+    };
+
+    const looksBad = (s) => ((s.match(/\uFFFD/g) || []).length >= 2);
+
+    let text = decode("utf-8");
+    if (looksBad(text)) {
+        try { text = decode("windows-1250"); } catch (e) {}
+    }
+
+    const linesRaw = text
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n")
+        .split("\n")
+        .map(l => l.trim())
+        .filter(l => l.length > 0);
+
+    if (!linesRaw || linesRaw.length < 2) return [];
+
+    const detectDelimiterLocal = (line) => {
+        if (line.indexOf("\t") >= 0) return "\t";
+        const commas = (line.match(/,/g) || []).length;
+        const semis  = (line.match(/;/g) || []).length;
+        return semis > commas ? ";" : ",";
+    };
+
+    const parseCsvLineLocal = (line, delimiter) => {
+        const out = [];
+        let cur = "";
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+
+            if (ch === '"') {
+                if (inQuotes && line[i + 1] === '"') {
+                    cur += '"';
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+                continue;
+            }
+
+            if (!inQuotes && ch === delimiter) {
+                out.push(cur);
+                cur = "";
+                continue;
+            }
+
+            cur += ch;
+        }
+        out.push(cur);
+        return out.map(s => s.trim());
+    };
+
+    const delimiter = detectDelimiterLocal(linesRaw[0]);
+    const rows = linesRaw.map(line => parseCsvLineLocal(line, delimiter));
+
+    const H = (rows[0] || []).map(h => String(h || "").trim().toLowerCase());
+
+    const idx = (...names) => {
+        const wanted = names.map(n => String(n).trim().toLowerCase());
+        for (let i = 0; i < H.length; i++) {
+            const h = H[i];
+            if (!h) continue;
+            if (wanted.includes(h)) return i;
+        }
+        for (let i = 0; i < H.length; i++) {
+            const h = H[i];
+            if (!h) continue;
+            if (wanted.some(w => w && h.includes(w))) return i;
+        }
+        return -1;
+    };
+
+    const iTxDate = idx("transaction_date", "tranzakció dátum", "tranzakcio datum", "dátum", "datum", "value date", "transaction date");
+    const iPost   = idx("posting_date", "könyvelés dátum", "konyveles datum", "posting date", "book date");
+    const iAmt    = idx("amount", "összeg", "osszeg", "sum", "érték", "amount (huf)");
+    const iMemo   = idx("memo", "közlemény", "kozlemeny", "megjegyzés", "megjegyzes", "comment", "note");
+
+    // + további mezők a te 18 oszlopos sémádhoz
+    const iType          = idx("type", "típus", "tipus", "trn type", "transaction type");
+    const iDirection     = idx("direction", "irány", "irany", "debit/credit", "credit/debit", "dr/cr");
+    const iPartnerName   = idx("partner_name", "partner neve", "ellenoldali név", "ellenoldali nev", "counterparty name", "beneficiary");
+    const iPartnerAcc    = idx("partner_account", "partner számla", "partner szamla", "ellenoldali számla", "ellenoldali szamla", "counterparty account", "iban");
+    const iSpendCategory = idx("spend_category", "kategória", "kategoria", "category");
+    const iAccName       = idx("account_name", "számla neve", "szamla neve", "account name");
+    const iAccNumber     = idx("account_number", "számlaszám", "szamlaszam", "account number");
+    const iCurrency      = idx("currency", "deviza", "pénznem", "penznem", "ccy");
+
+    const getCell = (row, i) => (i >= 0 ? String(row[i] ?? "").trim() : "");
+
+    const items = [];
+
+    for (let r = 1; r < rows.length; r++) {
+        const row = rows[r] || [];
+
+        const rawTxDate = (iTxDate >= 0 ? row[iTxDate] : row[0]) ?? "";
+        const rawAmt    = (iAmt   >= 0 ? row[iAmt]   : row[row.length - 1]) ?? "";
+
+        const txDateIso = toIsoDate(rawTxDate);
+        const amt = normalizeAmount(rawAmt);
+
+        if (!txDateIso || amt === "" || amt == null) continue;
+
+        const postingIso = (iPost >= 0) ? toIsoDate(row[iPost]) : "";
+
+        const currency = getCell(row, iCurrency) || "HUF";
+
+        items.push({
+            // id-t a backend generálja
+            id: "",
+
+            month: toMonthYYYYMM(txDateIso),
+            transaction_date: txDateIso,
+            posting_date: postingIso,
+
+            type: getCell(row, iType),
+            direction: getCell(row, iDirection),
+            partner_name: getCell(row, iPartnerName),
+            partner_account: getCell(row, iPartnerAcc),
+            spend_category: getCell(row, iSpendCategory),
+
+            memo: (iMemo >= 0 ? String(row[iMemo] ?? "").trim() : ""),
+
+            account_name: getCell(row, iAccName),
+            account_number: getCell(row, iAccNumber),
+
+            amount: amt,
+            currency,
+
+            source_file: (file && file.name) ? file.name : "",
+            import_batch_id: "",
+
+            created_by: "",
+            created_at: ""
+        });
+    }
+
+
+    return items;
+};
+
+ 
 
 bankPickBtn?.addEventListener("click", () => bankFileInput?.click());
 
 bankFileInput?.addEventListener("change", async (e) => {
-    try {
-        bankImportItems = [];
+    bankImportItems = [];
+    bankImportSelectedFile = null;
+
+    if (bankUploadBtn) bankUploadBtn.disabled = true;
+    setBankStatus("");
+
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    bankImportSelectedFile = file;
+
+    // NE töröld le a táblát! A képernyőn maradjon a sheetből betöltött lista.
+    setBankStatus(`Kiválasztva: ${file.name}`);
+    setBankStatus("Feldolgozás…");
+
+    const items = await parseBankImportFile(file);
+
+    // import batch azonosító generálása betöltéskor (1 fájl = 1 batch)
+    bankImportBatchId = `BIMP-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+
+    // bankImportItems: ez megy majd mentésre, de NEM rendereljük ki preview-ként
+    bankImportItems = (items || []).map(it => ({
+        ...it,
+        source_file: (file && file.name) ? file.name : (it?.source_file || ""),
+        import_batch_id: bankImportBatchId
+    }));
+
+    if (!bankImportItems || bankImportItems.length === 0) {
         if (bankUploadBtn) bankUploadBtn.disabled = true;
-        setBankStatus("");
-
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        if (typeof XLSX === "undefined") {
-            setBankStatus("Hiba: XLSX könyvtár nem töltődött be (xlsx.full.min.js).");
-            return;
-        }
-
-        setBankStatus("Fájl beolvasása…");
-
-        const buf = await file.arrayBuffer();
-        const wb = XLSX.read(buf, { type: "array", cellDates: true });
-
-        const firstSheetName = wb.SheetNames?.[0];
-        if (!firstSheetName) {
-            setBankStatus("Hiba: nem található munkalap az XLS/XLSX fájlban.");
-            return;
-        }
-
-        const ws = wb.Sheets[firstSheetName];
-        // 1. sor: header
-        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" });
-
-        if (!rows || rows.length < 2) {
-            setBankStatus("Nincs importálható adat (üres vagy csak fejléc).");
-            return;
-        }
-
-        const header = rows[0].map(h => String(h || "").trim());
-        const idx = (name) => header.findIndex(h => h === name);
-
-        // Banki fejlécek (a user által megadottak)
-        const H = {
-            txDate: "Tranzakció dátuma",
-            bookDate: "Könyvelés dátuma",
-            type: "Típus",
-            dir: "Bejövő/Kimenő",
-            partnerName: "Partner neve",
-            partnerAcc: "Partner számlaszáma/azonosítója",
-            cat: "Költési kategória",
-            memo: "Közlemény",
-            accName: "Számla név",
-            accNo: "Számla szám",
-            amount: "Összeg",
-            curr: "Pénznem"
-        };
-
-        // minimál ellenőrzés: dátum + összeg
-        const iTxDate = idx(H.txDate);
-        const iAmt = idx(H.amount);
-        if (iTxDate < 0 || iAmt < 0) {
-            setBankStatus(`Hiba: hiányzó kötelező fejléc. Kell: "${H.txDate}" és "${H.amount}".`);
-            return;
-        }
-
-        const iBook = idx(H.bookDate);
-        const iType = idx(H.type);
-        const iDir = idx(H.dir);
-        const iPN = idx(H.partnerName);
-        const iPA = idx(H.partnerAcc);
-        const iCat = idx(H.cat);
-        const iMemo = idx(H.memo);
-        const iAN = idx(H.accName);
-        const iANo = idx(H.accNo);
-        const iCur = idx(H.curr);
-
-        const items = [];
-        for (let r = 1; r < rows.length; r++) {
-            const row = rows[r] || [];
-            const txDateIso = toIsoDate(row[iTxDate]);
-            const amount = normalizeAmount(row[iAmt]);
-
-            if (!txDateIso || amount === "") continue;
-
-            const it = {
-                month: toMonthYYYYMM(txDateIso),
-                transaction_date: txDateIso,
-                posting_date: toIsoDate(iBook >= 0 ? row[iBook] : ""),
-                type: iType >= 0 ? row[iType] : "",
-                direction: iDir >= 0 ? row[iDir] : "",
-                partner_name: iPN >= 0 ? row[iPN] : "",
-                partner_account: iPA >= 0 ? row[iPA] : "",
-                spend_category: iCat >= 0 ? row[iCat] : "",
-                memo: iMemo >= 0 ? row[iMemo] : "",
-                account_name: iAN >= 0 ? row[iAN] : "",
-                account_number: iANo >= 0 ? row[iANo] : "",
-                amount,
-                currency: iCur >= 0 ? row[iCur] : "",
-                source_file: file.name,
-                import_batch_id: "BI_" + Date.now()
-            };
-
-            items.push(it);
-        }
-
-        bankImportItems = items;
-        renderBankPreview(items);
-
-        if (bankUploadBtn) bankUploadBtn.disabled = (items.length === 0);
-
-        setBankStatus(`Beolvasva: ${items.length} sor. (Preview max 200)`);
-    } catch (err) {
-        console.error(err);
-        setBankStatus("Hiba a fájl beolvasásakor / feldolgozásakor.");
-        if (bankUploadBtn) bankUploadBtn.disabled = true;
+        setBankStatus("Nincs importálható adat (üres vagy hibás struktúra).");
+        return;
     }
+
+    if (bankUploadBtn) bankUploadBtn.disabled = false;
+    setBankStatus(`Beolvasva: ${bankImportItems.length} sor. Mentéshez kattints az Import gombra.`);
+
 });
+
 
 bankUploadBtn?.addEventListener("click", async () => {
     try {
+
+
+        if (!bankImportSelectedFile) {
+            setBankStatus("Nincs kiválasztott fájl.");
+            return;
+        }
+
+        if (!bankImportBatchId) {
+            setBankStatus("Hiányzik az import batch azonosító (import_batch_id). Válaszd ki újra a fájlt.");
+            return;
+        }
+
         if (!bankImportItems || bankImportItems.length === 0) {
             setBankStatus("Nincs importálható sor.");
             return;
         }
+
 
         if (!api?.addBankTransactions) {
             setBankStatus("Hiba: api.addBankTransactions nincs definiálva (api.js).");
@@ -2173,18 +2343,53 @@ bankUploadBtn?.addEventListener("click", async () => {
         setBankStatus("Mentés folyamatban…");
         bankUploadBtn.disabled = true;
 
-        const res = await api.addBankTransactions(bankImportItems);
+        let ok = 0;
+        let fail = 0;
 
-        if (!res || !res.success) {
-            console.error("Bank import mentés hiba:", res);
-            setBankStatus("Hiba a mentés során (API).");
-            bankUploadBtn.disabled = false;
-            return;
+        const BANK_BATCH_SIZE = 50;
+
+        async function sendBatchWithSplit(payloads) {
+            if (!payloads || payloads.length === 0) return;
+
+            try {
+                const resp = await api.addBankTransactions(payloads);
+
+                // backend itt tipikusan {success:true, ok:X, fail:Y, ...}
+                if (!resp || !resp.success) {
+                    fail += payloads.length;
+                    return;
+                }
+
+                ok += Number(resp.ok ?? 0);
+                fail += Number(resp.fail ?? 0);
+                return;
+
+            } catch (err) {
+                const msg = (err && err.message) ? err.message : String(err || "Ismeretlen hiba");
+                const isJsonp = String(msg).toLowerCase().includes("jsonp");
+
+                // ha nem JSONP hiba vagy már 1 elem is hibázik, akkor mind fail
+                if (!isJsonp || payloads.length <= 1) {
+                    fail += payloads.length;
+                    return;
+                }
+
+                // felezés és újrapróba
+                const mid = Math.ceil(payloads.length / 2);
+                await sendBatchWithSplit(payloads.slice(0, mid));
+                await sendBatchWithSplit(payloads.slice(mid));
+            }
         }
 
-        setBankStatus(`Mentve. OK: ${res.ok ?? "?"}, Hiba: ${res.fail ?? "?"}`);
-        // opcionálisan: ürítés
-        // bankImportItems = [];
+        for (let i = 0; i < bankImportItems.length; i += BANK_BATCH_SIZE) {
+            const batch = bankImportItems.slice(i, i + BANK_BATCH_SIZE);
+            await sendBatchWithSplit(batch);
+            setBankStatus(`Mentés fut… OK: ${ok}, Hiba: ${fail} (batch: ${Math.min(i + BANK_BATCH_SIZE, bankImportItems.length)}/${bankImportItems.length})`);
+        }
+
+        setBankStatus(`Mentve. OK: ${ok}, Hiba: ${fail}`);
+        await loadBankTransactions();
+
     } catch (err) {
         console.error(err);
         setBankStatus("Hiba a mentés során.");

@@ -712,6 +712,38 @@ function doGet(e) {
       }
 
       result = addBankTransactions_(items);
+    } else if (action === "getBankTransactions") {
+      // jogosultság: egyelőre ugyanahhoz kötjük, mint az importot (write -> read is ok)
+      requirePermission_(auth, "tx_import", "read");
+
+      const sheet = SpreadsheetApp.getActive().getSheetByName("Bank_Transactions");
+      if (!sheet) throw new Error('Nem található a "Bank_Transactions" nevű munkalap.');
+
+      const data = sheet.getDataRange().getValues();
+      if (!data || data.length < 2) {
+        result = { success: true, data: [] };
+        return createJsonOrJsonpResponse_(result, callback);
+      }
+
+      const header = data[0];
+      const tz = Session.getScriptTimeZone();
+
+      const rows = data.slice(1).map(row => {
+        const obj = {};
+        header.forEach((name, idx) => {
+          const cell = row[idx];
+
+          // dátumok stabil visszaadása (YYYY-MM-DD)
+          if (cell instanceof Date && !isNaN(cell.getTime())) {
+            obj[name] = Utilities.formatDate(cell, tz, "yyyy-MM-dd");
+          } else {
+            obj[name] = cell;
+          }
+        });
+        return obj;
+      });
+
+      result = { success: true, data: rows };
 
     } else if (action === "deleteSharedExpense") {
       requirePermission_(auth, "se_delete", "write");

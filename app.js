@@ -1350,7 +1350,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // eredeti init
         await loadMyPermissions();
-        
+
         showPage(getLandingPage());
 
 
@@ -1369,7 +1369,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         showApp();
         await loadMyPermissions();
-        
+
         showPage(getLandingPage());
 
 
@@ -1907,7 +1907,7 @@ function showPage(page) {
         txPage.classList.remove("hidden");
         txBtn.classList.add("active");
         loadTransactions();
-        
+
         return;
     }
 
@@ -1915,13 +1915,13 @@ function showPage(page) {
         sharedPage.classList.remove("hidden");
         sharedBtn.classList.add("active");
         loadSharedExpenses();
-        
+
         return;
     }
-if (page === "bank-import") {
+    if (page === "bank-import") {
         bankImportPage.classList.remove("hidden");
         bankImportBtn.classList.add("active");
-        
+
 
         // a táblázat/fejléc azonnal látszódjon (akkor is, ha még nincs adat)
         renderBankPreview(bankImportItems);
@@ -1939,21 +1939,21 @@ if (page === "bank-import") {
         adminPage.classList.remove("hidden");
         adminBtn.classList.add("active");
         loadAdminUsers();
-        
+
         return;
     }
     if (page === "admin-functions") {
         adminFunctionsPage.classList.remove("hidden");
         adminFunctionsBtn.classList.add("active");
         loadAdminFunctions();
-        
+
         return;
     }
     if (page === "admin-permissions") {
         adminPermissionsPage.classList.remove("hidden");
         adminPermissionsBtn.classList.add("active");
         loadAdminPermissions();
-        
+
         return;
     }
 }
@@ -2134,7 +2134,7 @@ const parseBankImportFile = async (file) => {
 
     let text = decode("utf-8");
     if (looksBad(text)) {
-        try { text = decode("windows-1250"); } catch (e) {}
+        try { text = decode("windows-1250"); } catch (e) { }
     }
 
     const linesRaw = text
@@ -2149,7 +2149,7 @@ const parseBankImportFile = async (file) => {
     const detectDelimiterLocal = (line) => {
         if (line.indexOf("\t") >= 0) return "\t";
         const commas = (line.match(/,/g) || []).length;
-        const semis  = (line.match(/;/g) || []).length;
+        const semis = (line.match(/;/g) || []).length;
         return semis > commas ? ";" : ",";
     };
 
@@ -2204,19 +2204,19 @@ const parseBankImportFile = async (file) => {
     };
 
     const iTxDate = idx("transaction_date", "tranzakció dátum", "tranzakcio datum", "dátum", "datum", "value date", "transaction date");
-    const iPost   = idx("posting_date", "könyvelés dátum", "konyveles datum", "posting date", "book date");
-    const iAmt    = idx("amount", "összeg", "osszeg", "sum", "érték", "amount (huf)");
-    const iMemo   = idx("memo", "közlemény", "kozlemeny", "megjegyzés", "megjegyzes", "comment", "note");
+    const iPost = idx("posting_date", "könyvelés dátum", "konyveles datum", "posting date", "book date");
+    const iAmt = idx("amount", "összeg", "osszeg", "sum", "érték", "amount (huf)");
+    const iMemo = idx("memo", "közlemény", "kozlemeny", "megjegyzés", "megjegyzes", "comment", "note");
 
     // + további mezők a te 18 oszlopos sémádhoz
-    const iType          = idx("type", "típus", "tipus", "trn type", "transaction type");
-    const iDirection     = idx("direction", "irány", "irany", "debit/credit", "credit/debit", "dr/cr");
-    const iPartnerName   = idx("partner_name", "partner neve", "ellenoldali név", "ellenoldali nev", "counterparty name", "beneficiary");
-    const iPartnerAcc    = idx("partner_account", "partner számla", "partner szamla", "ellenoldali számla", "ellenoldali szamla", "counterparty account", "iban");
+    const iType = idx("type", "típus", "tipus", "trn type", "transaction type");
+    const iDirection = idx("direction", "irány", "irany", "debit/credit", "credit/debit", "dr/cr");
+    const iPartnerName = idx("partner_name", "partner neve", "ellenoldali név", "ellenoldali nev", "counterparty name", "beneficiary");
+    const iPartnerAcc = idx("partner_account", "partner számla", "partner szamla", "ellenoldali számla", "ellenoldali szamla", "counterparty account", "iban");
     const iSpendCategory = idx("spend_category", "kategória", "kategoria", "category");
-    const iAccName       = idx("account_name", "számla neve", "szamla neve", "account name");
-    const iAccNumber     = idx("account_number", "számlaszám", "szamlaszam", "account number");
-    const iCurrency      = idx("currency", "deviza", "pénznem", "penznem", "ccy");
+    const iAccName = idx("account_name", "számla neve", "szamla neve", "account name");
+    const iAccNumber = idx("account_number", "számlaszám", "szamlaszam", "account number");
+    const iCurrency = idx("currency", "deviza", "pénznem", "penznem", "ccy");
 
     const getCell = (row, i) => (i >= 0 ? String(row[i] ?? "").trim() : "");
 
@@ -2226,7 +2226,7 @@ const parseBankImportFile = async (file) => {
         const row = rows[r] || [];
 
         const rawTxDate = (iTxDate >= 0 ? row[iTxDate] : row[0]) ?? "";
-        const rawAmt    = (iAmt   >= 0 ? row[iAmt]   : row[row.length - 1]) ?? "";
+        const rawAmt = (iAmt >= 0 ? row[iAmt] : row[row.length - 1]) ?? "";
 
         const txDateIso = toIsoDate(rawTxDate);
         const amt = normalizeAmount(rawAmt);
@@ -2271,7 +2271,7 @@ const parseBankImportFile = async (file) => {
     return items;
 };
 
- 
+
 
 bankPickBtn?.addEventListener("click", () => bankFileInput?.click());
 

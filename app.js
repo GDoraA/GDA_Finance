@@ -1350,7 +1350,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // eredeti init
         await loadMyPermissions();
-        applySidebarPermissions();
+        
         showPage(getLandingPage());
 
 
@@ -1369,7 +1369,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         showApp();
         await loadMyPermissions();
-        applySidebarPermissions();
+        
         showPage(getLandingPage());
 
 
@@ -1907,7 +1907,7 @@ function showPage(page) {
         txPage.classList.remove("hidden");
         txBtn.classList.add("active");
         loadTransactions();
-        applySidebarPermissions();
+        
         return;
     }
 
@@ -1915,13 +1915,13 @@ function showPage(page) {
         sharedPage.classList.remove("hidden");
         sharedBtn.classList.add("active");
         loadSharedExpenses();
-        applySidebarPermissions();
+        
         return;
     }
 if (page === "bank-import") {
         bankImportPage.classList.remove("hidden");
         bankImportBtn.classList.add("active");
-        applySidebarPermissions();
+        
 
         // a táblázat/fejléc azonnal látszódjon (akkor is, ha még nincs adat)
         renderBankPreview(bankImportItems);
@@ -1939,21 +1939,21 @@ if (page === "bank-import") {
         adminPage.classList.remove("hidden");
         adminBtn.classList.add("active");
         loadAdminUsers();
-        applySidebarPermissions();
+        
         return;
     }
     if (page === "admin-functions") {
         adminFunctionsPage.classList.remove("hidden");
         adminFunctionsBtn.classList.add("active");
         loadAdminFunctions();
-        applySidebarPermissions();
+        
         return;
     }
     if (page === "admin-permissions") {
         adminPermissionsPage.classList.remove("hidden");
         adminPermissionsBtn.classList.add("active");
         loadAdminPermissions();
-        applySidebarPermissions();
+        
         return;
     }
 }

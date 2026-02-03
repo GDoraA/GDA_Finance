@@ -11,8 +11,8 @@
     --light: #F7F7F7;
     --dark: #2A2A3E;
     --radius: 14px;
-    --shadow: 0 8px 20px rgba(0,0,0,0.08);
-    --shadow-light: 0 4px 12px rgba(0,0,0,0.05);
+    --shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    --shadow-light: 0 4px 12px rgba(0, 0, 0, 0.05);
     --input-bg: #fff;
     --border: #ddd;
 }
@@ -66,24 +66,31 @@ label {
     font-weight: 600;
     color: var(--primary);
 }
+
 .result-count {
     font-weight: 600;
     color: var(--primary);
     font-size: 0.95rem;
 }
+
 input,
 select {
     width: 100%;
-    max-width: 100%;      /* KRITIKUS */
-    padding: 4px 8px;    /* kisebb magasság */
-    margin-bottom: 10px;  /* kicsit kompaktabb */
+    max-width: 100%;
+    /* KRITIKUS */
+    padding: 4px 8px;
+    /* kisebb magasság */
+    margin-bottom: 10px;
+    /* kicsit kompaktabb */
     border-radius: var(--radius);
     border: 1px solid var(--border);
     background: var(--input-bg);
     box-sizing: border-box;
-    line-height: 1.2;     /* stabilabb magasság */
+    line-height: 1.2;
+    /* stabilabb magasság */
     transition: all 0.2s ease;
 }
+
 input:focus,
 select:focus {
     border-color: var(--primary);
@@ -99,6 +106,7 @@ input[list] {
     background-size: 16px;
     cursor: text;
 }
+
 #seSplitBlock {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -110,7 +118,8 @@ input[list] {
    ========================================================================== */
 
 button {
-    width: auto;              /* ← ez a lényeg */
+    width: auto;
+    /* ← ez a lényeg */
     padding: 6px 10px;
     font-weight: 600;
     border: none;
@@ -125,7 +134,7 @@ button {
 /* Compact buttons – transactions page */
 #openModalBtn,
 #importCsvBtn,
-#toggleFiltersBtn, 
+#toggleFiltersBtn,
 #csvHelpBtn {
 
     line-height: 1.1;
@@ -221,6 +230,7 @@ button:active {
         font-size: 1rem;
     }
 }
+
 /* ==========================================================================
    MODAL
    ========================================================================== */
@@ -228,7 +238,7 @@ button:active {
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.45);
+    background: rgba(0, 0, 0, 0.45);
     opacity: 0;
     pointer-events: none;
     transition: 0.25s ease;
@@ -246,8 +256,10 @@ button:active {
     left: 50%;
     width: 90%;
     max-width: 420px;
-    max-height: 90vh;              /* ÚJ: ne lógjon ki a képernyőről */
-    overflow: hidden;              /* ÚJ: a belső tartalom görgessen */
+    max-height: 90vh;
+    /* ÚJ: ne lógjon ki a képernyőről */
+    overflow: hidden;
+    /* ÚJ: a belső tartalom görgessen */
     transform: translate(-50%, -50%) scale(0.8);
     opacity: 0;
     background: white;
@@ -257,7 +269,8 @@ button:active {
     transition: 0.25s ease;
     z-index: 100;
     pointer-events: none;
-    box-sizing: border-box;        /* ÚJ: padding ne növelje túl */
+    box-sizing: border-box;
+    /* ÚJ: padding ne növelje túl */
 }
 
 
@@ -266,9 +279,12 @@ button:active {
     transform: translate(-50%, -50%) scale(1);
     pointer-events: all;
 }
+
 .modal-content {
-    max-height: calc(90vh - 40px); /* 90vh - (modal padding: 20px*2) */
-    overflow-y: auto;              /* ÚJ: hosszú form esetén belső scroll */
+    max-height: calc(90vh - 40px);
+    /* 90vh - (modal padding: 20px*2) */
+    overflow-y: auto;
+    /* ÚJ: hosszú form esetén belső scroll */
     -webkit-overflow-scrolling: touch;
 }
 
@@ -279,19 +295,23 @@ button:active {
 button.secondary {
     background: #bbb;
 }
+
 /* ==========================================================================
    TABLE DISPLAY
    ========================================================================== */
 
 .tx-table {
     width: 100%;
-    border-collapse: separate; /* sticky kompatibilis */
-    border-spacing: 0;         /* ne legyen rés a cellák közt */
+    border-collapse: separate;
+    /* sticky kompatibilis */
+    border-spacing: 0;
+    /* ne legyen rés a cellák közt */
     background: white;
     border-radius: var(--radius);
     /* overflow: hidden;  <-- EZ VOLT A HIBÁS, KI KELL VENNI */
     box-shadow: var(--shadow);
 }
+
 /* Sticky table header (desktop/tablet) */
 .tx-table thead th {
     position: sticky;
@@ -342,11 +362,14 @@ button.secondary {
 
 /* mobil */
 @media (max-width: 600px) {
-    .tx-table th, .tx-table td {
+
+    .tx-table th,
+    .tx-table td {
         padding: 10px 6px;
         font-size: 0.85rem;
     }
 }
+
 .filters {
     overflow: hidden;
     transition: max-height 0.35s ease;
@@ -355,7 +378,8 @@ button.secondary {
 }
 
 .filters.open {
-    max-height: 800px; /* elég nagy érték a tartalomhoz */
+    max-height: 800px;
+    /* elég nagy érték a tartalomhoz */
     opacity: 1;
 }
 
@@ -370,8 +394,10 @@ button.secondary {
     font-size: 0.85rem;
     line-height: 1.1;
 
-    margin-right: 6px;   /* gombok közti térköz */
-    margin-bottom: 8px;  /* kis vertikális tér mobilon */
+    margin-right: 6px;
+    /* gombok közti térköz */
+    margin-bottom: 8px;
+    /* kis vertikális tér mobilon */
 }
 
 
@@ -379,6 +405,7 @@ button.secondary {
 button.secondary {
     background: #bbb;
 }
+
 /* ============================
    TABLE SORT ICONS
    ============================ */
@@ -406,12 +433,14 @@ button.secondary {
     content: "▼";
     opacity: 1;
 }
+
 /* ============================
    TABLE – STICKY HEADER
    ============================ */
 
 #transactionsTable {
-    border-collapse: separate; /* sticky-hez szükséges */
+    border-collapse: separate;
+    /* sticky-hez szükséges */
     border-spacing: 0;
 }
 
@@ -436,13 +465,14 @@ button.secondary {
     text-align: right;
     font-variant-numeric: tabular-nums;
 }
+
 /* Saját rész inputok igazítása */
 .se-zsolti-amount,
 .se-dori-amount {
     text-align: right;
     font-variant-numeric: tabular-nums;
-      width: 100%;
-      box-sizing: border-box;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 /* ============================
@@ -450,16 +480,20 @@ button.secondary {
    ============================ */
 
 .amount-expense {
-    color: #c62828; /* piros */
+    color: #c62828;
+    /* piros */
     font-weight: 700;
 }
 
 .amount-income {
-    color: #1565c0; /* kék */
+    color: #1565c0;
+    /* kék */
     font-weight: 700;
 }
+
 .amount-saving {
-    color: #6a1b9a; /* lila */
+    color: #6a1b9a;
+    /* lila */
     font-weight: 700;
 }
 
@@ -473,6 +507,7 @@ button.secondary {
     .tx-table thead {
         display: none;
     }
+
     #bankImportPreviewTable thead {
         display: table-header-group;
     }
@@ -505,31 +540,93 @@ button.secondary {
     }
 
     /* A mezőnevek hozzárendelése oszlopsorrend alapján */
-    #transactionsTable td:nth-child(1)::before { content: "Hónap"; }
-    #transactionsTable td:nth-child(2)::before { content: "Dátum"; }
-    #transactionsTable td:nth-child(3)::before { content: "Összeg"; }
-    #transactionsTable td:nth-child(4)::before { content: "Megnevezés"; }
-    #transactionsTable td:nth-child(5)::before { content: "Kategória"; }
-    #transactionsTable td:nth-child(6)::before { content: "Fizetési mód"; }
-    #transactionsTable td:nth-child(7)::before { content: "Típus"; }
-    #transactionsTable td:nth-child(8)::before { content: "Megosztott?"; }
-    #transactionsTable td:nth-child(9)::before { content: "Kivonat sor"; }
+    #transactionsTable td:nth-child(1)::before {
+        content: "Hónap";
+    }
+
+    #transactionsTable td:nth-child(2)::before {
+        content: "Dátum";
+    }
+
+    #transactionsTable td:nth-child(3)::before {
+        content: "Összeg";
+    }
+
+    #transactionsTable td:nth-child(4)::before {
+        content: "Megnevezés";
+    }
+
+    #transactionsTable td:nth-child(5)::before {
+        content: "Kategória";
+    }
+
+    #transactionsTable td:nth-child(6)::before {
+        content: "Fizetési mód";
+    }
+
+    #transactionsTable td:nth-child(7)::before {
+        content: "Típus";
+    }
+
+    #transactionsTable td:nth-child(8)::before {
+        content: "Megosztott?";
+    }
+
+    #transactionsTable td:nth-child(9)::before {
+        content: "Kivonat sor";
+    }
 
 }
+
 @media (max-width: 600px) {
 
-    #sharedExpensesTable td:nth-child(1)::before { content: "Hónap"; }
-    #sharedExpensesTable td:nth-child(2)::before { content: "Dátum"; }
-    #sharedExpensesTable td:nth-child(3)::before { content: "Megnevezés"; }
-    #sharedExpensesTable td:nth-child(4)::before { content: "Összeg"; }
-    #sharedExpensesTable td:nth-child(5)::before { content: "Fizette"; }
-    #sharedExpensesTable td:nth-child(6)::before { content: "Zsolti része"; }
-    #sharedExpensesTable td:nth-child(7)::before { content: "Dóri része"; }
-    #sharedExpensesTable td:nth-child(8)::before { content: "Maradék"; }
-    #sharedExpensesTable td:nth-child(9)::before { content: "Zsolti egyenleg"; }
-    #sharedExpensesTable td:nth-child(10)::before { content: "Dóri egyenleg"; }
-    #sharedExpensesTable td:nth-child(11)::before { content: "Egyenleg"; }
-    #sharedExpensesTable td:nth-child(12)::before { content: "Megjegyzés"; }
+    #sharedExpensesTable td:nth-child(1)::before {
+        content: "Hónap";
+    }
+
+    #sharedExpensesTable td:nth-child(2)::before {
+        content: "Dátum";
+    }
+
+    #sharedExpensesTable td:nth-child(3)::before {
+        content: "Megnevezés";
+    }
+
+    #sharedExpensesTable td:nth-child(4)::before {
+        content: "Összeg";
+    }
+
+    #sharedExpensesTable td:nth-child(5)::before {
+        content: "Fizette";
+    }
+
+    #sharedExpensesTable td:nth-child(6)::before {
+        content: "Zsolti része";
+    }
+
+    #sharedExpensesTable td:nth-child(7)::before {
+        content: "Dóri része";
+    }
+
+    #sharedExpensesTable td:nth-child(8)::before {
+        content: "Maradék";
+    }
+
+    #sharedExpensesTable td:nth-child(9)::before {
+        content: "Zsolti egyenleg";
+    }
+
+    #sharedExpensesTable td:nth-child(10)::before {
+        content: "Dóri egyenleg";
+    }
+
+    #sharedExpensesTable td:nth-child(11)::before {
+        content: "Egyenleg";
+    }
+
+    #sharedExpensesTable td:nth-child(12)::before {
+        content: "Megjegyzés";
+    }
 
 }
 
@@ -545,6 +642,7 @@ button.secondary {
 .nav-bar button {
     margin-right: 10px;
 }
+
 .nav-bar {
     margin-top: 20px;
     margin-bottom: 20px;
@@ -553,7 +651,8 @@ button.secondary {
 }
 
 .nav-bar button {
-    margin-right: 0; /* most már a gap rendezi a távolságot */
+    margin-right: 0;
+    /* most már a gap rendezi a távolságot */
     flex: 0 0 auto;
 }
 
@@ -562,12 +661,14 @@ button.secondary {
     box-shadow: var(--shadow);
     border: 2px solid var(--accent);
 }
+
 .nav-bar {
     margin-top: 20px;
     margin-bottom: 20px;
     display: flex;
     gap: 10px;
-    justify-content: flex-start; /* vagy center */
+    justify-content: flex-start;
+    /* vagy center */
 
 }
 
@@ -585,6 +686,7 @@ button.secondary {
     box-shadow: var(--shadow);
     filter: brightness(1.1);
 }
+
 /* ============================
    SIDEBAR LAYOUT
    ============================ */
@@ -593,7 +695,8 @@ body {
     display: flex;
     flex-direction: row;
     gap: 0;
-    padding: 0; /* korábbi padding eltávolítása */
+    padding: 0;
+    /* korábbi padding eltávolítása */
 }
 
 /* Oldalsó menü */
@@ -614,7 +717,7 @@ body {
 .sidebar-btn {
     width: 100%;
     background: transparent;
-    border: 2px solid rgba(255,255,255,0.25);
+    border: 2px solid rgba(255, 255, 255, 0.25);
     padding: 12px 14px;
     color: white;
     margin-bottom: 12px;
@@ -624,7 +727,7 @@ body {
 }
 
 .sidebar-btn:hover {
-    background: rgba(255,255,255,0.15);
+    background: rgba(255, 255, 255, 0.15);
 }
 
 /* Aktív állapot */
@@ -692,11 +795,12 @@ body {
 .sidebar.closed {
     transform: translateX(-100%);
 }
+
 /* Sidebar toggle gomb (a menü tetején) */
 .sidebar-toggle-btn {
     width: 100%;
-    background: rgba(255,255,255,0.12);
-    border: 2px solid rgba(255,255,255,0.25);
+    background: rgba(255, 255, 255, 0.12);
+    border: 2px solid rgba(255, 255, 255, 0.25);
     padding: 12px 14px;
     color: white;
     margin-bottom: 14px;
@@ -704,6 +808,7 @@ body {
     text-align: left;
     transition: 0.25s;
 }
+
 /* Sidebar toggle – csak ikon */
 .sidebar-toggle-btn.icon-only {
     display: flex;
@@ -715,7 +820,7 @@ body {
 }
 
 .sidebar-toggle-btn:hover {
-    background: rgba(255,255,255,0.18);
+    background: rgba(255, 255, 255, 0.18);
 }
 
 /* Desktop: összecsukott sidebar */
@@ -799,42 +904,50 @@ body.sidebar-collapsed .hamburger-btn {
     border-radius: 6px;
     box-shadow: var(--shadow);
 }
+
 /* Transactions – típus szerinti egyenlegek: ugyanaz a szín, mint a label */
 #txTypeBalanceBox {
     color: var(--primary);
 }
 
 .balance-zsolti {
-    color: #1565c0; /* kék */
+    color: #1565c0;
+    /* kék */
     font-weight: 700;
 }
 
 .balance-dori {
-    color: #c62828; /* piros */
+    color: #c62828;
+    /* piros */
     font-weight: 700;
 }
 
 .balance-positive {
-    color: #c62828; /* piros – Dóri tartozik */
+    color: #c62828;
+    /* piros – Dóri tartozik */
     font-weight: bold;
 }
 
 .balance-negative {
-    color: #2e7d32; /* zöld – Zsolti tartozik */
+    color: #2e7d32;
+    /* zöld – Zsolti tartozik */
     font-weight: bold;
 }
+
 /* ============================
    SHARED EXPENSES – SETTLEMENT
    ============================ */
 
 .balance-settlement {
-    color: #6a1b9a; /* lila */
+    color: #6a1b9a;
+    /* lila */
     font-weight: 700;
 }
 
 /* A törlesztés sorban a megosztott mezők "eltűnnek" */
 .settlement-hidden-cell {
-    visibility: hidden;  /* helyet foglal, de nem látszik -> nem esik szét a táblázat */
+    visibility: hidden;
+    /* helyet foglal, de nem látszik -> nem esik szét a táblázat */
     padding: 0 !important;
     border-bottom: none !important;
 }
@@ -876,7 +989,8 @@ body.sidebar-collapsed .hamburger-btn {
     align-items: center;
     justify-content: flex-start;
     margin: 10px 0 12px;
-    flex-wrap: wrap; /* keskeny képernyőn törhet */
+    flex-wrap: wrap;
+    /* keskeny képernyőn törhet */
 }
 
 .tx-toolbar-left {
@@ -885,19 +999,22 @@ body.sidebar-collapsed .hamburger-btn {
     gap: 8px;
     white-space: nowrap;
 }
+
 /* CSV encoding selector – legyen kompakt a toolbarban */
 #csvEncodingSelect {
     width: auto !important;
     padding: 6px 10px;
     font-size: 0.85rem;
     line-height: 1.1;
-    margin-bottom: 0;              /* toolbarban ne tolja le */
+    margin-bottom: 0;
+    /* toolbarban ne tolja le */
     display: inline-flex;
     align-items: center;
 }
 
 .tx-toolbar-right {
-    margin-left: auto;   /* ← EZ tolja jobbra */
+    margin-left: auto;
+    /* ← EZ tolja jobbra */
     display: flex;
     align-items: center;
 }
@@ -906,7 +1023,8 @@ body.sidebar-collapsed .hamburger-btn {
 .tx-toolbar .result-count {
     flex: 1;
     text-align: center;
-    min-width: 220px; /* segít, hogy tényleg középen maradjon */
+    min-width: 220px;
+    /* segít, hogy tényleg középen maradjon */
 
     /* tipográfia egységesítése a label-lel */
     font-weight: 600;
@@ -962,6 +1080,7 @@ body.sidebar-collapsed .hamburger-btn {
     .tx-toolbar {
         flex-wrap: nowrap;
     }
+
     .tx-toolbar .result-count {
         text-align: center;
     }
@@ -995,10 +1114,12 @@ body.sidebar-collapsed .hamburger-btn {
 #sharedExpensesTable tr.new-settlement-row input.set-amount {
     text-align: right;
 }
+
 .input-like {
     box-sizing: border-box;
     width: 100%;
-    height: 38px;              /* ugyanaz, mint az inputok */
+    height: 38px;
+    /* ugyanaz, mint az inputok */
     padding: 6px 10px;
     border: 1px solid #ccc;
     border-radius: 4px;
@@ -1008,6 +1129,7 @@ body.sidebar-collapsed .hamburger-btn {
     display: flex;
     align-items: center;
 }
+
 /* ============================
    TRANSACTIONS – PAGINATION (icon-only, left aligned)
    ============================ */
@@ -1016,7 +1138,8 @@ body.sidebar-collapsed .hamburger-btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    justify-content: flex-start; /* BALRA, ahogy korábban */
+    justify-content: flex-start;
+    /* BALRA, ahogy korábban */
 }
 
 /* ikon gombok – ne legyenek "gombok" */
@@ -1047,10 +1170,12 @@ body.sidebar-collapsed .hamburger-btn {
     text-align: center;
     font-weight: 600;
 }
+
 /* ===== Header egyenlegek – ugyanaz, mint a label ===== */
 #txTypeBalances {
     color: var(--primary);
 }
+
 /* Nyitott sidebar esetén NE jelenjen meg a hamburger – csak DESKTOPON */
 @media (min-width: 701px) {
     body:not(.sidebar-collapsed) .hamburger-btn {
@@ -1097,6 +1222,7 @@ body.sidebar-collapsed .hamburger-btn {
     overflow: auto;
     font-size: 0.9rem;
 }
+
 /* ============================
    LOGIN PAGE
    ============================ */
@@ -1112,6 +1238,7 @@ body.sidebar-collapsed .hamburger-btn {
     width: 100%;
     max-width: 420px;
 }
+
 /* Boot state: induláskor ne villanjon fel sem a login, sem az app UI */
 body.boot #page-login,
 body.boot .sidebar,

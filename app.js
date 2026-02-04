@@ -926,6 +926,18 @@ document.addEventListener("DOMContentLoaded", () => {
         txCurrentPage = 999999;
         loadTransactions();
     });
+// ===== BANK IMPORT – LAPOZÓ GOMBOK (egyszeri eseménykezelők) =====
+document.getElementById("bankPrevPageBtn")?.addEventListener("click", () => {
+    if (bankCurrentPage > 1) {
+        bankCurrentPage -= 1;
+        loadBankTransactions();
+    }
+});
+
+document.getElementById("bankNextPageBtn")?.addEventListener("click", () => {
+    bankCurrentPage += 1; // felső korlátot a loadBankTransactions vágja majd vissza totalPages-re
+    loadBankTransactions();
+});
     // ================================
     // Shared Expenses – Modal open/close (NEW only)
     // ================================
@@ -1527,6 +1539,9 @@ let txSortDirection = "desc"; // "asc" | "desc"
 let seSortField = "date";
 let seSortDirection = "desc";
 let seRowsById = new Map(); // shared expense rekord cache id alapján
+let bankCurrentPage = 1;
+let bankSortField = "transaction_date";
+let bankSortDirection = "desc";
 
 async function loadTransactions() {
     // ===== SORT ICONS RESET (TRANSACTIONS) =====
@@ -2026,6 +2041,23 @@ const normalizeAmount = (v) => {
 };
 const renderBankPreview = (items) => {
     if (!bankHeadRow || !bankBody) return;
+    const pageSize = 50;
+
+    const safeItems = Array.isArray(items) ? items : [];
+    const totalPages = Math.max(1, Math.ceil(safeItems.length / pageSize));
+
+    if (typeof bankCurrentPage === "undefined") {
+        window.bankCurrentPage = 1;
+    }
+
+    bankCurrentPage = Math.min(
+        Math.max(bankCurrentPage, 1),
+        totalPages
+    );
+
+    const start = (bankCurrentPage - 1) * pageSize;
+    const end = start + pageSize;
+    const pageItems = safeItems.slice(start, end);
 
     // a sheet (backend) 18 mezős struktúrája
     const cols = [
@@ -2073,15 +2105,18 @@ const renderBankPreview = (items) => {
     // fejléc
     bankHeadRow.innerHTML = "";
     cols.forEach((c) => {
-        const th = document.createElement("th");
-        th.textContent = labels[c] || c;
-        bankHeadRow.appendChild(th);
+const th = document.createElement("th");
+th.textContent = labels[c] || c;
+th.dataset.sort = c;
+th.style.cursor = "pointer";
+bankHeadRow.appendChild(th);
+
     });
 
     // body (max 200 sor preview)
     bankBody.innerHTML = "";
-    const safeItems = Array.isArray(items) ? items : [];
-    safeItems.slice(0, 200).forEach((it) => {
+pageItems.forEach((it) => {
+
         const tr = document.createElement("tr");
         cols.forEach((c) => {
             const td = document.createElement("td");
@@ -2091,6 +2126,15 @@ const renderBankPreview = (items) => {
         });
         bankBody.appendChild(tr);
     });
+const pageInfoEl = document.getElementById("bankPageInfo");
+if (pageInfoEl) {
+    pageInfoEl.textContent = `Oldal: ${bankCurrentPage} / ${totalPages}`;
+}
+const prevBtn = document.getElementById("bankPrevPageBtn");
+const nextBtn = document.getElementById("bankNextPageBtn");
+
+if (prevBtn) prevBtn.disabled = (bankCurrentPage <= 1);
+if (nextBtn) nextBtn.disabled = (bankCurrentPage >= totalPages);
 };
 async function loadBankTransactions() {
     try {
@@ -2111,6 +2155,45 @@ async function loadBankTransactions() {
         bankImportItems = Array.isArray(res.data) ? res.data : [];
         renderBankPreview(bankImportItems);
         setBankStatus(`Betöltve: ${bankImportItems.length} sor.`);
+const dir = bankSortDirection === "asc" ? 1 : -1;
+
+items = [...items].sort((a, b) => {
+    const va = a[bankSortField];
+    const vb = b[bankSortField];
+
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+
+    // dátum
+    if (bankSortField.includes("date")) {
+        return (new Date(va) - new Date(vb)) * dir;
+    }
+
+    // szám
+    if (bankSortField === "amount") {
+        return (Number(va) - Number(vb)) * dir;
+    }
+
+    // szöveg
+    return String(va).localeCompare(String(vb), "hu") * dir;
+});
+document.querySelectorAll("#bankImportPreviewTable thead th[data-sort]").forEach(th => {
+    th.addEventListener("click", () => {
+        const field = th.dataset.sort;
+        if (!field) return;
+
+        if (bankSortField === field) {
+            bankSortDirection = bankSortDirection === "asc" ? "desc" : "asc";
+        } else {
+            bankSortField = field;
+            bankSortDirection = "asc";
+        }
+
+        bankCurrentPage = 1;
+        renderBankPreview(bankImportItems);
+    });
+});
 
     } catch (err) {
         console.error(err);

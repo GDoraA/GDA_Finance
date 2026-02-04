@@ -84,11 +84,14 @@
                         <strong>Kötelező oszlopok (legalább ezek):</strong>
                         <ul>
                             <li><strong>Dátum</strong> (fejléc lehet: <code>date</code> / <code>Dátum</code> /
-                                <code>Datum</code>)</li>
+                                <code>Datum</code>)
+                            </li>
                             <li><strong>Összeg</strong> (fejléc lehet: <code>amount</code> / <code>Összeg</code> /
-                                <code>Osszeg</code>)</li>
+                                <code>Osszeg</code>)
+                            </li>
                             <li><strong>Jogcím</strong> (fejléc lehet: <code>title</code> / <code>Jogcím</code> /
-                                <code>Jogcim</code>)</li>
+                                <code>Jogcim</code>)
+                            </li>
                         </ul>
                     </div>
                     <div class="csv-help-section">
@@ -97,13 +100,16 @@
                             <li><strong>Hónap</strong>: <code>month</code> / <code>Hónap</code> / <code>Honap</code> (ha
                                 nincs, a dátumból számoljuk)</li>
                             <li><strong>Kategória</strong>: <code>category</code> / <code>Kategória</code> /
-                                <code>Kategoria</code></li>
+                                <code>Kategoria</code>
+                            </li>
                             <li><strong>Fizetési mód</strong>: <code>payment_type</code> / <code>Típus</code> /
-                                <code>Tipus</code></li>
+                                <code>Tipus</code>
+                            </li>
                             <li><strong>Tranzakció jelleg</strong>: <code>transaction_type</code> / <code>Jelleg</code>
                                 (pl. <em>Kiadás</em> / <em>Bevétel</em>)</li>
                             <li><strong>Kivonat sor</strong>: <code>statement_item</code> / <code>Kivonat sor</code> /
-                                <code>Kivonatsor</code></li>
+                                <code>Kivonatsor</code>
+                            </li>
                         </ul>
                     </div>
                     <div class="csv-help-section">
@@ -112,9 +118,11 @@
                             <li><strong>Elválasztó:</strong> <code>;</code> vagy <code>,</code> (automatikus detektálás)
                             </li>
                             <li><strong>Dátum:</strong> <code>YYYY-MM-DD</code> vagy <code>YYYY.MM.DD</code> vagy
-                                <code>YYYY.MM.DD.</code></li>
+                                <code>YYYY.MM.DD.</code>
+                            </li>
                             <li><strong>Összeg:</strong> lehet <code>1 234</code>, <code>1 234,56</code>,
-                                <code>1234.56</code>, „Ft” szöveg is lehet benne</li>
+                                <code>1234.56</code>, „Ft” szöveg is lehet benne
+                            </li>
                             <li><strong>Előjel:</strong> ha megadod a <em>Jelleg</em>-et
                                 (<em>Kiadás</em>/<em>Bevétel</em>), akkor a rendszer ahhoz igazítja az előjelet</li>
                         </ul>
@@ -234,9 +242,13 @@
                             mentése</button>
                     </div>
                 </div>
-                <input id="bankImportFileInput" type="file"
-                    accept=".csv,text/csv,application/csv"
+                <input id="bankImportFileInput" type="file" accept=".csv,text/csv,application/csv"
                     style="display:none;">
+<div class="pagination">
+    <button id="bankPrevPageBtn">◀</button>
+    <span id="bankPageInfo"></span>
+    <button id="bankNextPageBtn">▶</button>
+</div>
                 <div id="bankImportStatus" class="result-count"></div>
                 <div class="table-wrapper">
                     <table id="bankImportPreviewTable" class="tx-table">
@@ -246,6 +258,7 @@
                         <tbody id="bankImportPreviewBody"></tbody>
                     </table>
                 </div>
+
             </div>
         </section>
         <!-- Shared Expenses Panel -->
@@ -399,4 +412,5 @@
         </script>
     </div> <!-- content-wrapper -->
 </body>
+
 </html>

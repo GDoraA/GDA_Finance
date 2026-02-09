@@ -2614,10 +2614,10 @@ async function loadSharedExpenses() {
 
         if (label) {
             if (headerNet > 0) {
-                label.textContent = " — Dóri tartozik";
+                label.textContent = " — Dóri tartozása";
                 label.className = "balance-negative"; // nálad ez a piros stílus
             } else if (headerNet < 0) {
-                label.textContent = " — Zsolti tartozik";
+                label.textContent = " — Zsolti tartozása";
                 label.className = "balance-positive"; // nálad ez a kék stílus
             } else {
                 label.textContent = " — Az elszámolás kiegyenlített";

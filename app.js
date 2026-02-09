@@ -926,18 +926,47 @@ document.addEventListener("DOMContentLoaded", () => {
         txCurrentPage = 999999;
         loadTransactions();
     });
-// ===== BANK IMPORT – LAPOZÓ GOMBOK (egyszeri eseménykezelők) =====
-document.getElementById("bankPrevPageBtn")?.addEventListener("click", () => {
-    if (bankCurrentPage > 1) {
-        bankCurrentPage -= 1;
-        loadBankTransactions();
-    }
-});
-
-document.getElementById("bankNextPageBtn")?.addEventListener("click", () => {
-    bankCurrentPage += 1; // felső korlátot a loadBankTransactions vágja majd vissza totalPages-re
+document.getElementById("bankFirstPageBtn")?.addEventListener("click", () => {
+    bankCurrentPage = 1;
     loadBankTransactions();
 });
+document.getElementById("bankPrevPageBtn")?.addEventListener("click", () => {
+    bankCurrentPage = Math.max(1, bankCurrentPage - 1);
+    loadBankTransactions();
+});
+
+
+document.getElementById("bankNextPageBtn")?.addEventListener("click", () => {
+    const perPageEl = document.getElementById("bankItemsPerPage");
+    const perPageRaw = perPageEl ? perPageEl.value : "100";
+    const pageSize =
+        perPageRaw === "all"
+            ? Math.max(1, bankImportItems.length)
+            : (Number(perPageRaw) || 100);
+
+    const totalPages = Math.max(1, Math.ceil(bankImportItems.length / pageSize));
+    bankCurrentPage = Math.min(totalPages, bankCurrentPage + 1);
+    loadBankTransactions();
+});
+
+document.getElementById("bankLastPageBtn")?.addEventListener("click", () => {
+    const perPageEl = document.getElementById("bankItemsPerPage");
+    const perPageRaw = perPageEl ? perPageEl.value : "100";
+    const pageSize =
+        perPageRaw === "all"
+            ? Math.max(1, bankImportItems.length)
+            : (Number(perPageRaw) || 100);
+
+    const totalPages = Math.max(1, Math.ceil(bankImportItems.length / pageSize));
+    bankCurrentPage = totalPages;
+    loadBankTransactions();
+});
+
+document.getElementById("bankItemsPerPage")?.addEventListener("change", () => {
+    bankCurrentPage = 1;
+    renderBankPreview(bankImportItems);
+});
+
     // ================================
     // Shared Expenses – Modal open/close (NEW only)
     // ================================
@@ -2041,7 +2070,12 @@ const normalizeAmount = (v) => {
 };
 const renderBankPreview = (items) => {
     if (!bankHeadRow || !bankBody) return;
-    const pageSize = 50;
+const perPageEl = document.getElementById("bankItemsPerPage");
+const perPageRaw = perPageEl ? perPageEl.value : "100";
+const pageSize =
+    perPageRaw === "all"
+        ? Math.max(1, (Array.isArray(items) ? items.length : 0))
+        : (Number(perPageRaw) || 100);
 
     const safeItems = Array.isArray(items) ? items : [];
     const totalPages = Math.max(1, Math.ceil(safeItems.length / pageSize));
@@ -2130,11 +2164,27 @@ const pageInfoEl = document.getElementById("bankPageInfo");
 if (pageInfoEl) {
     pageInfoEl.textContent = `Oldal: ${bankCurrentPage} / ${totalPages}`;
 }
-const prevBtn = document.getElementById("bankPrevPageBtn");
-const nextBtn = document.getElementById("bankNextPageBtn");
 
-if (prevBtn) prevBtn.disabled = (bankCurrentPage <= 1);
-if (nextBtn) nextBtn.disabled = (bankCurrentPage >= totalPages);
+// Megjelenített / összes tétel
+const resultCountEl = document.getElementById("bankImportResultCount");
+if (resultCountEl) {
+    resultCountEl.textContent = `Találatok: ${pageItems.length} / ${safeItems.length} db`;
+}
+
+// Gombok tiltása (eleje/vége + előző/következő)
+const firstBtn = document.getElementById("bankFirstPageBtn");
+const prevBtn  = document.getElementById("bankPrevPageBtn");
+const nextBtn  = document.getElementById("bankNextPageBtn");
+const lastBtn  = document.getElementById("bankLastPageBtn");
+
+const atFirst = (bankCurrentPage <= 1);
+const atLast  = (bankCurrentPage >= totalPages);
+
+if (firstBtn) firstBtn.disabled = atFirst;
+if (prevBtn)  prevBtn.disabled  = atFirst;
+if (nextBtn)  nextBtn.disabled  = atLast;
+if (lastBtn)  lastBtn.disabled  = atLast;
+
 };
 async function loadBankTransactions() {
     try {

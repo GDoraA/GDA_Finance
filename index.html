@@ -244,11 +244,29 @@
                 </div>
                 <input id="bankImportFileInput" type="file" accept=".csv,text/csv,application/csv"
                     style="display:none;">
-<div class="pagination">
-    <button id="bankPrevPageBtn">◀</button>
-    <span id="bankPageInfo"></span>
-    <button id="bankNextPageBtn">▶</button>
+<div class="tx-toolbar">
+    <div class="tx-toolbar-left">
+        <label for="bankItemsPerPage">Tételek oldalanként:</label>
+        <select id="bankItemsPerPage">
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+            <option value="100" selected>100</option>
+            <option value="all">Összes</option>
+        </select>
+    </div>
+
+    <div id="bankImportResultCount" class="result-count"></div>
+
+    <div id="bankImportPagination" class="pagination">
+        <button id="bankFirstPageBtn" type="button" class="page-btn" aria-label="Első oldal">⏮</button>
+        <button id="bankPrevPageBtn" type="button" class="page-btn" aria-label="Előző oldal">◀</button>
+        <span id="bankPageInfo" class="page-info"></span>
+        <button id="bankNextPageBtn" type="button" class="page-btn" aria-label="Következő oldal">▶</button>
+        <button id="bankLastPageBtn" type="button" class="page-btn" aria-label="Utolsó oldal">⏭</button>
+    </div>
 </div>
+
                 <div id="bankImportStatus" class="result-count"></div>
                 <div class="table-wrapper">
                     <table id="bankImportPreviewTable" class="tx-table">

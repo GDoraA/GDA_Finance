@@ -1775,48 +1775,42 @@ async function loadTransactions() {
         return;
     }
 
-    // --- Elemszám kezelése (itemsPerPage) ---
-    const itemsPerPageSelect = document.getElementById("itemsPerPage");
-    let itemsPerPageValue = itemsPerPageSelect ? itemsPerPageSelect.value : "all";
-    const paginationBox = document.getElementById("transactions-pagination");
-    const pageInfo = document.getElementById("txPageInfo");
-    const prevBtn = document.getElementById("txPrevPageBtn");
-    const nextBtn = document.getElementById("txNextPageBtn");
+// --- Elemszám kezelése (itemsPerPage) – közös helperrel ---
+const paginationBox = document.getElementById("transactions-pagination");
+const itemsPerPageSelect = document.getElementById("itemsPerPage");
+const itemsPerPageValue = itemsPerPageSelect ? itemsPerPageSelect.value : "all";
 
-    if (itemsPerPageValue !== "all") {
-        const limit = parseInt(itemsPerPageValue, 10);
-        const totalPages = Math.max(1, Math.ceil(filtered.length / limit));
+const pageSize = readPageSize("itemsPerPage", filtered.length, 100);
+const meta = getPaginationMeta(filtered.length, pageSize, txCurrentPage);
+txCurrentPage = meta.page;
 
-        // felső korlát biztosítása
-        txCurrentPage = Math.min(
-            Math.max(txCurrentPage, 1),
-            totalPages
-        );
+let visibleItems = filtered;
 
+if (itemsPerPageValue !== "all") {
+    if (paginationBox) paginationBox.style.display = "flex";
 
-        if (paginationBox) paginationBox.style.display = "flex";
-        if (pageInfo) pageInfo.textContent = `Oldal: ${txCurrentPage} / ${totalPages}`;
+    visibleItems = filtered.slice(meta.start, meta.end);
 
-        if (prevBtn) prevBtn.disabled = (txCurrentPage <= 1);
-        if (nextBtn) nextBtn.disabled = (txCurrentPage >= totalPages);
-    } else {
-        // Összes elem esetén nincs lapozás
-        txCurrentPage = 1;
-        if (paginationBox) paginationBox.style.display = "none";
-    }
+    updatePaginationUI(
+        {
+            pageInfoId: "txPageInfo",
+            resultCountId: null,
+            firstBtnId: "txFirstPageBtn",
+            prevBtnId: "txPrevPageBtn",
+            nextBtnId: "txNextPageBtn",
+            lastBtnId: "txLastPageBtn"
+        },
+        meta.page,
+        meta.totalPages,
+        visibleItems.length,
+        filtered.length
+    );
+} else {
+    // Összes elem esetén nincs lapozás
+    txCurrentPage = 1;
+    if (paginationBox) paginationBox.style.display = "none";
+}
 
-    let visibleItems = filtered;
-
-    if (itemsPerPageValue !== "all") {
-        const limit = parseInt(itemsPerPageValue, 10);
-
-        const start = (txCurrentPage - 1) * limit;
-        const end = start + limit;
-
-        visibleItems = filtered.slice(start, end);
-    } else {
-        txCurrentPage = 1;
-    }
     // ===== Találatok: megjelenített / összes =====
     const txt = `Találatok: ${visibleItems.length} / ${filtered.length} db`;
     if (rcTop) rcTop.textContent = txt;
@@ -2070,28 +2064,49 @@ const normalizeAmount = (v) => {
 };
 const renderBankPreview = (items) => {
     if (!bankHeadRow || !bankBody) return;
+const safeItems = Array.isArray(items) ? items : [];
+
 const perPageEl = document.getElementById("bankItemsPerPage");
-const perPageRaw = perPageEl ? perPageEl.value : "100";
-const pageSize =
-    perPageRaw === "all"
-        ? Math.max(1, (Array.isArray(items) ? items.length : 0))
-        : (Number(perPageRaw) || 100);
 
-    const safeItems = Array.isArray(items) ? items : [];
-    const totalPages = Math.max(1, Math.ceil(safeItems.length / pageSize));
+const perPageValue = perPageEl ? perPageEl.value : "all";
+const paginationBox = document.getElementById("bankImportPagination");
 
-    if (typeof bankCurrentPage === "undefined") {
-        window.bankCurrentPage = 1;
-    }
+if (typeof bankCurrentPage === "undefined") {
+    window.bankCurrentPage = 1;
+}
 
-    bankCurrentPage = Math.min(
-        Math.max(bankCurrentPage, 1),
-        totalPages
+const pageSize2 = readPageSize("bankItemsPerPage", safeItems.length, 100);
+const meta = getPaginationMeta(safeItems.length, pageSize2, bankCurrentPage);
+bankCurrentPage = meta.page;
+
+let pageItems = safeItems;
+
+if (perPageValue !== "all") {
+    if (paginationBox) paginationBox.style.display = "flex";
+    pageItems = safeItems.slice(meta.start, meta.end);
+
+    updatePaginationUI(
+        {
+            pageInfoId: "bankPageInfo",
+            resultCountId: "bankImportResultCount",
+            firstBtnId: "bankFirstPageBtn",
+            prevBtnId: "bankPrevPageBtn",
+            nextBtnId: "bankNextPageBtn",
+            lastBtnId: "bankLastPageBtn"
+        },
+        meta.page,
+        meta.totalPages,
+        pageItems.length,
+        safeItems.length
     );
+} else {
+    bankCurrentPage = 1;
+    if (paginationBox) paginationBox.style.display = "none";
 
-    const start = (bankCurrentPage - 1) * pageSize;
-    const end = start + pageSize;
-    const pageItems = safeItems.slice(start, end);
+    const resultCountEl = document.getElementById("bankImportResultCount");
+    if (resultCountEl) resultCountEl.textContent = `Találatok: ${safeItems.length} / ${safeItems.length} db`;
+}
+
 
     // a sheet (backend) 18 mezős struktúrája
     const cols = [

@@ -1557,8 +1557,6 @@ function fillDatalist(listId, values) {
     });
 }
 
-
-
 // ======================================================
 // LISTÁZÁS & SZŰRÉS
 // ======================================================
@@ -2175,10 +2173,7 @@ pageItems.forEach((it) => {
         });
         bankBody.appendChild(tr);
     });
-const pageInfoEl = document.getElementById("bankPageInfo");
-if (pageInfoEl) {
-    pageInfoEl.textContent = `Oldal: ${bankCurrentPage} / ${totalPages}`;
-}
+
 
 // Megjelenített / összes tétel
 const resultCountEl = document.getElementById("bankImportResultCount");
@@ -2193,14 +2188,15 @@ const nextBtn  = document.getElementById("bankNextPageBtn");
 const lastBtn  = document.getElementById("bankLastPageBtn");
 
 const atFirst = (bankCurrentPage <= 1);
-const atLast  = (bankCurrentPage >= totalPages);
+const atLast  = (bankCurrentPage >= meta.totalPages);
+
 
 if (firstBtn) firstBtn.disabled = atFirst;
 if (prevBtn)  prevBtn.disabled  = atFirst;
 if (nextBtn)  nextBtn.disabled  = atLast;
 if (lastBtn)  lastBtn.disabled  = atLast;
-
 };
+
 async function loadBankTransactions() {
     try {
         if (!api?.getBankTransactions) {
@@ -2220,45 +2216,7 @@ async function loadBankTransactions() {
         bankImportItems = Array.isArray(res.data) ? res.data : [];
         renderBankPreview(bankImportItems);
         setBankStatus(`Betöltve: ${bankImportItems.length} sor.`);
-const dir = bankSortDirection === "asc" ? 1 : -1;
 
-items = [...items].sort((a, b) => {
-    const va = a[bankSortField];
-    const vb = b[bankSortField];
-
-    if (va == null && vb == null) return 0;
-    if (va == null) return 1;
-    if (vb == null) return -1;
-
-    // dátum
-    if (bankSortField.includes("date")) {
-        return (new Date(va) - new Date(vb)) * dir;
-    }
-
-    // szám
-    if (bankSortField === "amount") {
-        return (Number(va) - Number(vb)) * dir;
-    }
-
-    // szöveg
-    return String(va).localeCompare(String(vb), "hu") * dir;
-});
-document.querySelectorAll("#bankImportPreviewTable thead th[data-sort]").forEach(th => {
-    th.addEventListener("click", () => {
-        const field = th.dataset.sort;
-        if (!field) return;
-
-        if (bankSortField === field) {
-            bankSortDirection = bankSortDirection === "asc" ? "desc" : "asc";
-        } else {
-            bankSortField = field;
-            bankSortDirection = "asc";
-        }
-
-        bankCurrentPage = 1;
-        renderBankPreview(bankImportItems);
-    });
-});
 
     } catch (err) {
         console.error(err);
@@ -2336,7 +2294,7 @@ const parseBankImportFile = async (file) => {
 
     const H = (rows[0] || []).map(h => String(h || "").trim().toLowerCase());
 
-    const idx = (...names) => {
+    const idx = (names) => {
         const wanted = names.map(n => String(n).trim().toLowerCase());
         for (let i = 0; i < H.length; i++) {
             const h = H[i];
@@ -3044,9 +3002,6 @@ document.getElementById("sharedExpensesBody").addEventListener("change", async (
         // Itt NE returnölj, ha a lentebb lévő gombokra (save-settlement stb.) támaszkodsz a change-ben.
         // Ha nálad a save/cancel gombok click eseménnyel mennek, akkor maradhat return.
     }
-
-    // ... innen folytatódjon a te meglévő kódod változatlanul ...
-
 
     if (!rowId) return;
     // 1) paid_by mező

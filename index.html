@@ -152,9 +152,12 @@
                                 <input type="checkbox" name="is_shared">
                                 Megosztott?
                             </label>
-                            <select id="statementItemSelect" name="statement_item">
-  <option value="">— válassz banki tételt —</option>
-</select>
+<input type="hidden" id="statementItemValue" name="statement_item" value="">
+
+<div id="statementItemPicker" class="statement-item-picker">
+  <div class="muted">— válassz banki tételt —</div>
+</div>
+
 
                             <button type="submit">Mentés</button>
                             <div id="successMsg" class="msg success" style="display:none;">Sikeresen mentve!</div>

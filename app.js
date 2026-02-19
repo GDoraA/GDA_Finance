@@ -2015,26 +2015,22 @@ async function openTransactionEditor(tx) {
     document.querySelector("input[name='is_shared']").checked =
         (tx.is_shared === "x" || tx.is_shared === true || tx.is_shared === "true");
     // statement_item dropdown (Bank_Transactions date+amount alapján)
-const stmtSelect = document.getElementById("statementItemSelect");
-if (stmtSelect) {
+// statement_item választólista (Bank_Transactions date+amount alapján)
+const picker = document.getElementById("statementItemPicker");
+const hidden = document.getElementById("statementItemValue");
+
+if (hidden) hidden.value = String(tx?.statement_item ?? "").trim();
+
+if (picker && hidden) {
   try {
     const bankItems = await ensureBankTxCache();
-    stmtSelect.innerHTML = buildStatementItemOptions(tx, bankItems);
-
-    // ha már volt mentett statement_item, próbáljuk előválasztani
-    const current = String(tx?.statement_item ?? "").trim();
-    if (current) stmtSelect.value = current;
+    renderStatementItemPicker(tx, bankItems, picker, hidden);
   } catch (e) {
     console.error("Bank_Transactions cache betöltés hiba:", e);
-    // fallback: üres lista + jelenlegi érték (ha van)
-    stmtSelect.innerHTML = `<option value="">— válassz banki tételt —</option>`;
-    const current = String(tx?.statement_item ?? "").trim();
-    if (current) {
-      stmtSelect.insertAdjacentHTML("beforeend", `<option value="${current}">${current}</option>`);
-      stmtSelect.value = current;
-    }
+    picker.innerHTML = `<div class="muted">Nem sikerült betölteni a banki tételeket.</div>`;
   }
 }
+
 
 
     // a szerkesztendő ID-t eltároljuk a formban (nem látszik, de szükséges)

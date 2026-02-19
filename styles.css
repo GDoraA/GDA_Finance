@@ -1255,3 +1255,38 @@ tr.is-matched td:last-child::after {
   color: #2e7d32;
   font-weight: 600;
 }
+.statement-item-picker{
+  border: 1px solid #ddd;
+  border-radius: var(--radius);
+  padding: 8px;
+  margin: 10px 0 14px 0;
+  max-height: 240px;
+  overflow: auto;
+  background: #fff;
+}
+
+.statement-item-row{
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+}
+
+.statement-item-row:last-child{
+  border-bottom: none;
+}
+
+.statement-item-main{
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.statement-item-id{ font-weight: 600; }
+.statement-item-date{ color: #666; }
+.statement-item-amt{ font-weight: 600; }
+
+.muted{ color:#777; font-size: 0.9rem; }

@@ -1265,10 +1265,11 @@ tr.is-matched td:last-child::after {
   background: #fff;
 }
 
+/* Egy sor = rádió + tartalom (2-3 soros részletekkel) */
 .statement-item-row{
   display: flex;
-  gap: 10px;
-  align-items: center;
+  gap: 8px;
+  align-items: flex-start;
   padding: 8px;
   border-bottom: 1px solid #eee;
   cursor: pointer;
@@ -1278,7 +1279,51 @@ tr.is-matched td:last-child::after {
   border-bottom: none;
 }
 
-.statement-item-main{
+/* kompakt rádió: ne foglaljon sok helyet */
+.statement-item-radio{
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.statement-item-row{
+  position: relative;
+  padding: 6px 8px;
+}
+
+.statement-item-row::before{
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 10px;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid #888;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.statement-item-radio:checked + .statement-item-content::before{
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 12px;
+  width: 8px;
+  height: 8px;
+  background: #2e7d32;
+  border-radius: 50%;
+}
+
+
+
+.statement-item-content{
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0; /* hosszú szöveg töréshez */
+}
+
+.statement-item-top{
   display: flex;
   gap: 12px;
   align-items: baseline;
@@ -1289,4 +1334,19 @@ tr.is-matched td:last-child::after {
 .statement-item-date{ color: #666; }
 .statement-item-amt{ font-weight: 600; }
 
+/* extra infók kisebbek és törjenek */
+.statement-item-sub,
+.statement-item-sub2{
+  color: #666;
+  font-size: 0.85rem;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.statement-item-party{ font-weight: 600; color: #555; }
+.statement-item-memo{ color: #666; }
+.statement-item-dir{ color: #666; }
+.statement-item-acct{ color: #666; }
+
 .muted{ color:#777; font-size: 0.9rem; }
+

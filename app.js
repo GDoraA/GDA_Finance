@@ -2016,23 +2016,59 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl) {
     return;
   }
 
+  const esc = (s) => String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+  const pickField = (obj, keys) => {
+    for (const k of keys) {
+      const v = obj?.[k];
+      if (v !== undefined && v !== null && String(v).trim() !== "") return String(v).trim();
+    }
+    return "";
+  };
+
   const rows = matches.map(b => {
     const id = String(b?.id ?? "").trim();
     const date = String(b?.transaction_date ?? "").trim();
     const amt = formatAmount(b?.amount);
     const checked = (current && id === current) ? "checked" : "";
 
+    // több mező – többféle lehetséges oszlopnév támogatása
+    const counterparty = pickField(b, ["partner_name", "counterparty_name", "name", "beneficiary", "payer"]);
+    const account      = pickField(b, ["partner_account", "counterparty_account", "account", "iban"]);
+    const memo         = pickField(b, ["memo", "comment", "description", "text", "note", "transaction_text"]);
+    const direction    = pickField(b, ["direction", "transaction_type", "type"]);
+
+    const line1 = `<span class="statement-item-id">#${esc(id)}</span>
+                   <span class="statement-item-date">${esc(date)}</span>
+                   <span class="statement-item-amt">${esc(amt)}</span>`;
+
+    const line2Parts = [
+      counterparty ? `<span class="statement-item-party">${esc(counterparty)}</span>` : "",
+      memo ? `<span class="statement-item-memo">${esc(memo)}</span>` : ""
+    ].filter(Boolean).join(" — ");
+
+    const line3Parts = [
+      direction ? `<span class="statement-item-dir">${esc(direction)}</span>` : "",
+      account ? `<span class="statement-item-acct">${esc(account)}</span>` : ""
+    ].filter(Boolean).join(" · ");
+
     return `
       <label class="statement-item-row">
-        <input type="radio" name="statement_item_pick" value="${id}" ${checked}>
-        <span class="statement-item-main">
-          <span class="statement-item-id">#${id}</span>
-          <span class="statement-item-date">${date}</span>
-          <span class="statement-item-amt">${amt}</span>
+        <input class="statement-item-radio" type="radio" name="statement_item_pick" value="${esc(id)}" ${checked}>
+        <span class="statement-item-content">
+          <span class="statement-item-top">${line1}</span>
+          ${line2Parts ? `<span class="statement-item-sub">${line2Parts}</span>` : ""}
+          ${line3Parts ? `<span class="statement-item-sub2">${line3Parts}</span>` : ""}
         </span>
       </label>
     `;
   }).join("");
+
 
   pickerEl.innerHTML = rows;
 

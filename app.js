@@ -1848,7 +1848,8 @@ if (itemsPerPageValue !== "all") {
                         <input type="checkbox" disabled ${tx.is_shared === "x" ? "checked" : ""}>
                     </td>
 
-                    <td>${buildStatementItemSelectHtml(tx)}</td>
+                    <td>${String(tx.statement_item ?? "").trim()}</td>
+
                 </tr>
             `;
     });

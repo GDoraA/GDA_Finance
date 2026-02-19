@@ -1874,24 +1874,34 @@ if (itemsPerPageValue !== "all") {
             sel.addEventListener("change", async (e) => {
                 e.stopPropagation();
 
-                const txId = String(sel.dataset.txId || "").trim();
-                const newValue = String(sel.value || "").trim();
+const txId = String(sel.dataset.txId || "").trim();
+const newValue = String(sel.value || "").trim();
+if (!txId) return;
 
-                if (!txId) return;
+// TELJES SOR KÜLDÉSE, hogy backend ne nullázza a hiányzó mezőket
+const safeDate = String(tx?.date ?? "").includes("T") ? String(tx.date).split("T")[0] : String(tx?.date ?? "").trim();
 
-                try {
-                    const resp = await api.updateTransaction({
-                        id: txId,
-                        statement_item: newValue
-                    });
+const payload = {
+  id: txId,
+  month: String(tx?.month ?? "").trim(),
+  date: safeDate,
+  amount: String(tx?.amount ?? ""),                 // már signed érték a listában
+  title: String(tx?.title ?? "").trim(),
+  category: String(tx?.category ?? "").trim(),
+  payment_type: String(tx?.payment_type ?? "").trim(),
+  transaction_type: String(tx?.transaction_type ?? "").trim(),
+  is_shared: (tx?.is_shared === "x" || tx?.is_shared === true || tx?.is_shared === "true") ? "x" : "",
+  statement_item: newValue
+};
 
-                    if (!resp || !resp.success) {
-                        alert(resp?.error || resp?.message || "Nem sikerült menteni a banki tétel összerendelést.");
-                    }
-                } catch (err) {
-                    console.error("statement_item mentés hiba:", err);
-                    alert("Hiba történt a mentés során.");
-                }
+const resp = await api.updateTransaction(payload);
+if (resp && resp.success) {
+  // frontenden is frissítsük a memóriában, hogy ne villanjon vissza
+  tx.statement_item = newValue;
+} else {
+  alert(resp?.error || resp?.message || "Nem sikerült menteni a banki tétel összerendelést.");
+}
+
             });
 
         });
@@ -1978,6 +1988,59 @@ const matches = (bankItems || []).filter(b => {
 
   return opts.join("");
 }
+function getMatchingBankItems(tx, bankItems) {
+  const rawTxDate = String(tx?.date ?? "").trim();
+  const txDateIso = rawTxDate.includes("T") ? rawTxDate.split("T")[0] : toInputDateLocal(rawTxDate);
+
+  const txAmt = Number(tx?.amount);
+
+  return (bankItems || []).filter(b => {
+    const bDateIso = String(b?.transaction_date ?? "").trim();
+    const bAmt = Number(b?.amount);
+
+    if (!txDateIso || !bDateIso) return false;
+    if (Number.isNaN(txAmt) || Number.isNaN(bAmt)) return false;
+
+    // előjel kezelése: abs összehasonlítás
+    return (bDateIso === txDateIso) && (Math.abs(bAmt) === Math.abs(txAmt));
+  });
+}
+
+function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl) {
+  const matches = getMatchingBankItems(tx, bankItems);
+  const current = String(tx?.statement_item ?? "").trim();
+
+  if (!matches.length) {
+    pickerEl.innerHTML = `<div class="muted">Nincs egyező banki tétel (dátum + összeg alapján).</div>`;
+    return;
+  }
+
+  const rows = matches.map(b => {
+    const id = String(b?.id ?? "").trim();
+    const date = String(b?.transaction_date ?? "").trim();
+    const amt = formatAmount(b?.amount);
+    const checked = (current && id === current) ? "checked" : "";
+
+    return `
+      <label class="statement-item-row">
+        <input type="radio" name="statement_item_pick" value="${id}" ${checked}>
+        <span class="statement-item-main">
+          <span class="statement-item-id">#${id}</span>
+          <span class="statement-item-date">${date}</span>
+          <span class="statement-item-amt">${amt}</span>
+        </span>
+      </label>
+    `;
+  }).join("");
+
+  pickerEl.innerHTML = rows;
+
+  pickerEl.querySelectorAll("input[type='radio'][name='statement_item_pick']").forEach(r => {
+    r.addEventListener("change", () => {
+      hiddenInputEl.value = String(r.value || "").trim();
+    });
+  });
+}
 
 function buildStatementItemSelectHtml(tx) {
   // statement_item = kiválasztott bank tranzakció id (string)
@@ -1991,11 +2054,16 @@ function buildStatementItemSelectHtml(tx) {
   const selectId = `stmt_${safeTxId}`;
 
   // Placeholder: amíg a bankTxCache be nem jön
-  return `
-    <select id="${selectId}" class="statement-item-select" data-tx-id="${safeTxId}">
-      <option value="">— betöltés… —</option>
-    </select>
-  `;
+return `
+  <button type="button"
+          id="${selectId}"
+          class="statement-item-picker-btn"
+          data-tx-id="${safeTxId}">
+    ${selectedId ? `#${selectedId}` : "Banki tétel kiválasztása"}
+  </button>
+  <div class="statement-item-picker-popover" id="${selectId}_pop" data-open="0"></div>
+`;
+
 }
 
 async function openTransactionEditor(tx) {

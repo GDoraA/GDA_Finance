@@ -1948,17 +1948,21 @@ async function ensureBankTxCache() {
 }
 
 function buildStatementItemOptions(tx, bankItems) {
-const txDateIso = formatDateForList(tx?.date)?.split(".").reverse().join("-");
+const rawTxDate = String(tx?.date ?? "").trim();
+const txDateIso = rawTxDate.includes("T") ? rawTxDate.split("T")[0] : toInputDateLocal(rawTxDate);
 const txAmt = Number(tx?.amount);
 
+const matches = (bankItems || []).filter(b => {
+  const bDateIso = String(b?.transaction_date ?? "").trim();
+  const bAmt = Number(b?.amount);
 
-  const matches = (bankItems || []).filter(b => {
-const bDateIso = String(b?.transaction_date ?? "").trim();
-const bAmt = Number(b?.amount);
+  if (!txDateIso) return false;
+  if (!bDateIso) return false;
+  if (Number.isNaN(txAmt) || Number.isNaN(bAmt)) return false;
 
-    if (!txDateIso || txAmt == null) return false;
-    return (bDateIso === txDateIso) && (bAmt === txAmt);
-  });
+  return (bDateIso === txDateIso) && (Math.abs(bAmt) === Math.abs(txAmt));
+});
+
 
   // opció szöveg: id + partner + memo (ha van)
   const opts = [

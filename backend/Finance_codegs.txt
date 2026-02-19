@@ -889,6 +889,124 @@ function addTransactions_(items) {
   if (rowsToInsert.length > 0) {
     const startRow = sheet.getLastRow() + 1;
     sheet.getRange(startRow, 1, rowsToInsert.length, rowsToInsert[0].length).setValues(rowsToInsert);
+// TODO: MATCH bank transactions to Transactions by transaction_date + amount, write BT id into Transactions.statement_item
+  // --- MATCH PREP: load Transactions sheet + column indexes ---
+  const txSheet = SpreadsheetApp.getActive().getSheetByName("Transactions");
+  if (!txSheet) throw new Error('Nem található a "Transactions" nevű munkalap.');
+
+  const txData = txSheet.getDataRange().getValues();
+  if (!txData || txData.length < 2) {
+    // nincs mit párosítani
+  } else {
+    const txHeader = txData[0].map(h => String(h || "").trim());
+
+    const cTxId = txHeader.indexOf("id");
+    const cTxDate = txHeader.indexOf("date");
+    const cTxAmount = txHeader.indexOf("amount");
+    const cTxStatement = txHeader.indexOf("statement_item");
+
+    if (cTxId === -1 || cTxDate === -1 || cTxAmount === -1 || cTxStatement === -1) {
+      throw new Error('A "Transactions" fejléc hibás. Kötelező oszlopok: id, date, amount, statement_item');
+    }
+
+    // --- BUILD INDEX: (date|amount) -> tx rows with empty statement_item ---
+    const tz = Session.getScriptTimeZone();
+
+    const normDate = (cell) => {
+      if (cell instanceof Date && !isNaN(cell.getTime())) {
+        return Utilities.formatDate(cell, tz, "yyyy-MM-dd");
+      }
+      const s = String(cell || "").trim();
+      if (!s) return "";
+      // ha már yyyy-mm-dd
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (m) return s;
+
+      // ha yyyy.mm.dd vagy yyyy.mm.dd.
+      const m2 = s.match(/^(\d{4})\.(\d{2})\.(\d{2})\.?$/);
+      if (m2) return `${m2[1]}-${m2[2]}-${m2[3]}`;
+
+      // fallback
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? "" : Utilities.formatDate(d, tz, "yyyy-MM-dd");
+    };
+
+    const normAmount = (v) => {
+      const s = String(v ?? "").trim().replace(/\s+/g, "").replace(",", ".");
+      const n = Number(s);
+      if (isNaN(n)) return null;
+
+      // párosítás abs értéken + kerekítve (bank vs tx előjel/kerekítés eltérés ellen)
+      const abs = Math.abs(n);
+      return Math.round(abs * 100) / 100;
+    };
+
+
+    const keyOf = (dateIso, amountNum) => `${dateIso}|${amountNum}`;
+
+    // map: kulcs -> [txRowIndex1Based, ...] (csak ahol statement_item üres)
+    const txMap = new Map();
+
+    for (let r = 1; r < txData.length; r++) {
+      const row = txData[r];
+      const stmt = String(row[cTxStatement] ?? "").trim();
+      if (stmt) continue; // ne írjunk felül meglévőt
+
+      const dIso = normDate(row[cTxDate]);
+      const amt = normAmount(row[cTxAmount]);
+      if (!dIso || amt == null) continue;
+
+      const k = keyOf(dIso, amt);
+      if (!txMap.has(k)) txMap.set(k, []);
+      txMap.get(k).push({
+        rowIndex1Based: r + 1,
+        txId: String(row[cTxId] || "").trim()
+      });
+
+    }
+
+    // --- MATCH: loop newly inserted bank rows (rowsToInsert) and write BT id into Transactions.statement_item ---
+    const updates = []; // { rowIndex1Based, value }
+let unmatched = 0;
+const unmatchedSamples = [];
+
+    // rowsToInsert: [ id, month, transaction_date, ..., amount, ... ]
+    // itt a sémád szerint:
+    // 0=id, 2=transaction_date, 12=amount
+    for (let i = 0; i < rowsToInsert.length; i++) {
+      const bankRow = rowsToInsert[i];
+      const btId = String(bankRow[0] || "").trim();
+      const btDateIso = normDate(bankRow[2]);
+      const btAmt = normAmount(bankRow[12]);
+
+      if (!btId || !btDateIso || btAmt == null) continue;
+
+      const k = keyOf(btDateIso, btAmt);
+      const candidates = txMap.get(k);
+if (!candidates || candidates.length === 0) {
+  unmatched++;
+  if (unmatchedSamples.length < 10) {
+    unmatchedSamples.push({ btId, btDateIso, btAmt });
+  }
+  continue;
+}
+
+      // determinisztikus: a legkisebb ID-jű tranzakciót választjuk
+      candidates.sort((a, b) => a.txId.localeCompare(b.txId, "hu"));
+
+      const chosen = candidates.shift();
+      if (!chosen) continue;
+
+      updates.push({ rowIndex1Based: chosen.rowIndex1Based, value: btId });
+
+    }
+
+    // --- APPLY updates ---
+    for (const u of updates) {
+      txSheet.getRange(u.rowIndex1Based, cTxStatement + 1).setValue(u.value);
+    }
+    const matched = updates.length;
+  }
 
     // Value_Sets frissítés + shared sync (ugyanaz, mint addTransaction_)
     for (const r of results) {
@@ -917,7 +1035,7 @@ function addTransactions_(items) {
   const ok = results.filter(x => x.success).length;
   const fail = results.length - ok;
 
-  return { success: true, ok, fail, results };
+  return { success: true, ok, fail, matched: (typeof matched === "number" ? matched : 0), results };
 }
 function addBankTransactions_(items) {
   const sheet = SpreadsheetApp.getActive().getSheetByName("Bank_Transactions");
@@ -974,16 +1092,47 @@ function addBankTransactions_(items) {
     rowsToInsert.push(row);
     results.push({ index: i, success: true, id });
   }
-
+  // --- INSERT new bank rows into Bank_Transactions sheet ---
   if (rowsToInsert.length > 0) {
     const startRow = sheet.getLastRow() + 1;
     sheet.getRange(startRow, 1, rowsToInsert.length, rowsToInsert[0].length).setValues(rowsToInsert);
   }
 
+// --- APPLY updates (batch, contiguous chunks) ---
+updates.sort((a, b) => a.rowIndex1Based - b.rowIndex1Based);
+
+let i = 0;
+while (i < updates.length) {
+  const start = updates[i].rowIndex1Based;
+  let end = start;
+
+  const values = [[updates[i].value]];
+  i++;
+
+  // egymást követő sorok egy chunkba
+  while (i < updates.length && updates[i].rowIndex1Based === end + 1) {
+    end = updates[i].rowIndex1Based;
+    values.push([updates[i].value]);
+    i++;
+  }
+
+  // statement_item egyetlen oszlop → width = 1
+  txSheet.getRange(start, cTxStatement + 1, (end - start + 1), 1).setValues(values);
+}
+
+
   const ok = results.filter(x => x.success).length;
   const fail = results.length - ok;
 
-  return { success: true, ok, fail, results };
+return {
+  success: true,
+  ok,
+  fail,
+  matched: (typeof matched === "number" ? matched : (Array.isArray(updates) ? updates.length : 0)),
+  unmatched,
+  unmatched_samples: unmatchedSamples,
+  results
+};
 }
 
 /**

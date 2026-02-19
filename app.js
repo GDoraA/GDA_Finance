@@ -1819,7 +1819,7 @@ if (itemsPerPageValue !== "all") {
 
     visibleItems.forEach(tx => {
         rows += `
-                <tr data-id="${tx.id}">
+                <tr data-id="${tx.id}" class="${(tx.statement_item && String(tx.statement_item).trim() !== "") ? "is-matched" : ""}">
                     <td>${tx.month}</td>
                     <td>${formatDateForList(tx.date)}</td>
                     <td class="${(() => {
@@ -1848,13 +1848,56 @@ if (itemsPerPageValue !== "all") {
                         <input type="checkbox" disabled ${tx.is_shared === "x" ? "checked" : ""}>
                     </td>
 
-                    <td>${tx.statement_item}</td>
+                    <td>${buildStatementItemSelectHtml(tx)}</td>
                 </tr>
             `;
     });
 
 
     tbody.innerHTML = rows;
+    // ===== STATEMENT ITEM SELECTEK FELTÖLTÉSE (Bank_Transactions alapján) =====
+    try {
+        const bankItems = await ensureBankTxCache();
+
+        visibleItems.forEach(tx => {
+            const sel = document.getElementById(`stmt_${String(tx?.id ?? "").trim()}`);
+            if (!sel) return;
+
+            sel.innerHTML = buildStatementItemOptions(tx, bankItems);
+
+            const current = String(tx?.statement_item ?? "").trim();
+            if (current) sel.value = current;
+
+            // Ne nyissa meg a szerkesztő modalt, ha a dropdownra kattintasz
+            sel.addEventListener("click", (e) => e.stopPropagation());
+
+            sel.addEventListener("change", async (e) => {
+                e.stopPropagation();
+
+                const txId = String(sel.dataset.txId || "").trim();
+                const newValue = String(sel.value || "").trim();
+
+                if (!txId) return;
+
+                try {
+                    const resp = await api.updateTransaction({
+                        id: txId,
+                        statement_item: newValue
+                    });
+
+                    if (!resp || !resp.success) {
+                        alert(resp?.error || resp?.message || "Nem sikerült menteni a banki tétel összerendelést.");
+                    }
+                } catch (err) {
+                    console.error("statement_item mentés hiba:", err);
+                    alert("Hiba történt a mentés során.");
+                }
+            });
+
+        });
+    } catch (e) {
+        console.error("statement_item select hydrate hiba:", e);
+    }
 
     // ===== TABLÁZAT SORAINAK KATTINTÁSA – SZERKESZTÉS =====
     const rowsElements = document.querySelectorAll("#transactionsBody tr");
@@ -1872,9 +1915,86 @@ if (itemsPerPageValue !== "all") {
         });
     });
 }
+// ===== Bank_Transactions cache (Transactions modal dropdownhoz) =====
+let bankTxCache = null;
+let bankTxCachePromise = null;
+
+const toIsoDate = (v) => {
+  const s = String(v ?? "").trim();
+  if (!s) return "";
+  const m1 = s.match(/^(\d{4})\.(\d{2})\.(\d{2})/);
+  if (m1) return `${m1[1]}-${m1[2]}-${m1[3]}`;
+  const m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m2) return `${m2[1]}-${m2[2]}-${m2[3]}`;
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+};
 
 
-function openTransactionEditor(tx) {
+
+async function ensureBankTxCache() {
+  if (bankTxCache) return bankTxCache;
+  if (bankTxCachePromise) return bankTxCachePromise;
+
+  bankTxCachePromise = (async () => {
+    const resp = await api.getBankTransactions();
+    const items = (resp && resp.success && Array.isArray(resp.data)) ? resp.data : [];
+    bankTxCache = items;
+    bankTxCachePromise = null;
+    return bankTxCache;
+  })();
+
+  return bankTxCachePromise;
+}
+
+function buildStatementItemOptions(tx, bankItems) {
+const txDateIso = formatDateForList(tx?.date)?.split(".").reverse().join("-");
+const txAmt = Number(tx?.amount);
+
+
+  const matches = (bankItems || []).filter(b => {
+const bDateIso = String(b?.transaction_date ?? "").trim();
+const bAmt = Number(b?.amount);
+
+    if (!txDateIso || txAmt == null) return false;
+    return (bDateIso === txDateIso) && (bAmt === txAmt);
+  });
+
+  // opció szöveg: id + partner + memo (ha van)
+  const opts = [
+    `<option value="">— válassz banki tételt —</option>`,
+    ...matches.map(b => {
+      const id = String(b?.id ?? "").trim();
+      const partner = String(b?.partner_name ?? "").trim();
+      const memo = String(b?.memo ?? "").trim();
+      const label = [id, partner, memo].filter(Boolean).join(" | ");
+      return `<option value="${id}">${label || id}</option>`;
+    })
+  ];
+
+  return opts.join("");
+}
+
+function buildStatementItemSelectHtml(tx) {
+  // statement_item = kiválasztott bank tranzakció id (string)
+  const selectedId = String(tx?.statement_item ?? "").trim();
+
+  // dropdown alapból üres opciókkal (később töltjük async)
+  // fontos: a táblázat renderelése szinkron, ezért az async betöltést utólag végezzük
+  const safeTxId = String(tx?.id ?? "").trim();
+
+  // Egyedi azonosító, hogy később megtaláljuk és feltöltsük
+  const selectId = `stmt_${safeTxId}`;
+
+  // Placeholder: amíg a bankTxCache be nem jön
+  return `
+    <select id="${selectId}" class="statement-item-select" data-tx-id="${safeTxId}">
+      <option value="">— betöltés… —</option>
+    </select>
+  `;
+}
+
+async function openTransactionEditor(tx) {
     const modal = document.getElementById("txModal");
     const overlay = document.getElementById("modalOverlay");
 
@@ -1890,7 +2010,28 @@ function openTransactionEditor(tx) {
     document.querySelector("input[name='transaction_type']").value = tx.transaction_type;
     document.querySelector("input[name='is_shared']").checked =
         (tx.is_shared === "x" || tx.is_shared === true || tx.is_shared === "true");
-    document.querySelector("input[name='statement_item']").value = tx.statement_item;
+    // statement_item dropdown (Bank_Transactions date+amount alapján)
+const stmtSelect = document.getElementById("statementItemSelect");
+if (stmtSelect) {
+  try {
+    const bankItems = await ensureBankTxCache();
+    stmtSelect.innerHTML = buildStatementItemOptions(tx, bankItems);
+
+    // ha már volt mentett statement_item, próbáljuk előválasztani
+    const current = String(tx?.statement_item ?? "").trim();
+    if (current) stmtSelect.value = current;
+  } catch (e) {
+    console.error("Bank_Transactions cache betöltés hiba:", e);
+    // fallback: üres lista + jelenlegi érték (ha van)
+    stmtSelect.innerHTML = `<option value="">— válassz banki tételt —</option>`;
+    const current = String(tx?.statement_item ?? "").trim();
+    if (current) {
+      stmtSelect.insertAdjacentHTML("beforeend", `<option value="${current}">${current}</option>`);
+      stmtSelect.value = current;
+    }
+  }
+}
+
 
     // a szerkesztendő ID-t eltároljuk a formban (nem látszik, de szükséges)
     document.getElementById("txForm").setAttribute("data-edit-id", tx.id);
@@ -2023,25 +2164,7 @@ const bankBody = document.getElementById("bankImportPreviewBody");
 
 const setBankStatus = (msg) => { if (bankStatus) bankStatus.textContent = msg || ""; };
 
-const toIsoDate = (v) => {
-    if (!v) return "";
-    if (v instanceof Date && !isNaN(v.getTime())) return v.toISOString().slice(0, 10);
 
-    // ha string (pl. 2026.01.29 vagy 2026-01-29)
-    const s = String(v).trim();
-    if (!s) return "";
-
-    // yyyy.mm.dd
-    const m1 = s.match(/^(\d{4})\.(\d{2})\.(\d{2})/);
-    if (m1) return `${m1[1]}-${m1[2]}-${m1[3]}`;
-
-    // yyyy-mm-dd
-    const m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (m2) return `${m2[1]}-${m2[2]}-${m2[3]}`;
-
-    const d = new Date(s);
-    return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
-};
 
 const toMonthYYYYMM = (isoDate) => {
     // isoDate: YYYY-MM-DD
@@ -2113,6 +2236,7 @@ if (perPageValue !== "all") {
         "transaction_date",
         "posting_date",
         "type",
+        "amount",
         "direction",
         "partner_name",
         "partner_account",
@@ -2120,7 +2244,6 @@ if (perPageValue !== "all") {
         "memo",
         "account_name",
         "account_number",
-        "amount",
         "currency",
         "source_file",
         "import_batch_id",
@@ -2128,12 +2251,14 @@ if (perPageValue !== "all") {
         "created_at"
     ];
 
+
     const labels = {
         id: "ID",
         month: "Hónap",
         transaction_date: "Tranzakció dátum",
         posting_date: "Könyvelés dátum",
         type: "Típus",
+        amount: "Összeg",
         direction: "Irány",
         partner_name: "Partner neve",
         partner_account: "Partner számla",
@@ -2141,7 +2266,6 @@ if (perPageValue !== "all") {
         memo: "Közlemény",
         account_name: "Számla neve",
         account_number: "Számlaszám",
-        amount: "Összeg",
         currency: "Deviza",
         source_file: "Forrás fájl",
         import_batch_id: "Import batch ID",
@@ -2165,6 +2289,7 @@ bankHeadRow.appendChild(th);
 pageItems.forEach((it) => {
 
         const tr = document.createElement("tr");
+
         cols.forEach((c) => {
             const td = document.createElement("td");
             const v = (it && it[c] != null) ? it[c] : "";
@@ -2451,6 +2576,8 @@ bankUploadBtn?.addEventListener("click", async () => {
 
         let ok = 0;
         let fail = 0;
+        let matched = 0;
+        let unmatched = 0;
 
         const BANK_BATCH_SIZE = 50;
 
@@ -2460,7 +2587,7 @@ bankUploadBtn?.addEventListener("click", async () => {
             try {
                 const resp = await api.addBankTransactions(payloads);
 
-                // backend itt tipikusan {success:true, ok:X, fail:Y, ...}
+                // backend itt tipikusan {success:true, ok:X, fail:Y, matched:Z, ...}
                 if (!resp || !resp.success) {
                     fail += payloads.length;
                     return;
@@ -2468,6 +2595,8 @@ bankUploadBtn?.addEventListener("click", async () => {
 
                 ok += Number(resp.ok ?? 0);
                 fail += Number(resp.fail ?? 0);
+                matched += Number(resp.matched ?? 0);
+                unmatched += Number(resp.unmatched ?? 0);
                 return;
 
             } catch (err) {
@@ -2493,8 +2622,9 @@ bankUploadBtn?.addEventListener("click", async () => {
             setBankStatus(`Mentés fut… OK: ${ok}, Hiba: ${fail} (batch: ${Math.min(i + BANK_BATCH_SIZE, bankImportItems.length)}/${bankImportItems.length})`);
         }
 
-        setBankStatus(`Mentve. OK: ${ok}, Hiba: ${fail}`);
+        setBankStatus(`Mentve. OK: ${ok}, Hiba: ${fail}, Párosítva: ${matched}, Nem párosítható: ${unmatched}`);
         await loadBankTransactions();
+
 
     } catch (err) {
         console.error(err);

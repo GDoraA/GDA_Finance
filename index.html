@@ -152,7 +152,10 @@
                                 <input type="checkbox" name="is_shared">
                                 Megosztott?
                             </label>
-                            <input name="statement_item" placeholder="Kivonat sor">
+                            <select id="statementItemSelect" name="statement_item">
+  <option value="">— válassz banki tételt —</option>
+</select>
+
                             <button type="submit">Mentés</button>
                             <div id="successMsg" class="msg success" style="display:none;">Sikeresen mentve!</div>
                             <div id="errorMsg" class="msg error" style="display:none;">Hiba történt.</div>

@@ -1246,3 +1246,12 @@ body.boot .content-wrapper,
 body.boot .hamburger-btn {
     display: none !important;
 }
+tr.is-matched {
+  background-color: #e6f4ea;
+}
+
+tr.is-matched td:last-child::after {
+  content: " ✓";
+  color: #2e7d32;
+  font-weight: 600;
+}

@@ -92,6 +92,274 @@ document.addEventListener("DOMContentLoaded", () => {
             overlay.classList.add("open");
         });
     }
+    // ===== BULK MATCH MODAL =====
+    const bulkMatchBtn = document.getElementById("bulkMatchBtn");
+    const bulkMatchModal = document.getElementById("bulkMatchModal");
+    const bulkMatchCancelBtn = document.getElementById("bulkMatchCancelBtn");
+    const bulkMatchSaveBtn = document.getElementById("bulkMatchSaveBtn");
+    const bulkMatchListEl = document.getElementById("bulkMatchList");
+
+    const closeBulkMatchModal = () => {
+        if (bulkMatchModal) bulkMatchModal.classList.remove("open");
+        if (overlay) overlay.classList.remove("open");
+    };
+
+    const buildBulkMatchRowHtml = (tx, bank) => {
+        const esc = (s) => String(s ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+
+        const txId = String(tx?.id ?? "").trim();
+        const txDate = formatDateForList(tx?.date);
+        const txAmt = formatAmount(tx?.amount);
+        const txTitle = String(tx?.title ?? "").trim();
+        const txCat = String(tx?.category ?? "").trim();
+
+        const bId = String(bank?.id ?? "").trim();
+        const bDate = String(bank?.transaction_date ?? "").trim();
+        const bAmt = formatAmount(bank?.amount);
+        const bPartner = String(bank?.partner_name ?? "").trim();
+        const bMemo = String(bank?.memo ?? "").trim();
+
+        const left = [`#${txId}`, txDate, `${txAmt} Ft`, txTitle, txCat].filter(Boolean).join(" | ");
+        const right = [`#${bId}`, bDate, `${bAmt} Ft`, bPartner, bMemo].filter(Boolean).join(" | ");
+
+        return `
+        <div class="bulk-match-row" data-tx-id="${esc(txId)}" data-bank-id="${esc(bId)}">
+            <div class="col-left">${esc(left)}</div>
+            <div class="col-right">${esc(right)}</div>
+            <div class="col-check">
+                <input type="checkbox" class="bulk-match-approve" checked>
+            </div>
+        </div>
+    `;
+    };
+
+    async function renderBulkMatchList() {
+        if (!bulkMatchListEl) return;
+
+        // biztos legyen friss cache (ha valamiért még nem volt loadTransactions)
+        if (!Array.isArray(transactionsCache)) {
+            try {
+                const r = await api.getTransactions();
+                transactionsCache = (r && r.success && Array.isArray(r.data)) ? r.data : [];
+            } catch (_) {
+                transactionsCache = [];
+            }
+        }
+
+        const bankItems = await ensureBankTxCache();
+
+        // már használt banki tételek (statement_item alapján)
+        const usedBankIds = new Set(
+            (transactionsCache || [])
+                .map(t => String(t?.statement_item ?? "").trim())
+                .filter(Boolean)
+        );
+
+        // csak nem párosított tranzakciók, amikhez van találat
+        const candidates = (transactionsCache || [])
+            .filter(tx => !String(tx?.statement_item ?? "").trim())
+            .map(tx => {
+                const matchesAll = getMatchingBankItems(tx, bankItems);
+                // csak olyan banki találat, ami még nincs felhasználva
+                const matchesFree = matchesAll.filter(b => {
+                    const bid = String(b?.id ?? "").trim();
+                    return bid && !usedBankIds.has(bid);
+                });
+                return { tx, matches: matchesFree };
+            })
+            .filter(x => x.matches.length > 0);
+
+        if (candidates.length === 0) {
+            bulkMatchListEl.innerHTML = `<div class="muted">— nincs megjeleníthető automatikus találat (dátum + összeg alapján) —</div>`;
+            return;
+        }
+
+        // 1 tranzakció = 1 ajánlott banki tétel (első találat), default jóváhagyva (checked)
+        bulkMatchListEl.innerHTML = candidates
+            .map(x => buildBulkMatchRowHtml(x.tx, x.matches[0]))
+            .join("");
+    }
+
+    if (bulkMatchBtn && bulkMatchModal && overlay) {
+        bulkMatchBtn.addEventListener("click", async () => {
+            // biztos ami biztos: a txModal ne maradjon nyitva
+            if (modal) modal.classList.remove("open");
+
+            try {
+                await renderBulkMatchList();
+            } catch (e) {
+                console.error("Bulk match lista render hiba:", e);
+                if (bulkMatchListEl) {
+                    bulkMatchListEl.innerHTML = `<div class="muted">Nem sikerült betölteni az automatikus találatokat.</div>`;
+                }
+            }
+
+            bulkMatchModal.classList.add("open");
+            overlay.classList.add("open");
+        });
+    }
+
+    if (bulkMatchCancelBtn && bulkMatchModal && overlay) {
+        bulkMatchCancelBtn.addEventListener("click", () => {
+            closeBulkMatchModal();
+        });
+    }
+
+    // Mentés: csak a bepipált sorokat menti (bulk backend action)
+    if (bulkMatchSaveBtn && bulkMatchModal && overlay) {
+        bulkMatchSaveBtn.addEventListener("click", async () => {
+            try {
+                const rows = bulkMatchListEl
+                    ? Array.from(bulkMatchListEl.querySelectorAll(".bulk-match-row"))
+                    : [];
+
+                const approved = rows.filter(r => {
+                    const cb = r.querySelector("input.bulk-match-approve");
+                    return cb && cb.checked;
+                });
+
+                if (approved.length === 0) {
+                    closeBulkMatchModal();
+                    return;
+                }
+
+                bulkMatchSaveBtn.disabled = true;
+
+                const items = approved
+                    .map(r => {
+                        const txId = String(r.getAttribute("data-tx-id") || "").trim();
+                        const bankId = String(r.getAttribute("data-bank-id") || "").trim();
+                        return (txId && bankId) ? { id: txId, statement_item: bankId } : null;
+                    })
+                    .filter(Boolean);
+
+                if (items.length === 0) {
+                    closeBulkMatchModal();
+                    return;
+                }
+
+                // ===== UI státusz elem (ha nincs, létrehozzuk a modal tetején) =====
+                const ensureBulkStatusEl = () => {
+                    let el = document.getElementById("bulkMatchStatus");
+                    if (!el && bulkMatchModal) {
+                        const content = bulkMatchModal.querySelector(".modal-content");
+                        if (content) {
+                            el = document.createElement("div");
+                            el.id = "bulkMatchStatus";
+                            el.style.margin = "8px 0 12px 0";
+                            el.style.padding = "8px";
+                            el.style.border = "1px solid #ddd";
+                            el.style.borderRadius = "8px";
+                            el.style.fontSize = "0.9rem";
+                            // h2 után szúrjuk be
+                            const h2 = content.querySelector("h2");
+                            if (h2 && h2.nextSibling) content.insertBefore(el, h2.nextSibling);
+                            else content.insertBefore(el, content.firstChild);
+                        }
+                    }
+                    return el;
+                };
+
+                const statusEl = ensureBulkStatusEl();
+                const setStatus = (html) => {
+                    if (statusEl) statusEl.innerHTML = html;
+                };
+
+                // ===== Progress + összesítés =====
+                const total = items.length;
+                let processed = 0;
+                let okTotal = 0;
+                let failTotal = 0;
+                const errorList = []; // {id, error}
+
+                setStatus(`Mentés folyamatban… <strong>0 / ${total}</strong>`);
+
+                // JSONP miatt az URL hossza limitált → daraboljuk a mentést kisebb csomagokra
+                const CHUNK_SIZE = 50;
+
+                for (let i = 0; i < items.length; i += CHUNK_SIZE) {
+                    const chunk = items.slice(i, i + CHUNK_SIZE);
+
+                    setStatus(`Mentés folyamatban… <strong>${processed} / ${total}</strong> (csomag: ${Math.floor(i / CHUNK_SIZE) + 1})`);
+
+                    const resp = await api.bulkMatchTransactions(chunk);
+                    if (!resp || !resp.success) {
+                        throw new Error(resp?.error || resp?.message || "Bulk mentés sikertelen (chunk).");
+                    }
+
+                    // backend aggregátumok
+                    okTotal += Number(resp.ok || 0);
+                    failTotal += Number(resp.fail || 0);
+
+                    // részletes hibák gyűjtése
+                    if (Array.isArray(resp.results)) {
+                        resp.results.forEach(r => {
+                            if (r && r.success === false) {
+                                errorList.push({
+                                    id: String(r.id ?? ""),
+                                    error: String(r.error ?? "Ismeretlen hiba")
+                                });
+                            }
+                        });
+                    }
+
+                    processed += chunk.length;
+                    setStatus(`Mentés folyamatban… <strong>${processed} / ${total}</strong>`);
+                }
+
+                // cache frissítés (helyben) – csak a sikeresen kért párokra
+                for (const it of items) {
+                    const tx = (transactionsCache || []).find(t => String(t?.id ?? "").trim() === String(it.id));
+                    if (tx) tx.statement_item = String(it.statement_item);
+                }
+
+                // VÉGSŐ RIport a modalban (nem zárjuk be automatikusan, hogy lásd a státuszt)
+                let reportHtml = `✅ Mentés kész. <strong>Sikeres:</strong> ${okTotal} / ${total}`;
+                if (failTotal > 0) reportHtml += ` • <strong>Hibás:</strong> ${failTotal}`;
+
+                if (errorList.length > 0) {
+                    const itemsHtml = errorList
+                        .slice(0, 200) // ne legyen végtelen hosszú
+                        .map(e => `<li><strong>${String(e.id || "—")}</strong>: ${String(e.error || "")}</li>`)
+                        .join("");
+
+                    reportHtml += `
+        <div style="margin-top:10px;">
+            <div><strong>Hibák listája</strong> (max 200):</div>
+            <ul style="max-height:180px; overflow:auto; margin:6px 0 0 18px; padding:0;">
+                ${itemsHtml}
+            </ul>
+        </div>
+    `;
+                }
+
+                setStatus(reportHtml);
+
+                // Lista frissítés, hogy azonnal zöld/pipás legyen ahol kell
+                await loadTransactions();
+
+                // cache frissítés (helyben, majd listafrissítés)
+                for (const it of items) {
+                    const tx = (transactionsCache || []).find(t => String(t?.id ?? "").trim() === String(it.id));
+                    if (tx) tx.statement_item = String(it.statement_item);
+                }
+
+                closeBulkMatchModal();
+                await loadTransactions();
+
+            } catch (e) {
+                console.error("Bulk match mentés hiba:", e);
+                alert(e?.message || "Hiba történt a csoportos párosítás mentésekor.");
+            } finally {
+                bulkMatchSaveBtn.disabled = false;
+            }
+        });
+    }
 
     if (closeBtn && modal && overlay) {
         closeBtn.addEventListener("click", () => {
@@ -926,46 +1194,46 @@ document.addEventListener("DOMContentLoaded", () => {
         txCurrentPage = 999999;
         loadTransactions();
     });
-document.getElementById("bankFirstPageBtn")?.addEventListener("click", () => {
-    bankCurrentPage = 1;
-    loadBankTransactions();
-});
-document.getElementById("bankPrevPageBtn")?.addEventListener("click", () => {
-    bankCurrentPage = Math.max(1, bankCurrentPage - 1);
-    loadBankTransactions();
-});
+    document.getElementById("bankFirstPageBtn")?.addEventListener("click", () => {
+        bankCurrentPage = 1;
+        loadBankTransactions();
+    });
+    document.getElementById("bankPrevPageBtn")?.addEventListener("click", () => {
+        bankCurrentPage = Math.max(1, bankCurrentPage - 1);
+        loadBankTransactions();
+    });
 
 
-document.getElementById("bankNextPageBtn")?.addEventListener("click", () => {
-    const perPageEl = document.getElementById("bankItemsPerPage");
-    const perPageRaw = perPageEl ? perPageEl.value : "100";
-    const pageSize =
-        perPageRaw === "all"
-            ? Math.max(1, bankImportItems.length)
-            : (Number(perPageRaw) || 100);
+    document.getElementById("bankNextPageBtn")?.addEventListener("click", () => {
+        const perPageEl = document.getElementById("bankItemsPerPage");
+        const perPageRaw = perPageEl ? perPageEl.value : "100";
+        const pageSize =
+            perPageRaw === "all"
+                ? Math.max(1, bankImportItems.length)
+                : (Number(perPageRaw) || 100);
 
-    const totalPages = Math.max(1, Math.ceil(bankImportItems.length / pageSize));
-    bankCurrentPage = Math.min(totalPages, bankCurrentPage + 1);
-    loadBankTransactions();
-});
+        const totalPages = Math.max(1, Math.ceil(bankImportItems.length / pageSize));
+        bankCurrentPage = Math.min(totalPages, bankCurrentPage + 1);
+        loadBankTransactions();
+    });
 
-document.getElementById("bankLastPageBtn")?.addEventListener("click", () => {
-    const perPageEl = document.getElementById("bankItemsPerPage");
-    const perPageRaw = perPageEl ? perPageEl.value : "100";
-    const pageSize =
-        perPageRaw === "all"
-            ? Math.max(1, bankImportItems.length)
-            : (Number(perPageRaw) || 100);
+    document.getElementById("bankLastPageBtn")?.addEventListener("click", () => {
+        const perPageEl = document.getElementById("bankItemsPerPage");
+        const perPageRaw = perPageEl ? perPageEl.value : "100";
+        const pageSize =
+            perPageRaw === "all"
+                ? Math.max(1, bankImportItems.length)
+                : (Number(perPageRaw) || 100);
 
-    const totalPages = Math.max(1, Math.ceil(bankImportItems.length / pageSize));
-    bankCurrentPage = totalPages;
-    loadBankTransactions();
-});
+        const totalPages = Math.max(1, Math.ceil(bankImportItems.length / pageSize));
+        bankCurrentPage = totalPages;
+        loadBankTransactions();
+    });
 
-document.getElementById("bankItemsPerPage")?.addEventListener("change", () => {
-    bankCurrentPage = 1;
-    renderBankPreview(bankImportItems);
-});
+    document.getElementById("bankItemsPerPage")?.addEventListener("change", () => {
+        bankCurrentPage = 1;
+        renderBankPreview(bankImportItems);
+    });
 
     // ================================
     // Shared Expenses – Modal open/close (NEW only)
@@ -1588,7 +1856,7 @@ async function loadTransactions() {
     }
 
     const data = result.data;
-
+    transactionsCache = Array.isArray(data) ? data : [];
     // --- Szűrőmezők ---
     const fMonth = document.getElementById("filterMonth").value.trim();
     const fDate = document.getElementById("filterDate").value.trim();
@@ -1773,41 +2041,41 @@ async function loadTransactions() {
         return;
     }
 
-// --- Elemszám kezelése (itemsPerPage) – közös helperrel ---
-const paginationBox = document.getElementById("transactions-pagination");
-const itemsPerPageSelect = document.getElementById("itemsPerPage");
-const itemsPerPageValue = itemsPerPageSelect ? itemsPerPageSelect.value : "all";
+    // --- Elemszám kezelése (itemsPerPage) – közös helperrel ---
+    const paginationBox = document.getElementById("transactions-pagination");
+    const itemsPerPageSelect = document.getElementById("itemsPerPage");
+    const itemsPerPageValue = itemsPerPageSelect ? itemsPerPageSelect.value : "all";
 
-const pageSize = readPageSize("itemsPerPage", filtered.length, 100);
-const meta = getPaginationMeta(filtered.length, pageSize, txCurrentPage);
-txCurrentPage = meta.page;
+    const pageSize = readPageSize("itemsPerPage", filtered.length, 100);
+    const meta = getPaginationMeta(filtered.length, pageSize, txCurrentPage);
+    txCurrentPage = meta.page;
 
-let visibleItems = filtered;
+    let visibleItems = filtered;
 
-if (itemsPerPageValue !== "all") {
-    if (paginationBox) paginationBox.style.display = "flex";
+    if (itemsPerPageValue !== "all") {
+        if (paginationBox) paginationBox.style.display = "flex";
 
-    visibleItems = filtered.slice(meta.start, meta.end);
+        visibleItems = filtered.slice(meta.start, meta.end);
 
-    updatePaginationUI(
-        {
-            pageInfoId: "txPageInfo",
-            resultCountId: null,
-            firstBtnId: "txFirstPageBtn",
-            prevBtnId: "txPrevPageBtn",
-            nextBtnId: "txNextPageBtn",
-            lastBtnId: "txLastPageBtn"
-        },
-        meta.page,
-        meta.totalPages,
-        visibleItems.length,
-        filtered.length
-    );
-} else {
-    // Összes elem esetén nincs lapozás
-    txCurrentPage = 1;
-    if (paginationBox) paginationBox.style.display = "none";
-}
+        updatePaginationUI(
+            {
+                pageInfoId: "txPageInfo",
+                resultCountId: null,
+                firstBtnId: "txFirstPageBtn",
+                prevBtnId: "txPrevPageBtn",
+                nextBtnId: "txNextPageBtn",
+                lastBtnId: "txLastPageBtn"
+            },
+            meta.page,
+            meta.totalPages,
+            visibleItems.length,
+            filtered.length
+        );
+    } else {
+        // Összes elem esetén nincs lapozás
+        txCurrentPage = 1;
+        if (paginationBox) paginationBox.style.display = "none";
+    }
 
     // ===== Találatok: megjelenített / összes =====
     const txt = `Találatok: ${visibleItems.length} / ${filtered.length} db`;
@@ -1875,33 +2143,33 @@ if (itemsPerPageValue !== "all") {
             sel.addEventListener("change", async (e) => {
                 e.stopPropagation();
 
-const txId = String(sel.dataset.txId || "").trim();
-const newValue = String(sel.value || "").trim();
-if (!txId) return;
+                const txId = String(sel.dataset.txId || "").trim();
+                const newValue = String(sel.value || "").trim();
+                if (!txId) return;
 
-// TELJES SOR KÜLDÉSE, hogy backend ne nullázza a hiányzó mezőket
-const safeDate = String(tx?.date ?? "").includes("T") ? String(tx.date).split("T")[0] : String(tx?.date ?? "").trim();
+                // TELJES SOR KÜLDÉSE, hogy backend ne nullázza a hiányzó mezőket
+                const safeDate = String(tx?.date ?? "").includes("T") ? String(tx.date).split("T")[0] : String(tx?.date ?? "").trim();
 
-const payload = {
-  id: txId,
-  month: String(tx?.month ?? "").trim(),
-  date: safeDate,
-  amount: String(tx?.amount ?? ""),                 // már signed érték a listában
-  title: String(tx?.title ?? "").trim(),
-  category: String(tx?.category ?? "").trim(),
-  payment_type: String(tx?.payment_type ?? "").trim(),
-  transaction_type: String(tx?.transaction_type ?? "").trim(),
-  is_shared: (tx?.is_shared === "x" || tx?.is_shared === true || tx?.is_shared === "true") ? "x" : "",
-  statement_item: newValue
-};
+                const payload = {
+                    id: txId,
+                    month: String(tx?.month ?? "").trim(),
+                    date: safeDate,
+                    amount: String(tx?.amount ?? ""),                 // már signed érték a listában
+                    title: String(tx?.title ?? "").trim(),
+                    category: String(tx?.category ?? "").trim(),
+                    payment_type: String(tx?.payment_type ?? "").trim(),
+                    transaction_type: String(tx?.transaction_type ?? "").trim(),
+                    is_shared: (tx?.is_shared === "x" || tx?.is_shared === true || tx?.is_shared === "true") ? "x" : "",
+                    statement_item: newValue
+                };
 
-const resp = await api.updateTransaction(payload);
-if (resp && resp.success) {
-  // frontenden is frissítsük a memóriában, hogy ne villanjon vissza
-  tx.statement_item = newValue;
-} else {
-  alert(resp?.error || resp?.message || "Nem sikerült menteni a banki tétel összerendelést.");
-}
+                const resp = await api.updateTransaction(payload);
+                if (resp && resp.success) {
+                    // frontenden is frissítsük a memóriában, hogy ne villanjon vissza
+                    tx.statement_item = newValue;
+                } else {
+                    alert(resp?.error || resp?.message || "Nem sikerült menteni a banki tétel összerendelést.");
+                }
 
             });
 
@@ -1928,136 +2196,137 @@ if (resp && resp.success) {
 }
 // ===== Bank_Transactions cache (Transactions modal dropdownhoz) =====
 let bankTxCache = null;
+let transactionsCache = null; // legutóbb betöltött tranzakciók (bulk match-hez)
 let bankTxCachePromise = null;
 
 const toIsoDate = (v) => {
-  const s = String(v ?? "").trim();
-  if (!s) return "";
-  const m1 = s.match(/^(\d{4})\.(\d{2})\.(\d{2})/);
-  if (m1) return `${m1[1]}-${m1[2]}-${m1[3]}`;
-  const m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m2) return `${m2[1]}-${m2[2]}-${m2[3]}`;
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+    const s = String(v ?? "").trim();
+    if (!s) return "";
+    const m1 = s.match(/^(\d{4})\.(\d{2})\.(\d{2})/);
+    if (m1) return `${m1[1]}-${m1[2]}-${m1[3]}`;
+    const m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m2) return `${m2[1]}-${m2[2]}-${m2[3]}`;
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
 };
 
 
 
 async function ensureBankTxCache() {
-  if (bankTxCache) return bankTxCache;
-  if (bankTxCachePromise) return bankTxCachePromise;
+    if (bankTxCache) return bankTxCache;
+    if (bankTxCachePromise) return bankTxCachePromise;
 
-  bankTxCachePromise = (async () => {
-    const resp = await api.getBankTransactions();
-    const items = (resp && resp.success && Array.isArray(resp.data)) ? resp.data : [];
-    bankTxCache = items;
-    bankTxCachePromise = null;
-    return bankTxCache;
-  })();
+    bankTxCachePromise = (async () => {
+        const resp = await api.getBankTransactions();
+        const items = (resp && resp.success && Array.isArray(resp.data)) ? resp.data : [];
+        bankTxCache = items;
+        bankTxCachePromise = null;
+        return bankTxCache;
+    })();
 
-  return bankTxCachePromise;
+    return bankTxCachePromise;
 }
 
 function buildStatementItemOptions(tx, bankItems) {
-const rawTxDate = String(tx?.date ?? "").trim();
-const txDateIso = rawTxDate.includes("T") ? rawTxDate.split("T")[0] : toInputDateLocal(rawTxDate);
-const txAmt = Number(tx?.amount);
+    const rawTxDate = String(tx?.date ?? "").trim();
+    const txDateIso = rawTxDate.includes("T") ? rawTxDate.split("T")[0] : toInputDateLocal(rawTxDate);
+    const txAmt = Number(tx?.amount);
 
-const matches = (bankItems || []).filter(b => {
-  const bDateIso = String(b?.transaction_date ?? "").trim();
-  const bAmt = Number(b?.amount);
+    const matches = (bankItems || []).filter(b => {
+        const bDateIso = String(b?.transaction_date ?? "").trim();
+        const bAmt = Number(b?.amount);
 
-  if (!txDateIso) return false;
-  if (!bDateIso) return false;
-  if (Number.isNaN(txAmt) || Number.isNaN(bAmt)) return false;
+        if (!txDateIso) return false;
+        if (!bDateIso) return false;
+        if (Number.isNaN(txAmt) || Number.isNaN(bAmt)) return false;
 
-  return (bDateIso === txDateIso) && (Math.abs(bAmt) === Math.abs(txAmt));
-});
+        return (bDateIso === txDateIso) && (Math.abs(bAmt) === Math.abs(txAmt));
+    });
 
 
-  // opció szöveg: id + partner + memo (ha van)
-  const opts = [
-    `<option value="">— válassz banki tételt —</option>`,
-    ...matches.map(b => {
-      const id = String(b?.id ?? "").trim();
-      const partner = String(b?.partner_name ?? "").trim();
-      const memo = String(b?.memo ?? "").trim();
-      const label = [id, partner, memo].filter(Boolean).join(" | ");
-      return `<option value="${id}">${label || id}</option>`;
-    })
-  ];
+    // opció szöveg: id + partner + memo (ha van)
+    const opts = [
+        `<option value="">— válassz banki tételt —</option>`,
+        ...matches.map(b => {
+            const id = String(b?.id ?? "").trim();
+            const partner = String(b?.partner_name ?? "").trim();
+            const memo = String(b?.memo ?? "").trim();
+            const label = [id, partner, memo].filter(Boolean).join(" | ");
+            return `<option value="${id}">${label || id}</option>`;
+        })
+    ];
 
-  return opts.join("");
+    return opts.join("");
 }
 function getMatchingBankItems(tx, bankItems) {
-  const rawTxDate = String(tx?.date ?? "").trim();
-  const txDateIso = rawTxDate.includes("T") ? rawTxDate.split("T")[0] : toInputDateLocal(rawTxDate);
+    const rawTxDate = String(tx?.date ?? "").trim();
+    const txDateIso = rawTxDate.includes("T") ? rawTxDate.split("T")[0] : toInputDateLocal(rawTxDate);
 
-  const txAmt = Number(tx?.amount);
+    const txAmt = Number(tx?.amount);
 
-  return (bankItems || []).filter(b => {
-    const bDateIso = String(b?.transaction_date ?? "").trim();
-    const bAmt = Number(b?.amount);
+    return (bankItems || []).filter(b => {
+        const bDateIso = String(b?.transaction_date ?? "").trim();
+        const bAmt = Number(b?.amount);
 
-    if (!txDateIso || !bDateIso) return false;
-    if (Number.isNaN(txAmt) || Number.isNaN(bAmt)) return false;
+        if (!txDateIso || !bDateIso) return false;
+        if (Number.isNaN(txAmt) || Number.isNaN(bAmt)) return false;
 
-    // előjel kezelése: abs összehasonlítás
-    return (bDateIso === txDateIso) && (Math.abs(bAmt) === Math.abs(txAmt));
-  });
+        // előjel kezelése: abs összehasonlítás
+        return (bDateIso === txDateIso) && (Math.abs(bAmt) === Math.abs(txAmt));
+    });
 }
 
 function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl) {
-  const matches = getMatchingBankItems(tx, bankItems);
-  const current = String(tx?.statement_item ?? "").trim();
+    const matches = getMatchingBankItems(tx, bankItems);
+    const current = String(tx?.statement_item ?? "").trim();
 
-  if (!matches.length) {
-    pickerEl.innerHTML = `<div class="muted">Nincs egyező banki tétel (dátum + összeg alapján).</div>`;
-    return;
-  }
-
-  const esc = (s) => String(s ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-
-  const pickField = (obj, keys) => {
-    for (const k of keys) {
-      const v = obj?.[k];
-      if (v !== undefined && v !== null && String(v).trim() !== "") return String(v).trim();
+    if (!matches.length) {
+        pickerEl.innerHTML = `<div class="muted">Nincs egyező banki tétel (dátum + összeg alapján).</div>`;
+        return;
     }
-    return "";
-  };
 
-  const rows = matches.map(b => {
-    const id = String(b?.id ?? "").trim();
-    const date = String(b?.transaction_date ?? "").trim();
-    const amt = formatAmount(b?.amount);
-    const checked = (current && id === current) ? "checked" : "";
+    const esc = (s) => String(s ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 
-    // több mező – többféle lehetséges oszlopnév támogatása
-    const counterparty = pickField(b, ["partner_name", "counterparty_name", "name", "beneficiary", "payer"]);
-    const account      = pickField(b, ["partner_account", "counterparty_account", "account", "iban"]);
-    const memo         = pickField(b, ["memo", "comment", "description", "text", "note", "transaction_text"]);
-    const direction    = pickField(b, ["direction", "transaction_type", "type"]);
+    const pickField = (obj, keys) => {
+        for (const k of keys) {
+            const v = obj?.[k];
+            if (v !== undefined && v !== null && String(v).trim() !== "") return String(v).trim();
+        }
+        return "";
+    };
 
-    const line1 = `<span class="statement-item-id">#${esc(id)}</span>
+    const rows = matches.map(b => {
+        const id = String(b?.id ?? "").trim();
+        const date = String(b?.transaction_date ?? "").trim();
+        const amt = formatAmount(b?.amount);
+        const checked = (current && id === current) ? "checked" : "";
+
+        // több mező – többféle lehetséges oszlopnév támogatása
+        const counterparty = pickField(b, ["partner_name", "counterparty_name", "name", "beneficiary", "payer"]);
+        const account = pickField(b, ["partner_account", "counterparty_account", "account", "iban"]);
+        const memo = pickField(b, ["memo", "comment", "description", "text", "note", "transaction_text"]);
+        const direction = pickField(b, ["direction", "transaction_type", "type"]);
+
+        const line1 = `<span class="statement-item-id">#${esc(id)}</span>
                    <span class="statement-item-date">${esc(date)}</span>
                    <span class="statement-item-amt">${esc(amt)}</span>`;
 
-    const line2Parts = [
-      counterparty ? `<span class="statement-item-party">${esc(counterparty)}</span>` : "",
-      memo ? `<span class="statement-item-memo">${esc(memo)}</span>` : ""
-    ].filter(Boolean).join(" — ");
+        const line2Parts = [
+            counterparty ? `<span class="statement-item-party">${esc(counterparty)}</span>` : "",
+            memo ? `<span class="statement-item-memo">${esc(memo)}</span>` : ""
+        ].filter(Boolean).join(" — ");
 
-    const line3Parts = [
-      direction ? `<span class="statement-item-dir">${esc(direction)}</span>` : "",
-      account ? `<span class="statement-item-acct">${esc(account)}</span>` : ""
-    ].filter(Boolean).join(" · ");
+        const line3Parts = [
+            direction ? `<span class="statement-item-dir">${esc(direction)}</span>` : "",
+            account ? `<span class="statement-item-acct">${esc(account)}</span>` : ""
+        ].filter(Boolean).join(" · ");
 
-    return `
+        return `
       <label class="statement-item-row">
         <input class="statement-item-radio" type="radio" name="statement_item_pick" value="${esc(id)}" ${checked}>
         <span class="statement-item-content">
@@ -2067,31 +2336,31 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl) {
         </span>
       </label>
     `;
-  }).join("");
+    }).join("");
 
 
-  pickerEl.innerHTML = rows;
+    pickerEl.innerHTML = rows;
 
-  pickerEl.querySelectorAll("input[type='radio'][name='statement_item_pick']").forEach(r => {
-    r.addEventListener("change", () => {
-      hiddenInputEl.value = String(r.value || "").trim();
+    pickerEl.querySelectorAll("input[type='radio'][name='statement_item_pick']").forEach(r => {
+        r.addEventListener("change", () => {
+            hiddenInputEl.value = String(r.value || "").trim();
+        });
     });
-  });
 }
 
 function buildStatementItemSelectHtml(tx) {
-  // statement_item = kiválasztott bank tranzakció id (string)
-  const selectedId = String(tx?.statement_item ?? "").trim();
+    // statement_item = kiválasztott bank tranzakció id (string)
+    const selectedId = String(tx?.statement_item ?? "").trim();
 
-  // dropdown alapból üres opciókkal (később töltjük async)
-  // fontos: a táblázat renderelése szinkron, ezért az async betöltést utólag végezzük
-  const safeTxId = String(tx?.id ?? "").trim();
+    // dropdown alapból üres opciókkal (később töltjük async)
+    // fontos: a táblázat renderelése szinkron, ezért az async betöltést utólag végezzük
+    const safeTxId = String(tx?.id ?? "").trim();
 
-  // Egyedi azonosító, hogy később megtaláljuk és feltöltsük
-  const selectId = `stmt_${safeTxId}`;
+    // Egyedi azonosító, hogy később megtaláljuk és feltöltsük
+    const selectId = `stmt_${safeTxId}`;
 
-  // Placeholder: amíg a bankTxCache be nem jön
-return `
+    // Placeholder: amíg a bankTxCache be nem jön
+    return `
   <button type="button"
           id="${selectId}"
           class="statement-item-picker-btn"
@@ -2120,21 +2389,21 @@ async function openTransactionEditor(tx) {
     document.querySelector("input[name='is_shared']").checked =
         (tx.is_shared === "x" || tx.is_shared === true || tx.is_shared === "true");
     // statement_item dropdown (Bank_Transactions date+amount alapján)
-// statement_item választólista (Bank_Transactions date+amount alapján)
-const picker = document.getElementById("statementItemPicker");
-const hidden = document.getElementById("statementItemValue");
+    // statement_item választólista (Bank_Transactions date+amount alapján)
+    const picker = document.getElementById("statementItemPicker");
+    const hidden = document.getElementById("statementItemValue");
 
-if (hidden) hidden.value = String(tx?.statement_item ?? "").trim();
+    if (hidden) hidden.value = String(tx?.statement_item ?? "").trim();
 
-if (picker && hidden) {
-  try {
-    const bankItems = await ensureBankTxCache();
-    renderStatementItemPicker(tx, bankItems, picker, hidden);
-  } catch (e) {
-    console.error("Bank_Transactions cache betöltés hiba:", e);
-    picker.innerHTML = `<div class="muted">Nem sikerült betölteni a banki tételeket.</div>`;
-  }
-}
+    if (picker && hidden) {
+        try {
+            const bankItems = await ensureBankTxCache();
+            renderStatementItemPicker(tx, bankItems, picker, hidden);
+        } catch (e) {
+            console.error("Bank_Transactions cache betöltés hiba:", e);
+            picker.innerHTML = `<div class="muted">Nem sikerült betölteni a banki tételeket.</div>`;
+        }
+    }
 
 
 
@@ -2290,48 +2559,48 @@ const normalizeAmount = (v) => {
 };
 const renderBankPreview = (items) => {
     if (!bankHeadRow || !bankBody) return;
-const safeItems = Array.isArray(items) ? items : [];
+    const safeItems = Array.isArray(items) ? items : [];
 
-const perPageEl = document.getElementById("bankItemsPerPage");
+    const perPageEl = document.getElementById("bankItemsPerPage");
 
-const perPageValue = perPageEl ? perPageEl.value : "all";
-const paginationBox = document.getElementById("bankImportPagination");
+    const perPageValue = perPageEl ? perPageEl.value : "all";
+    const paginationBox = document.getElementById("bankImportPagination");
 
-if (typeof bankCurrentPage === "undefined") {
-    window.bankCurrentPage = 1;
-}
+    if (typeof bankCurrentPage === "undefined") {
+        window.bankCurrentPage = 1;
+    }
 
-const pageSize2 = readPageSize("bankItemsPerPage", safeItems.length, 100);
-const meta = getPaginationMeta(safeItems.length, pageSize2, bankCurrentPage);
-bankCurrentPage = meta.page;
+    const pageSize2 = readPageSize("bankItemsPerPage", safeItems.length, 100);
+    const meta = getPaginationMeta(safeItems.length, pageSize2, bankCurrentPage);
+    bankCurrentPage = meta.page;
 
-let pageItems = safeItems;
+    let pageItems = safeItems;
 
-if (perPageValue !== "all") {
-    if (paginationBox) paginationBox.style.display = "flex";
-    pageItems = safeItems.slice(meta.start, meta.end);
+    if (perPageValue !== "all") {
+        if (paginationBox) paginationBox.style.display = "flex";
+        pageItems = safeItems.slice(meta.start, meta.end);
 
-    updatePaginationUI(
-        {
-            pageInfoId: "bankPageInfo",
-            resultCountId: "bankImportResultCount",
-            firstBtnId: "bankFirstPageBtn",
-            prevBtnId: "bankPrevPageBtn",
-            nextBtnId: "bankNextPageBtn",
-            lastBtnId: "bankLastPageBtn"
-        },
-        meta.page,
-        meta.totalPages,
-        pageItems.length,
-        safeItems.length
-    );
-} else {
-    bankCurrentPage = 1;
-    if (paginationBox) paginationBox.style.display = "none";
+        updatePaginationUI(
+            {
+                pageInfoId: "bankPageInfo",
+                resultCountId: "bankImportResultCount",
+                firstBtnId: "bankFirstPageBtn",
+                prevBtnId: "bankPrevPageBtn",
+                nextBtnId: "bankNextPageBtn",
+                lastBtnId: "bankLastPageBtn"
+            },
+            meta.page,
+            meta.totalPages,
+            pageItems.length,
+            safeItems.length
+        );
+    } else {
+        bankCurrentPage = 1;
+        if (paginationBox) paginationBox.style.display = "none";
 
-    const resultCountEl = document.getElementById("bankImportResultCount");
-    if (resultCountEl) resultCountEl.textContent = `Találatok: ${safeItems.length} / ${safeItems.length} db`;
-}
+        const resultCountEl = document.getElementById("bankImportResultCount");
+        if (resultCountEl) resultCountEl.textContent = `Találatok: ${safeItems.length} / ${safeItems.length} db`;
+    }
 
 
     // a sheet (backend) 18 mezős struktúrája
@@ -2381,17 +2650,17 @@ if (perPageValue !== "all") {
     // fejléc
     bankHeadRow.innerHTML = "";
     cols.forEach((c) => {
-const th = document.createElement("th");
-th.textContent = labels[c] || c;
-th.dataset.sort = c;
-th.style.cursor = "pointer";
-bankHeadRow.appendChild(th);
+        const th = document.createElement("th");
+        th.textContent = labels[c] || c;
+        th.dataset.sort = c;
+        th.style.cursor = "pointer";
+        bankHeadRow.appendChild(th);
 
     });
 
     // body (max 200 sor preview)
     bankBody.innerHTML = "";
-pageItems.forEach((it) => {
+    pageItems.forEach((it) => {
 
         const tr = document.createElement("tr");
 
@@ -2405,26 +2674,26 @@ pageItems.forEach((it) => {
     });
 
 
-// Megjelenített / összes tétel
-const resultCountEl = document.getElementById("bankImportResultCount");
-if (resultCountEl) {
-    resultCountEl.textContent = `Találatok: ${pageItems.length} / ${safeItems.length} db`;
-}
+    // Megjelenített / összes tétel
+    const resultCountEl = document.getElementById("bankImportResultCount");
+    if (resultCountEl) {
+        resultCountEl.textContent = `Találatok: ${pageItems.length} / ${safeItems.length} db`;
+    }
 
-// Gombok tiltása (eleje/vége + előző/következő)
-const firstBtn = document.getElementById("bankFirstPageBtn");
-const prevBtn  = document.getElementById("bankPrevPageBtn");
-const nextBtn  = document.getElementById("bankNextPageBtn");
-const lastBtn  = document.getElementById("bankLastPageBtn");
+    // Gombok tiltása (eleje/vége + előző/következő)
+    const firstBtn = document.getElementById("bankFirstPageBtn");
+    const prevBtn = document.getElementById("bankPrevPageBtn");
+    const nextBtn = document.getElementById("bankNextPageBtn");
+    const lastBtn = document.getElementById("bankLastPageBtn");
 
-const atFirst = (bankCurrentPage <= 1);
-const atLast  = (bankCurrentPage >= meta.totalPages);
+    const atFirst = (bankCurrentPage <= 1);
+    const atLast = (bankCurrentPage >= meta.totalPages);
 
 
-if (firstBtn) firstBtn.disabled = atFirst;
-if (prevBtn)  prevBtn.disabled  = atFirst;
-if (nextBtn)  nextBtn.disabled  = atLast;
-if (lastBtn)  lastBtn.disabled  = atLast;
+    if (firstBtn) firstBtn.disabled = atFirst;
+    if (prevBtn) prevBtn.disabled = atFirst;
+    if (nextBtn) nextBtn.disabled = atLast;
+    if (lastBtn) lastBtn.disabled = atLast;
 };
 
 async function loadBankTransactions() {

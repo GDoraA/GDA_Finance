@@ -62,6 +62,7 @@
                 <div class="tx-toolbar">
                     <div class="tx-toolbar-left">
                         <button id="openModalBtn">Új tranzakció</button>
+                        <button id="bulkMatchBtn">Csoportos párosítás</button>
                         <button id="importCsvBtn">Import</button>
                         <button id="toggleFiltersBtn">Szűrők</button>
                     </div>
@@ -152,11 +153,11 @@
                                 <input type="checkbox" name="is_shared">
                                 Megosztott?
                             </label>
-<input type="hidden" id="statementItemValue" name="statement_item" value="">
+                            <input type="hidden" id="statementItemValue" name="statement_item" value="">
 
-<div id="statementItemPicker" class="statement-item-picker">
-  <div class="muted">— válassz banki tételt —</div>
-</div>
+                            <div id="statementItemPicker" class="statement-item-picker">
+                                <div class="muted">— válassz banki tételt —</div>
+                            </div>
 
 
                             <button type="submit">Mentés</button>
@@ -175,6 +176,28 @@
                         <datalist id="transactionTypesList"></datalist>
                         <datalist id="paidByList"></datalist>
                         <datalist id="sharedTitlesList"></datalist>
+                    </div>
+                </div>
+                                <!-- Bulk Match Modal -->
+                <div id="bulkMatchModal" class="modal">
+                    <div class="modal-content">
+                        <h2>Csoportos párosítás</h2>
+
+                        <div class="bulk-match-head">
+                            <div class="col-left"><strong>Tranzakció</strong></div>
+                            <div class="col-right"><strong>Banki tétel</strong></div>
+                            <div class="col-check"><strong>✓</strong></div>
+                        </div>
+
+                        <!-- Ide tölti az app.js a párosítható sorokat -->
+                        <div id="bulkMatchList" class="bulk-match-list">
+                            <div class="muted">— nincs megjeleníthető automatikus találat —</div>
+                        </div>
+
+                        <div class="modal-actions">
+                            <button id="bulkMatchSaveBtn" type="button">Mentés</button>
+                            <button id="bulkMatchCancelBtn" type="button" class="secondary">Mégsem</button>
+                        </div>
                     </div>
                 </div>
                 <div id="filtersPanel" class="filters collapsed">
@@ -250,28 +273,29 @@
                 </div>
                 <input id="bankImportFileInput" type="file" accept=".csv,text/csv,application/csv"
                     style="display:none;">
-<div class="tx-toolbar">
-    <div class="tx-toolbar-left">
-        <label for="bankItemsPerPage">Tételek oldalanként:</label>
-        <select id="bankItemsPerPage">
-            <option value="10">10</option>
-            <option value="20">20</option>
-            <option value="50">50</option>
-            <option value="100" selected>100</option>
-            <option value="all">Összes</option>
-        </select>
-    </div>
+                <div class="tx-toolbar">
+                    <div class="tx-toolbar-left">
+                        <label for="bankItemsPerPage">Tételek oldalanként:</label>
+                        <select id="bankItemsPerPage">
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="100" selected>100</option>
+                            <option value="all">Összes</option>
+                        </select>
+                    </div>
 
-    <div id="bankImportResultCount" class="result-count"></div>
+                    <div id="bankImportResultCount" class="result-count"></div>
 
-    <div id="bankImportPagination" class="pagination">
-        <button id="bankFirstPageBtn" type="button" class="page-btn" aria-label="Első oldal">⏮</button>
-        <button id="bankPrevPageBtn" type="button" class="page-btn" aria-label="Előző oldal">◀</button>
-        <span id="bankPageInfo" class="page-info"></span>
-        <button id="bankNextPageBtn" type="button" class="page-btn" aria-label="Következő oldal">▶</button>
-        <button id="bankLastPageBtn" type="button" class="page-btn" aria-label="Utolsó oldal">⏭</button>
-    </div>
-</div>
+                    <div id="bankImportPagination" class="pagination">
+                        <button id="bankFirstPageBtn" type="button" class="page-btn" aria-label="Első oldal">⏮</button>
+                        <button id="bankPrevPageBtn" type="button" class="page-btn" aria-label="Előző oldal">◀</button>
+                        <span id="bankPageInfo" class="page-info"></span>
+                        <button id="bankNextPageBtn" type="button" class="page-btn"
+                            aria-label="Következő oldal">▶</button>
+                        <button id="bankLastPageBtn" type="button" class="page-btn" aria-label="Utolsó oldal">⏭</button>
+                    </div>
+                </div>
 
                 <div id="bankImportStatus" class="result-count"></div>
                 <div class="table-wrapper">
@@ -326,11 +350,11 @@
                 <strong>Egyenleg:</strong>
                 <span id="sharedBalanceValue">0</span>
                 <span id="sharedBalanceLabel"></span>
-<div id="sharedTotalsInline">
-    <div class="balance-dori">Dóri része: <span id="sharedRedTotal">0</span></div>
-    <div class="balance-zsolti">Zsolti része: <span id="sharedBlueTotal">0</span></div>
-    <div class="balance-settlement">Zsolti törlesztés: <span id="sharedPurpleTotal">0</span></div>
-</div>
+                <div id="sharedTotalsInline">
+                    <div class="balance-dori">Dóri része: <span id="sharedRedTotal">0</span></div>
+                    <div class="balance-zsolti">Zsolti része: <span id="sharedBlueTotal">0</span></div>
+                    <div class="balance-settlement">Zsolti törlesztés: <span id="sharedPurpleTotal">0</span></div>
+                </div>
 
             </div>
             <table id="sharedExpensesTable" class="tx-table">

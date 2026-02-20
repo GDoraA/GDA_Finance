@@ -1,6 +1,6 @@
 // ----------- API KONFIG -------------
 
-const API_URL = "https://script.google.com/macros/s/AKfycbyVaQS7N95YEteLFezV_cBQcyDD_90wwuLqL8wXjPEYn_FW33teStKxZS_mxRYCnRE/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzWQFSGgpWjDgrbJyCWaPOvNvoqdUZXbo_jtSVi0PZB08lhb40IfPAAlfkYh8yZjgs/exec";
 
 
 // ----------- JSONP HÍVÓ FUNKCIÓ -------------
@@ -8,9 +8,9 @@ const API_URL = "https://script.google.com/macros/s/AKfycbyVaQS7N95YEteLFezV_cBQ
 function jsonp(action, params = {}) {
     return new Promise((resolve, reject) => {
 
-        const callbackName = "cb_" + Date.now() + "_" + Math.floor(Math.random()*10000);
+        const callbackName = "cb_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
 
-        window[callbackName] = function(response) {
+        window[callbackName] = function (response) {
             delete window[callbackName];
             script.remove();
             resolve(response);
@@ -34,7 +34,7 @@ function jsonp(action, params = {}) {
 // ----------- API METÓDUSOK -------------
 
 const api = {
-        login(email, password) {
+    login(email, password) {
         return jsonp("login", { email, password });
     },
     whoami() {
@@ -50,7 +50,7 @@ const api = {
     addTransaction(data) {
         return jsonp("addTransaction", data);
     },
-        addTransactions(items) {
+    addTransactions(items) {
         return jsonp("addTransactions", { items: JSON.stringify(items || []) });
     },
     addBankTransactions(items) {
@@ -65,20 +65,22 @@ const api = {
     },
 
     updateTransaction(data) {
-    return jsonp("updateTransaction", data);
+        return jsonp("updateTransaction", data);
     },
-
+    bulkMatchTransactions(items) {
+        return jsonp("bulkMatchTransactions", { items: JSON.stringify(items || []) });
+    },
     deleteTransaction(id) {
         return jsonp("deleteTransaction", { id });
     },
     deleteSharedExpense(id) {
-    return jsonp("deleteSharedExpense", { id });
+        return jsonp("deleteSharedExpense", { id });
     },
 
     getValueSets() {
         return jsonp("getValueSets");
     },
-    
+
     addValueToSet(setName, value) {
         return jsonp("addValueToSet", { set: setName, value });
     },
@@ -90,24 +92,24 @@ const api = {
         return jsonp("updateSharedExpense", { id, field, value });
     },
     addSharedExpense(data) {
-    return jsonp("addSharedExpense", data);
+        return jsonp("addSharedExpense", data);
     },
     updateSharedExpenseRow(data) {
-    return jsonp("updateSharedExpenseRow", data);
+        return jsonp("updateSharedExpenseRow", data);
     },
-        getUsers() {
+    getUsers() {
         return jsonp("getUsers");
     },
-      getFunctions() {
-    return jsonp("getFunctions");
+    getFunctions() {
+        return jsonp("getFunctions");
     },
-      getPermissions() {
-    return jsonp("getPermissions");
+    getPermissions() {
+        return jsonp("getPermissions");
     },
-      setPermission(email, function_key, access) {
-    return jsonp("setPermission", { email, function_key, access });
-  },
-addUser(name, email) {
+    setPermission(email, function_key, access) {
+        return jsonp("setPermission", { email, function_key, access });
+    },
+    addUser(name, email) {
         return jsonp("addUser", { name, email });
     },
 

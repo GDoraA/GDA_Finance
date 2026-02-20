@@ -93,7 +93,7 @@ function getUserAccess_(email, function_key) {
   if (!sheet) return "none";
 
   const em = String(email || "").trim().toLowerCase();
-const fk = String(function_key || "").trim().toLowerCase();
+  const fk = String(function_key || "").trim().toLowerCase();
   if (!em || !fk) return "none";
 
   const data = sheet.getDataRange().getValues();
@@ -103,14 +103,14 @@ const fk = String(function_key || "").trim().toLowerCase();
   const col = (name) => header.indexOf(name);
 
   const cEmail = col("email");
-  const cKey   = col("function_key");
-  const cAcc   = col("access");
+  const cKey = col("function_key");
+  const cAcc = col("access");
   if (cEmail === -1 || cKey === -1 || cAcc === -1) return "none";
 
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     const rowEmail = String(row[cEmail] || "").trim().toLowerCase();
-const rowKey   = String(row[cKey] || "").trim().toLowerCase();
+    const rowKey = String(row[cKey] || "").trim().toLowerCase();
 
     if (rowEmail === em && rowKey === fk) {
       const acc = String(row[cAcc] || "").trim().toLowerCase();
@@ -127,7 +127,7 @@ function requirePermission_(auth, function_key, level) {
   if (!fk) throw new Error("Hiányzó function_key.");
 
   // Admin mindent vihet (megtartjuk a jelenlegi admin logikát)
-  try { requireAdmin_(auth); return; } catch (_) {}
+  try { requireAdmin_(auth); return; } catch (_) { }
 
   const email = (auth && auth.email) ? String(auth.email).trim().toLowerCase() : "";
   const acc = getUserAccess_(email, fk);
@@ -162,7 +162,7 @@ function toHex_(bytes) {
 // Formátum: sha256$<salt>$<hexhash>
 function hashPassword_(plain, salt) {
   const pw = String(plain ?? "");
-  const s  = String(salt ?? "");
+  const s = String(salt ?? "");
   const bytes = Utilities.computeDigest(
     Utilities.DigestAlgorithm.SHA_256,
     s + pw,
@@ -181,7 +181,7 @@ function verifyPassword_(stored, incomingPlain) {
   if (parts.length !== 3) return false;
 
   const salt = parts[1];
-  const hex  = parts[2];
+  const hex = parts[2];
   const recomputed = hashPassword_(pw, salt);
   return recomputed === `sha256$${salt}$${hex}`;
 }
@@ -348,9 +348,9 @@ function addUser_(name, email) {
         const functionKey = String(fnData[i][0] || "").trim(); // function_key az első oszlopban
         if (!functionKey) continue;
 
-      const sp = setPermission_(em, functionKey, "none");
-      // csak akkor számoljuk "beszúrtnak", ha nem update volt
-      if (!sp || !sp.updated) permInsertedCount++;
+        const sp = setPermission_(em, functionKey, "none");
+        // csak akkor számoljuk "beszúrtnak", ha nem update volt
+        if (!sp || !sp.updated) permInsertedCount++;
 
 
       }
@@ -364,19 +364,19 @@ function addUser_(name, email) {
       if (permSheet && permStartRow1Based && permInsertedCount > 0) {
         permSheet.deleteRows(permStartRow1Based, permInsertedCount);
       }
-    } catch (e) {}
+    } catch (e) { }
 
     try {
       // csak akkor töröljük, ha tényleg beszúrtuk: a lastRow legalább akkora, mint az elmentett index
       if (sheet.getLastRow() >= userRowIndex1Based) {
         sheet.deleteRow(userRowIndex1Based);
       }
-    } catch (e) {}
+    } catch (e) { }
 
     throw err;
 
   } finally {
-    try { lock.releaseLock(); } catch (e) {}
+    try { lock.releaseLock(); } catch (e) { }
   }
 
 }
@@ -390,7 +390,7 @@ function getFunctions_() {
   const header = data[0].map(h => String(h || "").trim());
   const col = (name) => header.indexOf(name);
 
-  const cKey  = col("function_key");
+  const cKey = col("function_key");
   const cName = col("name");
   const cDesc = col("description");
 
@@ -424,8 +424,8 @@ function getPermissions_() {
   const col = (name) => header.indexOf(name);
 
   const cEmail = col("email");
-  const cKey   = col("function_key");
-  const cAcc   = col("access");
+  const cKey = col("function_key");
+  const cAcc = col("access");
 
   if (cEmail === -1 || cKey === -1 || cAcc === -1) {
     throw new Error('A "Permissions" fejléc hibás. Elvárt oszlopok: email, function_key, access');
@@ -463,8 +463,8 @@ function getMyPermissions_(email) {
   const col = (name) => header.indexOf(name);
 
   const cEmail = col("email");
-  const cKey   = col("function_key");
-  const cAcc   = col("access");
+  const cKey = col("function_key");
+  const cAcc = col("access");
   if (cEmail === -1 || cKey === -1 || cAcc === -1) {
     throw new Error('A "Permissions" fejléc hibás. Elvárt oszlopok: email, function_key, access');
   }
@@ -492,7 +492,7 @@ function setPermission_(email, function_key, access) {
   if (!sheet) throw new Error('Nem található a "Permissions" munkalap.');
 
   const em = String(email || "").trim().toLowerCase();
-const fk = String(function_key || "").trim().toLowerCase();
+  const fk = String(function_key || "").trim().toLowerCase();
   let acc = String(access || "").trim().toLowerCase();
 
   if (!em) throw new Error("Hiányzó email.");
@@ -504,8 +504,8 @@ const fk = String(function_key || "").trim().toLowerCase();
   const col = (name) => header.indexOf(name);
 
   const cEmail = col("email");
-  const cKey   = col("function_key");
-  const cAcc   = col("access");
+  const cKey = col("function_key");
+  const cAcc = col("access");
 
   if (cEmail === -1 || cKey === -1 || cAcc === -1) {
     throw new Error('A "Permissions" fejléc hibás. Elvárt oszlopok: email, function_key, access');
@@ -515,7 +515,7 @@ const fk = String(function_key || "").trim().toLowerCase();
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     const rowEmail = String(row[cEmail] || "").trim().toLowerCase();
-const rowKey   = String(row[cKey] || "").trim().toLowerCase();
+    const rowKey = String(row[cKey] || "").trim().toLowerCase();
 
     if (rowEmail === em && rowKey === fk) {
       sheet.getRange(i + 1, cAcc + 1).setValue(acc);
@@ -532,7 +532,7 @@ function getUserAccess_(email, function_key) {
   if (!sheet) return "none";
 
   const em = String(email || "").trim().toLowerCase();
-const fk = String(function_key || "").trim().toLowerCase();
+  const fk = String(function_key || "").trim().toLowerCase();
   if (!em || !fk) return "none";
 
   const data = sheet.getDataRange().getValues();
@@ -542,14 +542,14 @@ const fk = String(function_key || "").trim().toLowerCase();
   const col = (name) => header.indexOf(name);
 
   const cEmail = col("email");
-  const cKey   = col("function_key");
-  const cAcc   = col("access");
+  const cKey = col("function_key");
+  const cAcc = col("access");
   if (cEmail === -1 || cKey === -1 || cAcc === -1) return "none";
 
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     const rowEmail = String(row[cEmail] || "").trim().toLowerCase();
-    const rowKey   = String(row[cKey] || "").trim();
+    const rowKey = String(row[cKey] || "").trim();
     if (rowEmail === em && rowKey === fk) {
       const acc = String(row[cAcc] || "").trim().toLowerCase();
       return ["none", "read", "write"].includes(acc) ? acc : "none";
@@ -568,7 +568,7 @@ function requirePermission_(auth, function_key, level) {
   try {
     requireAdmin_(auth);
     return;
-  } catch (_) {}
+  } catch (_) { }
 
   const email = (auth && auth.email) ? String(auth.email).trim().toLowerCase() : "";
   const acc = getUserAccess_(email, fk);
@@ -590,7 +590,7 @@ function doGet(e) {
   let result;
 
   try {
-        // --- AUTH: login külön, minden más tokenhez kötött ---
+    // --- AUTH: login külön, minden más tokenhez kötött ---
     if (action === "login") {
       result = login_(p.email || "", p.password || "");
       return createJsonOrJsonpResponse_(result, callback);
@@ -600,20 +600,20 @@ function doGet(e) {
     const auth = requireAuth_(p);
 
     if (action === "addTransaction") {
-      
+
       requirePermission_(auth, "tx_create", "write");
 
       const tx = {
-        month:            p.month            || "",
-        date:             p.date             || "",
-        amount:           p.amount           || "",
-        title:            p.title            || "",
-        category:         p.category         || "",
-        payment_type:     p.payment_type     || "",
+        month: p.month || "",
+        date: p.date || "",
+        amount: p.amount || "",
+        title: p.title || "",
+        category: p.category || "",
+        payment_type: p.payment_type || "",
         transaction_type: p.transaction_type || "",
-        is_shared:        p.is_shared        || "",
-        statement_item:   p.statement_item   || "",
-        paid_by:          p.paid_by          || ""
+        is_shared: p.is_shared || "",
+        statement_item: p.statement_item || "",
+        paid_by: p.paid_by || ""
       };
       result = addTransaction_(tx);
     } else if (action === "getUsers") {
@@ -646,21 +646,53 @@ function doGet(e) {
 
     } else if (action === "updateTransaction") {
       const tx = {
-        id:               p.id               || "",
-        month:            p.month            || "",
-        date:             p.date             || "",
-        amount:           p.amount           || "",
-        title:            p.title            || "",
-        category:         p.category         || "",
-        payment_type:     p.payment_type     || "",
+        id: p.id || "",
+        month: p.month || "",
+        date: p.date || "",
+        amount: p.amount || "",
+        title: p.title || "",
+        category: p.category || "",
+        payment_type: p.payment_type || "",
         transaction_type: p.transaction_type || "",
-        is_shared:        p.is_shared        || "",
-        statement_item:   p.statement_item   || "",
-        paid_by:          p.paid_by          || ""
+        is_shared: p.is_shared || "",
+        statement_item: p.statement_item || "",
+        paid_by: p.paid_by || ""
       };
       requirePermission_(auth, "tx_update", "write");
       result = updateTransaction_(tx);
+    } else if (action === "bulkMatchTransactions") {
+      // jogosultság: ugyanaz, mint update (write)
+      requirePermission_(auth, "tx_update", "write");
 
+      // items: JSON string (URL paraméterben)
+      const raw = p.items || "[]";
+      let items = [];
+      try {
+        items = JSON.parse(raw);
+      } catch (e) {
+        result = { success: false, error: "Hibás JSON a 'items' paraméterben." };
+        return createJsonOrJsonpResponse_(result, callback);
+      }
+      // ===== Hardening =====
+
+      if (!Array.isArray(items)) {
+        result = { success: false, error: "Az 'items' paraméternek tömbnek kell lennie." };
+        return createJsonOrJsonpResponse_(result, callback);
+      }
+
+      if (items.length > 500) {
+        result = { success: false, error: "Túl sok elem (max 500 engedélyezett egy kérésben)." };
+        return createJsonOrJsonpResponse_(result, callback);
+      }
+
+      for (var i = 0; i < items.length; i++) {
+        var it = items[i];
+        if (!it || typeof it !== "object" || !it.id) {
+          result = { success: false, error: "Hibás items struktúra az indexen: " + i };
+          return createJsonOrJsonpResponse_(result, callback);
+        }
+      }
+      result = bulkMatchTransactions_(items);
     } else if (action === "addValueToSet") {
       result = addValueToSet_(p);
 
@@ -679,7 +711,7 @@ function doGet(e) {
     }
     else if (action === "deleteTransaction") {
       requirePermission_(auth, "tx_delete", "write");
-    result = deleteTransaction_(p.id || "");
+      result = deleteTransaction_(p.id || "");
 
 
     } else if (action === "addSharedExpense") {
@@ -813,13 +845,13 @@ function addTransaction_(tx) {
 
   // --- megosztott költség automatikus szinkron ---
   syncSharedExpenseForTransaction_({
-    id:           id,
-    month:        tx.month,
-    date:         tx.date,
-    amount:       tx.amount,
-    title:        tx.title,
-    is_shared:    tx.is_shared,
-    paid_by:      tx.paid_by
+    id: id,
+    month: tx.month,
+    date: tx.date,
+    amount: tx.amount,
+    title: tx.title,
+    is_shared: tx.is_shared,
+    paid_by: tx.paid_by
   });
 
   return { success: true, id: id };
@@ -855,16 +887,16 @@ function addTransactions_(items) {
 
     const tx = {
       id,
-      month:            p.month            || "",
-      date:             p.date             || "",
-      amount:           p.amount           || "",
-      title:            p.title            || "",
-      category:         p.category         || "",
-      payment_type:     p.payment_type     || "",
+      month: p.month || "",
+      date: p.date || "",
+      amount: p.amount || "",
+      title: p.title || "",
+      category: p.category || "",
+      payment_type: p.payment_type || "",
       transaction_type: p.transaction_type || "",
-      is_shared:        p.is_shared        || "",
-      statement_item:   p.statement_item   || "",
-      paid_by:          p.paid_by          || ""
+      is_shared: p.is_shared || "",
+      statement_item: p.statement_item || "",
+      paid_by: p.paid_by || ""
     };
 
     const row = [
@@ -889,124 +921,124 @@ function addTransactions_(items) {
   if (rowsToInsert.length > 0) {
     const startRow = sheet.getLastRow() + 1;
     sheet.getRange(startRow, 1, rowsToInsert.length, rowsToInsert[0].length).setValues(rowsToInsert);
-// TODO: MATCH bank transactions to Transactions by transaction_date + amount, write BT id into Transactions.statement_item
-  // --- MATCH PREP: load Transactions sheet + column indexes ---
-  const txSheet = SpreadsheetApp.getActive().getSheetByName("Transactions");
-  if (!txSheet) throw new Error('Nem található a "Transactions" nevű munkalap.');
+    // TODO: MATCH bank transactions to Transactions by transaction_date + amount, write BT id into Transactions.statement_item
+    // --- MATCH PREP: load Transactions sheet + column indexes ---
+    const txSheet = SpreadsheetApp.getActive().getSheetByName("Transactions");
+    if (!txSheet) throw new Error('Nem található a "Transactions" nevű munkalap.');
 
-  const txData = txSheet.getDataRange().getValues();
-  if (!txData || txData.length < 2) {
-    // nincs mit párosítani
-  } else {
-    const txHeader = txData[0].map(h => String(h || "").trim());
+    const txData = txSheet.getDataRange().getValues();
+    if (!txData || txData.length < 2) {
+      // nincs mit párosítani
+    } else {
+      const txHeader = txData[0].map(h => String(h || "").trim());
 
-    const cTxId = txHeader.indexOf("id");
-    const cTxDate = txHeader.indexOf("date");
-    const cTxAmount = txHeader.indexOf("amount");
-    const cTxStatement = txHeader.indexOf("statement_item");
+      const cTxId = txHeader.indexOf("id");
+      const cTxDate = txHeader.indexOf("date");
+      const cTxAmount = txHeader.indexOf("amount");
+      const cTxStatement = txHeader.indexOf("statement_item");
 
-    if (cTxId === -1 || cTxDate === -1 || cTxAmount === -1 || cTxStatement === -1) {
-      throw new Error('A "Transactions" fejléc hibás. Kötelező oszlopok: id, date, amount, statement_item');
-    }
-
-    // --- BUILD INDEX: (date|amount) -> tx rows with empty statement_item ---
-    const tz = Session.getScriptTimeZone();
-
-    const normDate = (cell) => {
-      if (cell instanceof Date && !isNaN(cell.getTime())) {
-        return Utilities.formatDate(cell, tz, "yyyy-MM-dd");
+      if (cTxId === -1 || cTxDate === -1 || cTxAmount === -1 || cTxStatement === -1) {
+        throw new Error('A "Transactions" fejléc hibás. Kötelező oszlopok: id, date, amount, statement_item');
       }
-      const s = String(cell || "").trim();
-      if (!s) return "";
-      // ha már yyyy-mm-dd
-      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      if (m) return s;
 
-      // ha yyyy.mm.dd vagy yyyy.mm.dd.
-      const m2 = s.match(/^(\d{4})\.(\d{2})\.(\d{2})\.?$/);
-      if (m2) return `${m2[1]}-${m2[2]}-${m2[3]}`;
+      // --- BUILD INDEX: (date|amount) -> tx rows with empty statement_item ---
+      const tz = Session.getScriptTimeZone();
 
-      // fallback
-      const d = new Date(s);
-      return isNaN(d.getTime()) ? "" : Utilities.formatDate(d, tz, "yyyy-MM-dd");
-    };
+      const normDate = (cell) => {
+        if (cell instanceof Date && !isNaN(cell.getTime())) {
+          return Utilities.formatDate(cell, tz, "yyyy-MM-dd");
+        }
+        const s = String(cell || "").trim();
+        if (!s) return "";
+        // ha már yyyy-mm-dd
+        const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (m) return s;
 
-    const normAmount = (v) => {
-      const s = String(v ?? "").trim().replace(/\s+/g, "").replace(",", ".");
-      const n = Number(s);
-      if (isNaN(n)) return null;
+        // ha yyyy.mm.dd vagy yyyy.mm.dd.
+        const m2 = s.match(/^(\d{4})\.(\d{2})\.(\d{2})\.?$/);
+        if (m2) return `${m2[1]}-${m2[2]}-${m2[3]}`;
 
-      // párosítás abs értéken + kerekítve (bank vs tx előjel/kerekítés eltérés ellen)
-      const abs = Math.abs(n);
-      return Math.round(abs * 100) / 100;
-    };
+        // fallback
+        const d = new Date(s);
+        return isNaN(d.getTime()) ? "" : Utilities.formatDate(d, tz, "yyyy-MM-dd");
+      };
+
+      const normAmount = (v) => {
+        const s = String(v ?? "").trim().replace(/\s+/g, "").replace(",", ".");
+        const n = Number(s);
+        if (isNaN(n)) return null;
+
+        // párosítás abs értéken + kerekítve (bank vs tx előjel/kerekítés eltérés ellen)
+        const abs = Math.abs(n);
+        return Math.round(abs * 100) / 100;
+      };
 
 
-    const keyOf = (dateIso, amountNum) => `${dateIso}|${amountNum}`;
+      const keyOf = (dateIso, amountNum) => `${dateIso}|${amountNum}`;
 
-    // map: kulcs -> [txRowIndex1Based, ...] (csak ahol statement_item üres)
-    const txMap = new Map();
+      // map: kulcs -> [txRowIndex1Based, ...] (csak ahol statement_item üres)
+      const txMap = new Map();
 
-    for (let r = 1; r < txData.length; r++) {
-      const row = txData[r];
-      const stmt = String(row[cTxStatement] ?? "").trim();
-      if (stmt) continue; // ne írjunk felül meglévőt
+      for (let r = 1; r < txData.length; r++) {
+        const row = txData[r];
+        const stmt = String(row[cTxStatement] ?? "").trim();
+        if (stmt) continue; // ne írjunk felül meglévőt
 
-      const dIso = normDate(row[cTxDate]);
-      const amt = normAmount(row[cTxAmount]);
-      if (!dIso || amt == null) continue;
+        const dIso = normDate(row[cTxDate]);
+        const amt = normAmount(row[cTxAmount]);
+        if (!dIso || amt == null) continue;
 
-      const k = keyOf(dIso, amt);
-      if (!txMap.has(k)) txMap.set(k, []);
-      txMap.get(k).push({
-        rowIndex1Based: r + 1,
-        txId: String(row[cTxId] || "").trim()
-      });
+        const k = keyOf(dIso, amt);
+        if (!txMap.has(k)) txMap.set(k, []);
+        txMap.get(k).push({
+          rowIndex1Based: r + 1,
+          txId: String(row[cTxId] || "").trim()
+        });
 
+      }
+
+      // --- MATCH: loop newly inserted bank rows (rowsToInsert) and write BT id into Transactions.statement_item ---
+      const updates = []; // { rowIndex1Based, value }
+      let unmatched = 0;
+      const unmatchedSamples = [];
+
+      // rowsToInsert: [ id, month, transaction_date, ..., amount, ... ]
+      // itt a sémád szerint:
+      // 0=id, 2=transaction_date, 12=amount
+      for (let i = 0; i < rowsToInsert.length; i++) {
+        const bankRow = rowsToInsert[i];
+        const btId = String(bankRow[0] || "").trim();
+        const btDateIso = normDate(bankRow[2]);
+        const btAmt = normAmount(bankRow[12]);
+
+        if (!btId || !btDateIso || btAmt == null) continue;
+
+        const k = keyOf(btDateIso, btAmt);
+        const candidates = txMap.get(k);
+        if (!candidates || candidates.length === 0) {
+          unmatched++;
+          if (unmatchedSamples.length < 10) {
+            unmatchedSamples.push({ btId, btDateIso, btAmt });
+          }
+          continue;
+        }
+
+        // determinisztikus: a legkisebb ID-jű tranzakciót választjuk
+        candidates.sort((a, b) => a.txId.localeCompare(b.txId, "hu"));
+
+        const chosen = candidates.shift();
+        if (!chosen) continue;
+
+        updates.push({ rowIndex1Based: chosen.rowIndex1Based, value: btId });
+
+      }
+
+      // --- APPLY updates ---
+      for (const u of updates) {
+        txSheet.getRange(u.rowIndex1Based, cTxStatement + 1).setValue(u.value);
+      }
+      const matched = updates.length;
     }
-
-    // --- MATCH: loop newly inserted bank rows (rowsToInsert) and write BT id into Transactions.statement_item ---
-    const updates = []; // { rowIndex1Based, value }
-let unmatched = 0;
-const unmatchedSamples = [];
-
-    // rowsToInsert: [ id, month, transaction_date, ..., amount, ... ]
-    // itt a sémád szerint:
-    // 0=id, 2=transaction_date, 12=amount
-    for (let i = 0; i < rowsToInsert.length; i++) {
-      const bankRow = rowsToInsert[i];
-      const btId = String(bankRow[0] || "").trim();
-      const btDateIso = normDate(bankRow[2]);
-      const btAmt = normAmount(bankRow[12]);
-
-      if (!btId || !btDateIso || btAmt == null) continue;
-
-      const k = keyOf(btDateIso, btAmt);
-      const candidates = txMap.get(k);
-if (!candidates || candidates.length === 0) {
-  unmatched++;
-  if (unmatchedSamples.length < 10) {
-    unmatchedSamples.push({ btId, btDateIso, btAmt });
-  }
-  continue;
-}
-
-      // determinisztikus: a legkisebb ID-jű tranzakciót választjuk
-      candidates.sort((a, b) => a.txId.localeCompare(b.txId, "hu"));
-
-      const chosen = candidates.shift();
-      if (!chosen) continue;
-
-      updates.push({ rowIndex1Based: chosen.rowIndex1Based, value: btId });
-
-    }
-
-    // --- APPLY updates ---
-    for (const u of updates) {
-      txSheet.getRange(u.rowIndex1Based, cTxStatement + 1).setValue(u.value);
-    }
-    const matched = updates.length;
-  }
 
     // Value_Sets frissítés + shared sync (ugyanaz, mint addTransaction_)
     for (const r of results) {
@@ -1019,13 +1051,13 @@ if (!candidates || candidates.length === 0) {
       addValueIfMissing_("transaction_type_values", tx.transaction_type);
 
       syncSharedExpenseForTransaction_({
-        id:           tx.id,
-        month:        tx.month,
-        date:         tx.date,
-        amount:       tx.amount,
-        title:        tx.title,
-        is_shared:    tx.is_shared,
-        paid_by:      tx.paid_by
+        id: tx.id,
+        month: tx.month,
+        date: tx.date,
+        amount: tx.amount,
+        title: tx.title,
+        is_shared: tx.is_shared,
+        paid_by: tx.paid_by
       });
 
       delete r._tx; // ne küldjük vissza
@@ -1098,41 +1130,41 @@ function addBankTransactions_(items) {
     sheet.getRange(startRow, 1, rowsToInsert.length, rowsToInsert[0].length).setValues(rowsToInsert);
   }
 
-// --- APPLY updates (batch, contiguous chunks) ---
-updates.sort((a, b) => a.rowIndex1Based - b.rowIndex1Based);
+  // --- APPLY updates (batch, contiguous chunks) ---
+  updates.sort((a, b) => a.rowIndex1Based - b.rowIndex1Based);
 
-let i = 0;
-while (i < updates.length) {
-  const start = updates[i].rowIndex1Based;
-  let end = start;
+  let i = 0;
+  while (i < updates.length) {
+    const start = updates[i].rowIndex1Based;
+    let end = start;
 
-  const values = [[updates[i].value]];
-  i++;
-
-  // egymást követő sorok egy chunkba
-  while (i < updates.length && updates[i].rowIndex1Based === end + 1) {
-    end = updates[i].rowIndex1Based;
-    values.push([updates[i].value]);
+    const values = [[updates[i].value]];
     i++;
-  }
 
-  // statement_item egyetlen oszlop → width = 1
-  txSheet.getRange(start, cTxStatement + 1, (end - start + 1), 1).setValues(values);
-}
+    // egymást követő sorok egy chunkba
+    while (i < updates.length && updates[i].rowIndex1Based === end + 1) {
+      end = updates[i].rowIndex1Based;
+      values.push([updates[i].value]);
+      i++;
+    }
+
+    // statement_item egyetlen oszlop → width = 1
+    txSheet.getRange(start, cTxStatement + 1, (end - start + 1), 1).setValues(values);
+  }
 
 
   const ok = results.filter(x => x.success).length;
   const fail = results.length - ok;
 
-return {
-  success: true,
-  ok,
-  fail,
-  matched: (typeof matched === "number" ? matched : (Array.isArray(updates) ? updates.length : 0)),
-  unmatched,
-  unmatched_samples: unmatchedSamples,
-  results
-};
+  return {
+    success: true,
+    ok,
+    fail,
+    matched: (typeof matched === "number" ? matched : (Array.isArray(updates) ? updates.length : 0)),
+    unmatched,
+    unmatched_samples: unmatchedSamples,
+    results
+  };
 }
 
 /**
@@ -1180,17 +1212,89 @@ function updateTransaction_(tx) {
   ];
 
   sheet.getRange(rowIndex, 1, 1, updatedRow.length).setValues([updatedRow]);
-    // --- ÚJ: megosztott költség automatikus szinkron ---
-    syncSharedExpenseForTransaction_({
-      id:           tx.id,
-      month:        tx.month,
-      date:         tx.date,
-      amount:       tx.amount,
-      title:        tx.title,
-      is_shared:    tx.is_shared,
-      paid_by:      tx.paid_by
-    });
+  // --- ÚJ: megosztott költség automatikus szinkron ---
+  syncSharedExpenseForTransaction_({
+    id: tx.id,
+    month: tx.month,
+    date: tx.date,
+    amount: tx.amount,
+    title: tx.title,
+    is_shared: tx.is_shared,
+    paid_by: tx.paid_by
+  });
   return { success: true, id: tx.id };
+}
+/**
+ * Tömeges összerendelés: csak a statement_item oszlop frissítése ID alapján.
+ * items: [{ id: "TX-...", statement_item: "BT-..." }, ...]
+ */
+function bulkMatchTransactions_(items) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return { success: true, ok: 0, fail: 0, results: [] };
+  }
+
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Transactions");
+  if (!sheet) throw new Error('Nem található a "Transactions" nevű munkalap.');
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) return { success: true, ok: 0, fail: items.length, results: [] };
+
+  const header = (data[0] || []).map(h => String(h || "").trim());
+  // Preferált: fejléc alapján, fallback: a jelenlegi struktúrád szerint statement_item a 10. oszlop (index 9)
+  let cStatement = header.indexOf("statement_item");
+  if (cStatement === -1) cStatement = 9;
+
+  // ID oszlop: a jelenlegi kódod szerint első oszlop (index 0)
+  const cId = 0;
+
+  // ID -> rowIndex (1-indexelt sheet sor)
+  const rowById = new Map();
+  for (let i = 1; i < data.length; i++) {
+    const id = String(data[i][cId] || "").trim();
+    if (id) rowById.set(id, i + 1);
+  }
+
+  const results = [];
+  let ok = 0, fail = 0;
+
+  // Csoportosítjuk a beállítandó értékeket sorindex szerint
+  const updates = [];
+  for (const it of items) {
+    const id = String(it?.id ?? "").trim();
+    const bankId = String(it?.statement_item ?? "").trim();
+    if (!id) {
+      fail++;
+      results.push({ success: false, id, error: "Hiányzó tranzakció ID." });
+      continue;
+    }
+
+    const rowIndex = rowById.get(id);
+    if (!rowIndex) {
+      fail++;
+      results.push({ success: false, id, error: "Nincs ilyen tranzakció ID." });
+      continue;
+    }
+
+    updates.push({ rowIndex, id, bankId });
+  }
+
+  // Sorindex szerint rendezve (stabilabb, kevesebb szétugrás)
+  updates.sort((a, b) => a.rowIndex - b.rowIndex);
+
+  // Egyesével írjuk (biztos, egyszerű, és nem nyúl más oszlophoz).
+  // (Ha akarod, következő körben optimalizáljuk tartományokra.)
+  for (const u of updates) {
+    try {
+      sheet.getRange(u.rowIndex, cStatement + 1).setValue(u.bankId);
+      ok++;
+      results.push({ success: true, id: u.id, statement_item: u.bankId });
+    } catch (e) {
+      fail++;
+      results.push({ success: false, id: u.id, error: String(e?.message || e) });
+    }
+  }
+
+  return { success: true, ok, fail, results };
 }
 function deleteTransaction_(id) {
   const txId = String(id || "").trim();
@@ -1243,24 +1347,24 @@ function getTransactions_() {
   const data = sheet.getDataRange().getValues();
 
   const header = data[0];
-const tz = Session.getScriptTimeZone();
+  const tz = Session.getScriptTimeZone();
 
-const rows = data.slice(1).map(row => {
-  const obj = {};
-  header.forEach((name, idx) => {
-    const cell = row[idx];
+  const rows = data.slice(1).map(row => {
+    const obj = {};
+    header.forEach((name, idx) => {
+      const cell = row[idx];
 
-    // Dátumok időzóna-biztos visszaadása:
-    // ha a cella Date objektum, akkor formázzuk "yyyy-MM-dd"-re,
-    // így a frontend <input type="date"> is stabilan kezeli és nem lesz -1 nap.
-    if (name === "date" && Object.prototype.toString.call(cell) === "[object Date]") {
-      obj[name] = Utilities.formatDate(cell, tz, "yyyy-MM-dd");
-    } else {
-      obj[name] = cell;
-    }
+      // Dátumok időzóna-biztos visszaadása:
+      // ha a cella Date objektum, akkor formázzuk "yyyy-MM-dd"-re,
+      // így a frontend <input type="date"> is stabilan kezeli és nem lesz -1 nap.
+      if (name === "date" && Object.prototype.toString.call(cell) === "[object Date]") {
+        obj[name] = Utilities.formatDate(cell, tz, "yyyy-MM-dd");
+      } else {
+        obj[name] = cell;
+      }
+    });
+    return obj;
   });
-  return obj;
-});
 
 
   return { success: true, data: rows };
@@ -1288,25 +1392,25 @@ function getValueSets_() {
   const header = values[0];
 
   // Oszlopindexek
-  const colTitle    = header.indexOf("title_values");
+  const colTitle = header.indexOf("title_values");
   const colCategory = header.indexOf("category_values");
-  const colPayment  = header.indexOf("payment_type_values");
-  const colType     = header.indexOf("transaction_type_values");
-  const colPaidBy   = header.indexOf("paid_by");
+  const colPayment = header.indexOf("payment_type_values");
+  const colType = header.indexOf("transaction_type_values");
+  const colPaidBy = header.indexOf("paid_by");
 
-  const titles     = [];
+  const titles = [];
   const categories = [];
-  const payments   = [];
-  const types      = [];
-  const paid_by    = [];
+  const payments = [];
+  const types = [];
+  const paid_by = [];
 
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
-    if (colTitle    !== -1 && row[colTitle])    titles.push(row[colTitle]);
+    if (colTitle !== -1 && row[colTitle]) titles.push(row[colTitle]);
     if (colCategory !== -1 && row[colCategory]) categories.push(row[colCategory]);
-    if (colPayment  !== -1 && row[colPayment])  payments.push(row[colPayment]);
-    if (colType     !== -1 && row[colType])     types.push(row[colType]);
-    if (colPaidBy   !== -1 && row[colPaidBy])   paid_by.push(row[colPaidBy]);
+    if (colPayment !== -1 && row[colPayment]) payments.push(row[colPayment]);
+    if (colType !== -1 && row[colType]) types.push(row[colType]);
+    if (colPaidBy !== -1 && row[colPaidBy]) paid_by.push(row[colPaidBy]);
   }
 
   return {
@@ -1447,23 +1551,23 @@ function syncSharedExpenseForTransaction_(tx) {
   const header = data[0];
 
   // Oszlopindexek (új, jelenlegi séma szerint)
-  const colId            = header.indexOf("id");
-  const colCreatedAt     = header.indexOf("created_at");
-  const colTxId          = header.indexOf("transaction_id");
-  const colMonth         = header.indexOf("month");
-  const colDate          = header.indexOf("date");
-  const colTitle         = header.indexOf("title");
-  const colAmount        = header.indexOf("amount");
-  const colPaidBy        = header.indexOf("paid_by");
+  const colId = header.indexOf("id");
+  const colCreatedAt = header.indexOf("created_at");
+  const colTxId = header.indexOf("transaction_id");
+  const colMonth = header.indexOf("month");
+  const colDate = header.indexOf("date");
+  const colTitle = header.indexOf("title");
+  const colAmount = header.indexOf("amount");
+  const colPaidBy = header.indexOf("paid_by");
 
-  const colZsoltiAmount  = header.indexOf("Zsolti_amount");
-  const colDoriAmount    = header.indexOf("Dori_amount");
-  const colRemaining     = header.indexOf("remaining_amount");
-  const colZsoltiBal     = header.indexOf("Zsolti_balance");
-  const colDoriBal       = header.indexOf("Dori_balance");
+  const colZsoltiAmount = header.indexOf("Zsolti_amount");
+  const colDoriAmount = header.indexOf("Dori_amount");
+  const colRemaining = header.indexOf("remaining_amount");
+  const colZsoltiBal = header.indexOf("Zsolti_balance");
+  const colDoriBal = header.indexOf("Dori_balance");
   const colBalanceImpact = header.indexOf("balance_impact");
 
-  const colNotes         = header.indexOf("notes");
+  const colNotes = header.indexOf("notes");
 
   // Meglévő sor keresése transaction_id alapján
   let rowIndex = -1;
@@ -1503,7 +1607,7 @@ function syncSharedExpenseForTransaction_(tx) {
   const halfRemaining = remaining / 2;
 
   const zsoltiBal = halfRemaining + zAbs; // = amountAbs/2
-  const doriBal   = halfRemaining + dAbs; // = amountAbs/2
+  const doriBal = halfRemaining + dAbs; // = amountAbs/2
 
   // balance_impact: a NEM fizető fél egyenlege (előjel nélkül)
   let balanceImpact = 0;
@@ -1518,22 +1622,22 @@ function syncSharedExpenseForTransaction_(tx) {
     // Új sor beszúrása
     const newRow = new Array(header.length).fill("");
 
-    if (colId !== -1)        newRow[colId] = generatePrefixedId_("SE");
+    if (colId !== -1) newRow[colId] = generatePrefixedId_("SE");
     if (colCreatedAt !== -1) newRow[colCreatedAt] = new Date();
-    if (colTxId !== -1)      newRow[colTxId] = tx.id;
+    if (colTxId !== -1) newRow[colTxId] = tx.id;
 
-    if (colMonth !== -1)     newRow[colMonth] = tx.month;
-    if (colDate !== -1)      newRow[colDate] = formatDateForStore_(tx.date);
-    if (colTitle !== -1)     newRow[colTitle] = tx.title;
-    if (colAmount !== -1)    newRow[colAmount] = amountAbs;
-    if (colPaidBy !== -1)    newRow[colPaidBy] = fallbackPaidBy;
+    if (colMonth !== -1) newRow[colMonth] = tx.month;
+    if (colDate !== -1) newRow[colDate] = formatDateForStore_(tx.date);
+    if (colTitle !== -1) newRow[colTitle] = tx.title;
+    if (colAmount !== -1) newRow[colAmount] = amountAbs;
+    if (colPaidBy !== -1) newRow[colPaidBy] = fallbackPaidBy;
 
     if (colZsoltiAmount !== -1) newRow[colZsoltiAmount] = 0;
-    if (colDoriAmount !== -1)   newRow[colDoriAmount] = 0;
+    if (colDoriAmount !== -1) newRow[colDoriAmount] = 0;
 
-    if (colRemaining !== -1)    newRow[colRemaining] = remaining;
-    if (colZsoltiBal !== -1)    newRow[colZsoltiBal] = zsoltiBal;
-    if (colDoriBal !== -1)      newRow[colDoriBal] = doriBal;
+    if (colRemaining !== -1) newRow[colRemaining] = remaining;
+    if (colZsoltiBal !== -1) newRow[colZsoltiBal] = zsoltiBal;
+    if (colDoriBal !== -1) newRow[colDoriBal] = doriBal;
     if (colBalanceImpact !== -1) newRow[colBalanceImpact] = balanceImpact;
 
     // notes-t nem töltünk automatikusan, maradhat üres
@@ -1543,19 +1647,19 @@ function syncSharedExpenseForTransaction_(tx) {
     // Meglévő sor frissítése (paid_by-t nem írjuk felül)
     const row = existingRow.slice();
 
-    if (colMonth !== -1)  row[colMonth] = tx.month;
-    if (colDate !== -1)   row[colDate] = formatDateForStore_(tx.date);
-    if (colTitle !== -1)  row[colTitle] = tx.title;
+    if (colMonth !== -1) row[colMonth] = tx.month;
+    if (colDate !== -1) row[colDate] = formatDateForStore_(tx.date);
+    if (colTitle !== -1) row[colTitle] = tx.title;
     if (colAmount !== -1) row[colAmount] = amountAbs;
 
     // Alap megosztási mezők importált tételnél 0-ra
     if (colZsoltiAmount !== -1) row[colZsoltiAmount] = 0;
-    if (colDoriAmount !== -1)   row[colDoriAmount] = 0;
+    if (colDoriAmount !== -1) row[colDoriAmount] = 0;
 
     // Újraszámolt mezők
-    if (colRemaining !== -1)     row[colRemaining] = remaining;
-    if (colZsoltiBal !== -1)     row[colZsoltiBal] = zsoltiBal;
-    if (colDoriBal !== -1)       row[colDoriBal] = doriBal;
+    if (colRemaining !== -1) row[colRemaining] = remaining;
+    if (colZsoltiBal !== -1) row[colZsoltiBal] = zsoltiBal;
+    if (colDoriBal !== -1) row[colDoriBal] = doriBal;
     if (colBalanceImpact !== -1) row[colBalanceImpact] = balanceImpact;
 
     sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
@@ -1578,24 +1682,24 @@ function updateSharedExpense_(id, field, value) {
   const header = data[0];
 
   // Kötelező oszlopok indexei
-  const colId            = header.indexOf("id");
-  const colAmount        = header.indexOf("amount");
-  const colTitle         = header.indexOf("title");
-  const colPaidBy        = header.indexOf("paid_by");
-  const colZsoltiAmount  = header.indexOf("Zsolti_amount");
-  const colDoriAmount    = header.indexOf("Dori_amount");
-  const colRemaining     = header.indexOf("remaining_amount");
+  const colId = header.indexOf("id");
+  const colAmount = header.indexOf("amount");
+  const colTitle = header.indexOf("title");
+  const colPaidBy = header.indexOf("paid_by");
+  const colZsoltiAmount = header.indexOf("Zsolti_amount");
+  const colDoriAmount = header.indexOf("Dori_amount");
+  const colRemaining = header.indexOf("remaining_amount");
   const colZsoltiBalance = header.indexOf("Zsolti_balance");
-  const colDoriBalance   = header.indexOf("Dori_balance");
+  const colDoriBalance = header.indexOf("Dori_balance");
   const colBalanceImpact = header.indexOf("balance_impact");
-  const colNotes         = header.indexOf("notes");
+  const colNotes = header.indexOf("notes");
 
   // Csak ezek a mezők legyenek UI-ból írhatók
   let targetCol = null;
-  if (field === "paid_by")       targetCol = colPaidBy;
+  if (field === "paid_by") targetCol = colPaidBy;
   if (field === "Zsolti_amount") targetCol = colZsoltiAmount;
-  if (field === "Dori_amount")   targetCol = colDoriAmount;
-  if (field === "notes")         targetCol = colNotes;
+  if (field === "Dori_amount") targetCol = colDoriAmount;
+  if (field === "notes") targetCol = colNotes;
 
   if (targetCol === null || targetCol === -1) {
     return { success: false, error: "Nem módosítható mező vagy hiányzó oszlop: " + field };
@@ -1647,33 +1751,33 @@ function updateSharedExpense_(id, field, value) {
       ? 0
       : Math.abs(Number(field === "Dori_amount" ? storeValue : rowValues[colDoriAmount]) || 0);
 
-let remaining = "";
-let zsoltiBal = "";
-let doriBal   = "";
-let balanceImpact = 0;
+  let remaining = "";
+  let zsoltiBal = "";
+  let doriBal = "";
+  let balanceImpact = 0;
 
-if (isSettlement) {
-  balanceImpact = amount;
-} else {
-  remaining = amount - doriAmount - zsoltiAmount;
-  const halfRemaining = remaining / 2;
+  if (isSettlement) {
+    balanceImpact = amount;
+  } else {
+    remaining = amount - doriAmount - zsoltiAmount;
+    const halfRemaining = remaining / 2;
 
-  zsoltiBal = halfRemaining + zsoltiAmount;
-  doriBal   = halfRemaining + doriAmount;
+    zsoltiBal = halfRemaining + zsoltiAmount;
+    doriBal = halfRemaining + doriAmount;
 
-  let bi = 0;
-  if (paidBy === "dóri" || paidBy === "dori") bi = zsoltiBal;
-  else if (paidBy === "zsolti") bi = doriBal;
-  balanceImpact = bi;
-}
+    let bi = 0;
+    if (paidBy === "dóri" || paidBy === "dori") bi = zsoltiBal;
+    else if (paidBy === "zsolti") bi = doriBal;
+    balanceImpact = bi;
+  }
 
 
 
-// Visszaírások (csak ha az oszlop létezik)
-if (colRemaining !== -1)     sheet.getRange(rowIndex, colRemaining + 1).setValue(remaining);
-if (colZsoltiBalance !== -1) sheet.getRange(rowIndex, colZsoltiBalance + 1).setValue(zsoltiBal);
-if (colDoriBalance !== -1)   sheet.getRange(rowIndex, colDoriBalance + 1).setValue(doriBal);
-if (colBalanceImpact !== -1) sheet.getRange(rowIndex, colBalanceImpact + 1).setValue(balanceImpact);
+  // Visszaírások (csak ha az oszlop létezik)
+  if (colRemaining !== -1) sheet.getRange(rowIndex, colRemaining + 1).setValue(remaining);
+  if (colZsoltiBalance !== -1) sheet.getRange(rowIndex, colZsoltiBalance + 1).setValue(zsoltiBal);
+  if (colDoriBalance !== -1) sheet.getRange(rowIndex, colDoriBalance + 1).setValue(doriBal);
+  if (colBalanceImpact !== -1) sheet.getRange(rowIndex, colBalanceImpact + 1).setValue(balanceImpact);
 
 
   return { success: true, id: id, field: field, value: value };
@@ -1687,31 +1791,31 @@ function addSharedExpense_(p) {
 
   const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
 
-  const colId            = header.indexOf("id");
-  const colCreatedAt     = header.indexOf("created_at");
-  const colTxId          = header.indexOf("transaction_id");
-  const colMonth         = header.indexOf("month");
-  const colDate          = header.indexOf("date");
-  const colTitle         = header.indexOf("title");
-  const colAmount        = header.indexOf("amount");
-  const colPaidBy        = header.indexOf("paid_by");
-  const colZsoltiAmount  = header.indexOf("Zsolti_amount");
-  const colDoriAmount    = header.indexOf("Dori_amount");
-  const colRemaining     = header.indexOf("remaining_amount");
+  const colId = header.indexOf("id");
+  const colCreatedAt = header.indexOf("created_at");
+  const colTxId = header.indexOf("transaction_id");
+  const colMonth = header.indexOf("month");
+  const colDate = header.indexOf("date");
+  const colTitle = header.indexOf("title");
+  const colAmount = header.indexOf("amount");
+  const colPaidBy = header.indexOf("paid_by");
+  const colZsoltiAmount = header.indexOf("Zsolti_amount");
+  const colDoriAmount = header.indexOf("Dori_amount");
+  const colRemaining = header.indexOf("remaining_amount");
   const colZsoltiBalance = header.indexOf("Zsolti_balance");
-  const colDoriBalance   = header.indexOf("Dori_balance");
+  const colDoriBalance = header.indexOf("Dori_balance");
   const colBalanceImpact = header.indexOf("balance_impact");
-  const colNotes         = header.indexOf("notes");
+  const colNotes = header.indexOf("notes");
 
   const newId = generatePrefixedId_("SE");
 
   const dateRaw = p.date || "";
-  const month   = p.month || deriveMonthFromDate_(dateRaw);
-  const title   = p.title || "";
-  const notes   = p.notes || "";
+  const month = p.month || deriveMonthFromDate_(dateRaw);
+  const title = p.title || "";
+  const notes = p.notes || "";
 
   // UI + számítás: mindent abs értékkel kezelünk
-  const amountAbs  = Math.abs(Number(p.amount) || 0);
+  const amountAbs = Math.abs(Number(p.amount) || 0);
 
   // Törlesztés jelző: frontend settlement="x"
   const isSettlement = String(p.settlement || "").trim().toLowerCase() === "x";
@@ -1721,55 +1825,55 @@ function addSharedExpense_(p) {
   const dAbs = isSettlement ? 0 : Math.abs(Number(p.Dori_amount) || 0);
 
 
-    const paidByRaw = (p.paid_by || "Zsolti").toString().trim();
-    const paidBy    = paidByRaw; // a sheetbe az eredeti megnevezést írjuk
+  const paidByRaw = (p.paid_by || "Zsolti").toString().trim();
+  const paidBy = paidByRaw; // a sheetbe az eredeti megnevezést írjuk
 
-    let remaining = "";
-    let zsoltiBal = "";
-    let doriBal   = "";
-    let balanceImpact = 0;
+  let remaining = "";
+  let zsoltiBal = "";
+  let doriBal = "";
+  let balanceImpact = 0;
 
-    if (isSettlement) {
-      // Törlesztés: teljes összeg egyenlegbe kerül
-      // (a fejlécben ezt hozzáadjuk a piros-kék különbözethez)
-      balanceImpact = amountAbs;
+  if (isSettlement) {
+    // Törlesztés: teljes összeg egyenlegbe kerül
+    // (a fejlécben ezt hozzáadjuk a piros-kék különbözethez)
+    balanceImpact = amountAbs;
+  } else {
+    remaining = amountAbs - dAbs - zAbs;
+    const halfRemaining = remaining / 2;
+
+    zsoltiBal = halfRemaining + zAbs;
+    doriBal = halfRemaining + dAbs;
+
+    // NEM fizető fél egyenlege (előjel nélkül)
+    const paidByNorm = paidByRaw.toLowerCase();
+    if (paidByNorm === "dóri" || paidByNorm === "dori") {
+      balanceImpact = zsoltiBal; // Dóri fizetett → Zsolti egyenlege
+    } else if (paidByNorm === "zsolti") {
+      balanceImpact = doriBal;   // Zsolti fizetett → Dóri egyenlege
     } else {
-      remaining = amountAbs - dAbs - zAbs;
-      const halfRemaining = remaining / 2;
-
-      zsoltiBal = halfRemaining + zAbs;
-      doriBal   = halfRemaining + dAbs;
-
-      // NEM fizető fél egyenlege (előjel nélkül)
-      const paidByNorm = paidByRaw.toLowerCase();
-      if (paidByNorm === "dóri" || paidByNorm === "dori") {
-        balanceImpact = zsoltiBal; // Dóri fizetett → Zsolti egyenlege
-      } else if (paidByNorm === "zsolti") {
-        balanceImpact = doriBal;   // Zsolti fizetett → Dóri egyenlege
-      } else {
-        balanceImpact = 0;
-      }
+      balanceImpact = 0;
     }
+  }
 
 
 
   const newRow = new Array(header.length).fill("");
 
-  if (colId !== -1)            newRow[colId] = newId;
-  if (colCreatedAt !== -1)     newRow[colCreatedAt] = new Date();
-  if (colTxId !== -1)          newRow[colTxId] = p.transaction_id || ""; // ha van
-  if (colMonth !== -1)         newRow[colMonth] = month;
-  if (colDate !== -1)          newRow[colDate] = formatDateForStore_(dateRaw);
-  if (colTitle !== -1)         newRow[colTitle] = title;
-  if (colAmount !== -1)        newRow[colAmount] = amountAbs;
-  if (colPaidBy !== -1)        newRow[colPaidBy] = paidBy;
-  if (colZsoltiAmount !== -1)  newRow[colZsoltiAmount] = zAbs;
-  if (colDoriAmount !== -1)    newRow[colDoriAmount] = dAbs;
-  if (colRemaining !== -1)     newRow[colRemaining] = remaining;
+  if (colId !== -1) newRow[colId] = newId;
+  if (colCreatedAt !== -1) newRow[colCreatedAt] = new Date();
+  if (colTxId !== -1) newRow[colTxId] = p.transaction_id || ""; // ha van
+  if (colMonth !== -1) newRow[colMonth] = month;
+  if (colDate !== -1) newRow[colDate] = formatDateForStore_(dateRaw);
+  if (colTitle !== -1) newRow[colTitle] = title;
+  if (colAmount !== -1) newRow[colAmount] = amountAbs;
+  if (colPaidBy !== -1) newRow[colPaidBy] = paidBy;
+  if (colZsoltiAmount !== -1) newRow[colZsoltiAmount] = zAbs;
+  if (colDoriAmount !== -1) newRow[colDoriAmount] = dAbs;
+  if (colRemaining !== -1) newRow[colRemaining] = remaining;
   if (colZsoltiBalance !== -1) newRow[colZsoltiBalance] = zsoltiBal;
-  if (colDoriBalance !== -1)   newRow[colDoriBalance] = doriBal;
+  if (colDoriBalance !== -1) newRow[colDoriBalance] = doriBal;
   if (colBalanceImpact !== -1) newRow[colBalanceImpact] = balanceImpact;
-  if (colNotes !== -1)         newRow[colNotes] = notes;
+  if (colNotes !== -1) newRow[colNotes] = notes;
 
   sheet.appendRow(newRow);
 
@@ -1783,19 +1887,19 @@ function updateSharedExpenseRow_(p) {
 
   const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
 
-  const colId            = header.indexOf("id");
-  const colMonth         = header.indexOf("month");
-  const colDate          = header.indexOf("date");
-  const colTitle         = header.indexOf("title");
-  const colAmount        = header.indexOf("amount");
-  const colPaidBy        = header.indexOf("paid_by");
-  const colZsoltiAmount  = header.indexOf("Zsolti_amount");
-  const colDoriAmount    = header.indexOf("Dori_amount");
-  const colRemaining     = header.indexOf("remaining_amount");
+  const colId = header.indexOf("id");
+  const colMonth = header.indexOf("month");
+  const colDate = header.indexOf("date");
+  const colTitle = header.indexOf("title");
+  const colAmount = header.indexOf("amount");
+  const colPaidBy = header.indexOf("paid_by");
+  const colZsoltiAmount = header.indexOf("Zsolti_amount");
+  const colDoriAmount = header.indexOf("Dori_amount");
+  const colRemaining = header.indexOf("remaining_amount");
   const colZsoltiBalance = header.indexOf("Zsolti_balance");
-  const colDoriBalance   = header.indexOf("Dori_balance");
+  const colDoriBalance = header.indexOf("Dori_balance");
   const colBalanceImpact = header.indexOf("balance_impact");
-  const colNotes         = header.indexOf("notes");
+  const colNotes = header.indexOf("notes");
 
   const id = String(p.id || "").trim();
   if (!id) return { success: false, error: "Hiányzó id (szerkesztéshez kötelező)." };
@@ -1814,8 +1918,8 @@ function updateSharedExpenseRow_(p) {
 
   // bejövő értékek
   const dateRaw = String(p.date || "").trim();
-  const title   = String(p.title || "").trim();
-  const notes   = String(p.notes || "").trim();
+  const title = String(p.title || "").trim();
+  const notes = String(p.notes || "").trim();
   const paidByRaw = String(p.paid_by || "").trim();
   const paidByNorm = paidByRaw.toLowerCase();
 
@@ -1831,7 +1935,7 @@ function updateSharedExpenseRow_(p) {
   // számítások
   let remaining = "";
   let zsoltiBal = "";
-  let doriBal   = "";
+  let doriBal = "";
   let balanceImpact = 0;
 
   if (isSettlement) {
@@ -1841,7 +1945,7 @@ function updateSharedExpenseRow_(p) {
     const halfRemaining = remaining / 2;
 
     zsoltiBal = halfRemaining + zAbs;
-    doriBal   = halfRemaining + dAbs;
+    doriBal = halfRemaining + dAbs;
 
     if (paidByNorm === "dóri" || paidByNorm === "dori") {
       balanceImpact = zsoltiBal;
@@ -1853,18 +1957,18 @@ function updateSharedExpenseRow_(p) {
   }
 
   // visszaírás (csak létező oszlopokba)
-  if (colMonth !== -1)         sheet.getRange(rowIndex, colMonth + 1).setValue(p.month || deriveMonthFromDate_(dateRaw));
-  if (colDate !== -1)          sheet.getRange(rowIndex, colDate + 1).setValue(formatDateForStore_(dateRaw));
-  if (colTitle !== -1)         sheet.getRange(rowIndex, colTitle + 1).setValue(title);
-  if (colAmount !== -1)        sheet.getRange(rowIndex, colAmount + 1).setValue(amountAbs);
-  if (colPaidBy !== -1)        sheet.getRange(rowIndex, colPaidBy + 1).setValue(paidByRaw);
-  if (colZsoltiAmount !== -1)  sheet.getRange(rowIndex, colZsoltiAmount + 1).setValue(zAbs);
-  if (colDoriAmount !== -1)    sheet.getRange(rowIndex, colDoriAmount + 1).setValue(dAbs);
-  if (colNotes !== -1)         sheet.getRange(rowIndex, colNotes + 1).setValue(notes);
+  if (colMonth !== -1) sheet.getRange(rowIndex, colMonth + 1).setValue(p.month || deriveMonthFromDate_(dateRaw));
+  if (colDate !== -1) sheet.getRange(rowIndex, colDate + 1).setValue(formatDateForStore_(dateRaw));
+  if (colTitle !== -1) sheet.getRange(rowIndex, colTitle + 1).setValue(title);
+  if (colAmount !== -1) sheet.getRange(rowIndex, colAmount + 1).setValue(amountAbs);
+  if (colPaidBy !== -1) sheet.getRange(rowIndex, colPaidBy + 1).setValue(paidByRaw);
+  if (colZsoltiAmount !== -1) sheet.getRange(rowIndex, colZsoltiAmount + 1).setValue(zAbs);
+  if (colDoriAmount !== -1) sheet.getRange(rowIndex, colDoriAmount + 1).setValue(dAbs);
+  if (colNotes !== -1) sheet.getRange(rowIndex, colNotes + 1).setValue(notes);
 
-  if (colRemaining !== -1)     sheet.getRange(rowIndex, colRemaining + 1).setValue(remaining);
+  if (colRemaining !== -1) sheet.getRange(rowIndex, colRemaining + 1).setValue(remaining);
   if (colZsoltiBalance !== -1) sheet.getRange(rowIndex, colZsoltiBalance + 1).setValue(zsoltiBal);
-  if (colDoriBalance !== -1)   sheet.getRange(rowIndex, colDoriBalance + 1).setValue(doriBal);
+  if (colDoriBalance !== -1) sheet.getRange(rowIndex, colDoriBalance + 1).setValue(doriBal);
   if (colBalanceImpact !== -1) sheet.getRange(rowIndex, colBalanceImpact + 1).setValue(balanceImpact);
 
   return { success: true, id: id };

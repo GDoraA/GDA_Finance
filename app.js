@@ -2345,8 +2345,21 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedB
     };
 
     const info = isFallback
-        ? `<div class="muted" style="margin-bottom:6px;">Nincs egyező összeg — az adott napi, még nem társított banki tételek közül választhatsz:</div>`
+        ? `<div class="muted" style="margin-bottom:4px;">
+              <span style="font-size:11px;opacity:.75;">fallback</span>
+           </div>`
         : "";
+
+    // fallback esetén: a legközelebbi összeg legyen elöl
+    // (ha nem fallback, a meglévő "matches" sorrendet megtartjuk)
+    if (isFallback) {
+        const txAmt = Number(tx?.amount ?? 0);
+        matches = (matches || []).slice().sort((a, b) => {
+            const da = Math.abs(Number(a?.amount ?? 0) - txAmt);
+            const db = Math.abs(Number(b?.amount ?? 0) - txAmt);
+            return da - db;
+        });
+    }
 
     const rows = matches.map(b => {
         const id = String(b?.id ?? "").trim();
@@ -2360,7 +2373,11 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedB
         const memo = pickField(b, ["memo", "comment", "description", "text", "note", "transaction_text"]);
         const direction = pickField(b, ["direction", "transaction_type", "type"]);
 
-        const line1 = `<span class="statement-item-id">#${esc(id)}</span>
+        const currentBadge = (current && id === current)
+            ? `<span style="margin-left:6px;font-size:11px;opacity:.75;">jelenlegi</span>`
+            : "";
+
+        const line1 = `<span class="statement-item-id">#${esc(id)}</span>${currentBadge}
                    <span class="statement-item-date">${esc(date)}</span>
                    <span class="statement-item-amt">${esc(amt)}</span>`;
 

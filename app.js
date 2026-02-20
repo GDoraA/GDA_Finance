@@ -2406,8 +2406,25 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedB
     pickerEl.innerHTML = info + rows;
 
     pickerEl.querySelectorAll("input[type='radio'][name='statement_item_pick']").forEach(r => {
+        // rádiógomb toggle: ha a már kijelöltre kattintasz, legyen lehetőség törölni a jelölést
+        r.addEventListener("click", (ev) => {
+            const val = String(r.value || "").trim();
+
+            // ha ugyanaz volt már beállítva, akkor "unselect"
+            if (hiddenInputEl.value === val) {
+                ev.preventDefault(); // ne maradjon checked
+                r.checked = false;
+                hiddenInputEl.value = "";
+                return;
+            }
+
+            // különben normál kiválasztás
+            hiddenInputEl.value = val;
+        });
+
+        // billentyűzetes/egyéb változtatás esetére is
         r.addEventListener("change", () => {
-            hiddenInputEl.value = String(r.value || "").trim();
+            if (r.checked) hiddenInputEl.value = String(r.value || "").trim();
         });
     });
 }

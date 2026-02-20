@@ -2276,12 +2276,56 @@ function getMatchingBankItems(tx, bankItems) {
     });
 }
 
-function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl) {
-    const matches = getMatchingBankItems(tx, bankItems);
-    const current = String(tx?.statement_item ?? "").trim();
+function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedBankIds = new Set()) {
+        const current = String(tx?.statement_item ?? "").trim();
+
+    // tx dátum ISO-ra (yyyy-mm-dd)
+    const rawTxDate = String(tx?.date ?? "").trim();
+    const txDateIso = rawTxDate.includes("T") ? rawTxDate.split("T")[0] : toInputDateLocal(rawTxDate);
+
+    // 1) első kör: dátum + összeg alapján egyezők
+    let matches = getMatchingBankItems(tx, bankItems);
+
+    // 1/a) szűrés: ne jelenjen meg olyan banki tétel, ami már máshoz van társítva
+    matches = (matches || []).filter(b => {
+        const bid = String(b?.id ?? "").trim();
+        if (!bid) return false;
+        if (current && bid === current) return true; // a jelenlegi maradhat
+        return !usedBankIds.has(bid);
+    });
+
+    // 2) fallback: ha nincs egyező összeg, akkor az adott napi "szabad" banki tételek
+    let isFallback = false;
+    if (!matches.length) {
+        isFallback = true;
+        matches = (bankItems || []).filter(b => {
+            const bid = String(b?.id ?? "").trim();
+            if (!bid) return false;
+
+            const bDateIso = String(b?.transaction_date ?? "").trim();
+            if (!txDateIso || !bDateIso) return false;
+
+            if (bDateIso !== txDateIso) return false;
+
+            if (current && bid === current) return true;
+            return !usedBankIds.has(bid);
+        });
+    }
+
+    // Ha már volt korábban kiválasztott statement_item, azt mindig mutassuk meg,
+    // akkor is, ha sem az összeg-egyezésbe, sem a fallback (adott napi szabad) listába nem kerülne be.
+    if (current) {
+        const alreadyInList = (matches || []).some(b => String(b?.id ?? "").trim() === current);
+        if (!alreadyInList) {
+            const currentBank = (bankItems || []).find(b => String(b?.id ?? "").trim() === current);
+            if (currentBank) {
+                matches = [currentBank, ...(matches || [])];
+            }
+        }
+    }
 
     if (!matches.length) {
-        pickerEl.innerHTML = `<div class="muted">Nincs egyező banki tétel (dátum + összeg alapján).</div>`;
+        pickerEl.innerHTML = `<div class="muted">Nincs választható banki tétel (sem egyező összeggel, sem az adott napon szabadon).</div>`;
         return;
     }
 
@@ -2299,6 +2343,10 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl) {
         }
         return "";
     };
+
+    const info = isFallback
+        ? `<div class="muted" style="margin-bottom:6px;">Nincs egyező összeg — az adott napi, még nem társított banki tételek közül választhatsz:</div>`
+        : "";
 
     const rows = matches.map(b => {
         const id = String(b?.id ?? "").trim();
@@ -2338,8 +2386,7 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl) {
     `;
     }).join("");
 
-
-    pickerEl.innerHTML = rows;
+    pickerEl.innerHTML = info + rows;
 
     pickerEl.querySelectorAll("input[type='radio'][name='statement_item_pick']").forEach(r => {
         r.addEventListener("change", () => {
@@ -2397,8 +2444,31 @@ async function openTransactionEditor(tx) {
 
     if (picker && hidden) {
         try {
+            // biztos legyen friss transactionsCache (kell a "már használt banki tételek" szűréshez)
+            if (!Array.isArray(transactionsCache)) {
+                try {
+                    const r = await api.getTransactions();
+                    transactionsCache = (r && r.success && Array.isArray(r.data)) ? r.data : [];
+                } catch (_) {
+                    transactionsCache = [];
+                }
+            }
+
             const bankItems = await ensureBankTxCache();
-            renderStatementItemPicker(tx, bankItems, picker, hidden);
+
+            // már használt banki tételek (statement_item alapján)
+            const usedBankIds = new Set(
+                (transactionsCache || [])
+                    .map(t => String(t?.statement_item ?? "").trim())
+                    .filter(Boolean)
+            );
+
+            // a jelenlegi tx saját korábbi értékét engedjük (ne tűnjön el a listából)
+            const currentStmt = String(tx?.statement_item ?? "").trim();
+            if (currentStmt) usedBankIds.delete(currentStmt);
+
+            // +1 paraméter: usedBankIds (a függvény a következő lépésben fogja használni)
+            renderStatementItemPicker(tx, bankItems, picker, hidden, usedBankIds);
         } catch (e) {
             console.error("Bank_Transactions cache betöltés hiba:", e);
             picker.innerHTML = `<div class="muted">Nem sikerült betölteni a banki tételeket.</div>`;

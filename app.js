@@ -2793,20 +2793,20 @@ const parseBankImportFile = async (file) => {
 
     const H = (rows[0] || []).map(h => String(h || "").trim().toLowerCase());
 
-    const idx = (names) => {
-        const wanted = names.map(n => String(n).trim().toLowerCase());
-        for (let i = 0; i < H.length; i++) {
-            const h = H[i];
-            if (!h) continue;
-            if (wanted.includes(h)) return i;
-        }
-        for (let i = 0; i < H.length; i++) {
-            const h = H[i];
-            if (!h) continue;
-            if (wanted.some(w => w && h.includes(w))) return i;
-        }
-        return -1;
-    };
+const idx = (...names) => {
+    const wanted = names.map(n => String(n).trim().toLowerCase());
+    for (let i = 0; i < H.length; i++) {
+        const h = H[i];
+        if (!h) continue;
+        if (wanted.includes(h)) return i;
+    }
+    for (let i = 0; i < H.length; i++) {
+        const h = H[i];
+        if (!h) continue;
+        if (wanted.some(w => w && h.includes(w))) return i;
+    }
+    return -1;
+};
 
     const iTxDate = idx("transaction_date", "tranzakció dátum", "tranzakcio datum", "dátum", "datum", "value date", "transaction date");
     const iPost = idx("posting_date", "könyvelés dátum", "konyveles datum", "posting date", "book date");

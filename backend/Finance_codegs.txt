@@ -759,7 +759,33 @@ function doGet(e) {
 
       const header = data[0];
       const tz = Session.getScriptTimeZone();
+      // --- BT id -> [TR id, ...] index a Transactions.statement_item alapján ---
+      const txSheet = SpreadsheetApp.getActive().getSheetByName("Transactions");
+      const btToTxIds = new Map();
 
+      if (txSheet) {
+        const txData = txSheet.getDataRange().getValues();
+        if (txData && txData.length >= 2) {
+          const txHeader = (txData[0] || []).map(h => String(h || "").trim());
+          const cTxId = txHeader.indexOf("id");
+          const cTxStatement = txHeader.indexOf("statement_item");
+
+          if (cTxId !== -1 && cTxStatement !== -1) {
+            for (let r = 1; r < txData.length; r++) {
+              const trId = String(txData[r][cTxId] || "").trim();
+              const stmtRaw = String(txData[r][cTxStatement] || "").trim();
+              if (!trId || !stmtRaw) continue;
+
+              // statement_item lehet "BT-..., BT-..." (vesszővel elválasztva)
+              const btIds = stmtRaw.split(",").map(s => s.trim()).filter(Boolean);
+              for (const btId of btIds) {
+                if (!btToTxIds.has(btId)) btToTxIds.set(btId, []);
+                btToTxIds.get(btId).push(trId);
+              }
+            }
+          }
+        }
+      }
       const rows = data.slice(1).map(row => {
         const obj = {};
         header.forEach((name, idx) => {
@@ -772,6 +798,9 @@ function doGet(e) {
             obj[name] = cell;
           }
         });
+                // ÚJ: a banki tételhez rendelt tranzakció ID-k (csak kijelzéshez)
+        const btId = String(obj.id || "").trim();
+        obj.matched_transaction_ids = (btToTxIds.get(btId) || []).join(", ");
         return obj;
       });
 

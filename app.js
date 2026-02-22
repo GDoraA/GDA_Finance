@@ -1073,7 +1073,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Egy banki tétel nem lehet több tranzakcióhoz rendelve.
         // statement_item formátum: "12, 18, 25"
         const editIdNow = e.target.getAttribute("data-edit-id"); // lehet null
-const selectedBankIds = parseStatementItemIds(formData.statement_item);
+        const selectedBankIds = parseStatementItemIds(formData.statement_item);
 
         // duplikált kiválasztás ugyanazon mezőn belül se legyen
         const dedup = Array.from(new Set(selectedBankIds));
@@ -1186,17 +1186,21 @@ const selectedBankIds = parseStatementItemIds(formData.statement_item);
     });
 
     const filtersPanel = document.getElementById("filtersPanel");
-toggleFiltersBtn?.addEventListener("click", () => {
-    filtersPanel?.classList.toggle("open");
-});
-const filterFields = [
-    "filterMonth", "filterDate", "filterAmount", "filterTitle",
-    "filterCategory", "filterPaymentType", "filterType",
-    "filterShared", "filterStatement"
-].map(id => document.getElementById(id)).filter(Boolean);
+    toggleFiltersBtn?.addEventListener("click", () => {
+        filtersPanel?.classList.toggle("open");
+    });
+    const filterFields = [
+        "filterMonth", "filterDate", "filterAmount", "filterTitle",
+        "filterCategory", "filterPaymentType", "filterType",
+        "filterShared", "filterStatement", "filterUnmatched"
+    ].map(id => document.getElementById(id)).filter(Boolean);
 
     function updateFilterPanelState() {
-        const hasFilters = filterFields.some(el => String(el.value ?? "").trim() !== "");
+        const hasFilters = filterFields.some(el => {
+            if (!el) return false;
+            if (el.type === "checkbox") return el.checked === true;
+            return String(el.value ?? "").trim() !== "";
+        });
         if (hasFilters) {
             filtersPanel.classList.add("open");
         } else {
@@ -1501,7 +1505,7 @@ const filterFields = [
 
 
     // ===== Lista betöltése =====
-document.getElementById("loadListBtn")?.addEventListener("click", loadTransactions);    // Kezdőlap indításakor
+    document.getElementById("loadListBtn")?.addEventListener("click", loadTransactions);    // Kezdőlap indításakor
     const loginPage = document.getElementById("page-login");
     const sidebar = document.querySelector(".sidebar");
     const content = document.querySelector(".content-wrapper");
@@ -1772,12 +1776,15 @@ document.getElementById("clearFiltersBtn").addEventListener("click", () => {
     const fields = [
         "filterMonth", "filterDate", "filterAmount", "filterTitle",
         "filterCategory", "filterPaymentType", "filterType",
-        "filterShared", "filterStatement"
+        "filterShared", "filterStatement", "filterUnmatched"
     ];
     // mezők kiürítése
     fields.forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.value = "";
+        if (el) {
+            if (el.type === "checkbox") el.checked = false;
+            else el.value = "";
+        }
     });
 
     // szűrőpanel bezárása
@@ -1927,13 +1934,13 @@ async function loadTransactions() {
     const result = await api.getTransactions();
     const tbody = document.getElementById("transactionsBody");
 
-if (!result || !result.success) {
-    console.error("Nem sikerült betölteni a tranzakciókat.", result);
-    if (tbody) {
-        tbody.innerHTML = `<tr><td colspan="9">Nincs jogosultság vagy hiba: ${escapeHtml(result?.error || "ismeretlen")}</td></tr>`;
+    if (!result || !result.success) {
+        console.error("Nem sikerült betölteni a tranzakciókat.", result);
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="9">Nincs jogosultság vagy hiba: ${escapeHtml(result?.error || "ismeretlen")}</td></tr>`;
+        }
+        return;
     }
-    return;
-}
 
     const data = result.data;
     transactionsCache = Array.isArray(data) ? data : [];
@@ -1947,7 +1954,7 @@ if (!result || !result.success) {
     const fPayment = document.getElementById("filterPaymentType").value.trim().toLowerCase();
     const fShared = document.getElementById("filterShared").value;
     const fStatement = document.getElementById("filterStatement").value.trim().toLowerCase();
-
+    const fUnmatched = document.getElementById("filterUnmatched")?.checked === true;
     // --- Szűrés ---
     const filtered = data.filter(tx => {
 
@@ -1992,7 +1999,7 @@ if (!result || !result.success) {
             if (sharedValue !== fShared) return false;
         }
 
-
+        if (fUnmatched && String(tx?.statement_item ?? "").trim() !== "") return false;
         if (fStatement && !String(tx.statement_item).toLowerCase().includes(fStatement)) return false;
 
         return true;
@@ -2196,11 +2203,10 @@ if (!result || !result.success) {
                         <input type="checkbox" disabled ${tx.is_shared === "x" ? "checked" : ""}>
                     </td>
 
-<td>${
-parseStatementItemIds(tx.statement_item)
-    .map(id => `#${id}`)
-    .join(" · ")
-}</td>
+<td>${parseStatementItemIds(tx.statement_item)
+                .map(id => `#${id}`)
+                .join(" · ")
+            }</td>
                 </tr>
             `;
     });
@@ -2281,7 +2287,16 @@ parseStatementItemIds(tx.statement_item)
 let bankTxCache = null;
 let transactionsCache = null; // legutóbb betöltött tranzakciók (bulk match-hez)
 let bankTxCachePromise = null;
-
+async function ensureTransactionsCache() {
+    if (Array.isArray(transactionsCache)) return transactionsCache;
+    try {
+        const r = await api.getTransactions();
+        transactionsCache = (r && r.success && Array.isArray(r.data)) ? r.data : [];
+    } catch (_) {
+        transactionsCache = [];
+    }
+    return transactionsCache;
+}
 const toIsoDate = (v) => {
     const s = String(v ?? "").trim();
     if (!s) return "";
@@ -2360,7 +2375,7 @@ function getMatchingBankItems(tx, bankItems) {
 }
 
 function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedBankIds = new Set()) {
-const currentIds = parseStatementItemIds(tx?.statement_item);
+    const currentIds = parseStatementItemIds(tx?.statement_item);
 
     const currentSet = new Set(currentIds);
 
@@ -2460,9 +2475,9 @@ const currentIds = parseStatementItemIds(tx?.statement_item);
         const memo = pickField(b, ["memo", "comment", "description", "text", "note", "transaction_text"]);
         const direction = pickField(b, ["direction", "transaction_type", "type"]);
 
-const currentBadge = currentSet.has(id)
-  ? `<span style="margin-left:6px;font-size:11px;opacity:.75;">jelenlegi</span>`
-  : "";
+        const currentBadge = currentSet.has(id)
+            ? `<span style="margin-left:6px;font-size:11px;opacity:.75;">jelenlegi</span>`
+            : "";
 
         const line1 = `<span class="statement-item-id">#${esc(id)}</span>${currentBadge}
                    <span class="statement-item-date">${esc(date)}</span>
@@ -2575,11 +2590,11 @@ async function openTransactionEditor(tx) {
             // statement_item mostantól lehet: "12, 18, 25" (több banki tétel egy tranzakcióhoz)
             const usedBankIds = new Set(
                 (transactionsCache || [])
-.flatMap(t => parseStatementItemIds(t?.statement_item))
+                    .flatMap(t => parseStatementItemIds(t?.statement_item))
             );
 
             // a jelenlegi tx saját korábbi értékeit engedjük (ne tűnjenek el a listából)
-const currentStmtIds = parseStatementItemIds(tx?.statement_item);
+            const currentStmtIds = parseStatementItemIds(tx?.statement_item);
             currentStmtIds.forEach(id => usedBankIds.delete(id));
 
             // +1 paraméter: usedBankIds (a függvény a következő lépésben fogja használni)
@@ -2791,6 +2806,7 @@ const renderBankPreview = (items) => {
     // a sheet (backend) 18 mezős struktúrája
     const cols = [
         "id",
+        "matched_transaction_ids",
         "month",
         "transaction_date",
         "posting_date",
@@ -2813,6 +2829,7 @@ const renderBankPreview = (items) => {
 
     const labels = {
         id: "ID",
+        matched_transaction_ids: "Rendelt tranzakció ID-k",
         month: "Hónap",
         transaction_date: "Tranzakció dátum",
         posting_date: "Könyvelés dátum",
@@ -2851,6 +2868,25 @@ const renderBankPreview = (items) => {
 
         cols.forEach((c) => {
             const td = document.createElement("td");
+
+            if (c === "linked_transaction_ids") {
+                const bankId = String(it?.id ?? "").trim();
+
+                const txIds = (Array.isArray(transactionsCache) ? transactionsCache : [])
+                    .filter(t => {
+                        const raw = String(t?.statement_item ?? "").trim();
+                        if (!raw) return false;
+                        const parts = raw.split(",").map(x => x.trim()).filter(Boolean);
+                        return parts.includes(bankId);
+                    })
+                    .map(t => String(t?.id ?? "").trim())
+                    .filter(Boolean);
+
+                td.textContent = txIds.join(", ");
+                tr.appendChild(td);
+                return;
+            }
+
             const v = (it && it[c] != null) ? it[c] : "";
             td.textContent = String(v);
             tr.appendChild(td);
@@ -2887,7 +2923,6 @@ async function loadBankTransactions() {
             setBankStatus("Hiba: api.getBankTransactions nincs definiálva (api.js).");
             return;
         }
-
         setBankStatus("Banki adatok betöltése…");
         const res = await api.getBankTransactions();
 
@@ -2978,20 +3013,20 @@ const parseBankImportFile = async (file) => {
 
     const H = (rows[0] || []).map(h => String(h || "").trim().toLowerCase());
 
-const idx = (...names) => {
-    const wanted = names.map(n => String(n).trim().toLowerCase());
-    for (let i = 0; i < H.length; i++) {
-        const h = H[i];
-        if (!h) continue;
-        if (wanted.includes(h)) return i;
-    }
-    for (let i = 0; i < H.length; i++) {
-        const h = H[i];
-        if (!h) continue;
-        if (wanted.some(w => w && h.includes(w))) return i;
-    }
-    return -1;
-};
+    const idx = (...names) => {
+        const wanted = names.map(n => String(n).trim().toLowerCase());
+        for (let i = 0; i < H.length; i++) {
+            const h = H[i];
+            if (!h) continue;
+            if (wanted.includes(h)) return i;
+        }
+        for (let i = 0; i < H.length; i++) {
+            const h = H[i];
+            if (!h) continue;
+            if (wanted.some(w => w && h.includes(w))) return i;
+        }
+        return -1;
+    };
 
     const iTxDate = idx("transaction_date", "tranzakció dátum", "tranzakcio datum", "dátum", "datum", "value date", "transaction date");
     const iPost = idx("posting_date", "könyvelés dátum", "konyveles datum", "posting date", "book date");
@@ -3615,12 +3650,12 @@ function parseHuNumber(v) {
     return Number(s);
 }
 function parseStatementItemIds(v) {
-  // támogatott szeparátorok: vessző, middle dot (·), pontosvessző
-  // trim + üresek eldobása
-  return String(v ?? "")
-    .split(/[,\u00B7;]+/g)
-    .map(s => s.trim())
-    .filter(Boolean);
+    // támogatott szeparátorok: vessző, middle dot (·), pontosvessző
+    // trim + üresek eldobása
+    return String(v ?? "")
+        .split(/[,\u00B7;]+/g)
+        .map(s => s.trim())
+        .filter(Boolean);
 }
 function formatHuInteger(v) {
     const n = Math.abs(Number(v) || 0);

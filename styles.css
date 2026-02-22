@@ -1273,57 +1273,17 @@ tr.is-matched td:last-child::after {
     position: relative;
     gap: 12px;
     align-items: flex-start;
-    padding: 8px 8px 8px 28px;
-    /* bal oldali hely a rádiógombnak */
+    padding: 8px;    /* bal oldali hely a rádiógombnak */
     border-bottom: 1px solid #eee;
     cursor: pointer;
 }
-
+.statement-item-check {
+    margin-top: 2px;
+}
 .statement-item-row:last-child {
     border-bottom: none;
 }
 
-/* Rádió elrejtve, de pointer-events megtartva! */
-.statement-item-radio {
-    position: absolute;
-    opacity: 0;
-    width: 14px;
-    height: 14px;
-    left: 8px;
-    top: 10px;
-    margin: 0;
-    cursor: pointer;
-    /* pointer-events: none; <- EZT TÖRÖLD */
-}
-
-/* Üres kör */
-.statement-item-row::before {
-    content: "";
-    position: absolute;
-    left: 8px;
-    top: 10px;
-    width: 14px;
-    height: 14px;
-    border: 1.5px solid #888;
-    border-radius: 50%;
-    background: #fff;
-    pointer-events: none;
-    /* a kör ne fogja el a kattintást */
-}
-
-/* Kitöltött pont, ha checked */
-.statement-item-radio:checked~.statement-item-row::after,
-.statement-item-row:has(.statement-item-radio:checked)::after {
-    content: "";
-    position: absolute;
-    left: 11px;
-    top: 13px;
-    width: 8px;
-    height: 8px;
-    background: #2e7d32;
-    border-radius: 50%;
-    pointer-events: none;
-}
 /* ===== Bulk Match Modal ===== */
 
 .bulk-match-head {
@@ -1417,4 +1377,9 @@ tr.is-matched td:last-child::after {
 
 #bulkMatchStatus ul li {
     margin: 4px 0;
+}
+.filter-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }

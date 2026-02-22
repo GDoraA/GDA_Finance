@@ -154,10 +154,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const bankItems = await ensureBankTxCache();
 
         // már használt banki tételek (statement_item alapján)
+        // manuálisan lehet több ID: "12, 18, 25" -> itt mindet figyelembe kell venni,
+        // hogy bulk-ban ne ajánljunk fel már foglalt banki tételt
         const usedBankIds = new Set(
             (transactionsCache || [])
-                .map(t => String(t?.statement_item ?? "").trim())
-                .filter(Boolean)
+                .flatMap(t => String(t?.statement_item ?? "")
+                    .split(",")
+                    .map(x => x.trim())
+                    .filter(Boolean)
+                )
         );
 
         // csak nem párosított tranzakciók, amikhez van találat
@@ -242,7 +247,41 @@ document.addEventListener("DOMContentLoaded", () => {
                     closeBulkMatchModal();
                     return;
                 }
+                // ===== HARD STOP: egy banki tétel nem lehet több tranzakcióhoz rendelve =====
+                // (manuális checkboxos több-hozzárendelés miatt a statement_item lehet "12, 18")
+                if (!Array.isArray(transactionsCache)) {
+                    try {
+                        const r = await api.getTransactions();
+                        transactionsCache = (r && r.success && Array.isArray(r.data)) ? r.data : [];
+                    } catch (_) {
+                        transactionsCache = [];
+                    }
+                }
 
+                const usedByOtherTx = new Map(); // bankId -> txId
+                (transactionsCache || []).forEach(t => {
+                    const txId = String(t?.id ?? "").trim();
+                    const ids = String(t?.statement_item ?? "")
+                        .split(",")
+                        .map(x => x.trim())
+                        .filter(Boolean);
+
+                    ids.forEach(id => {
+                        if (!usedByOtherTx.has(id)) usedByOtherTx.set(id, txId);
+                    });
+                });
+
+                // ha bármely kiválasztott bankId már foglalt másik tx-ben, álljunk meg
+                const conflict = items.find(it => {
+                    const bankId = String(it.statement_item ?? "").trim();
+                    const ownerTxId = usedByOtherTx.get(bankId);
+                    return ownerTxId && ownerTxId !== String(it.id);
+                });
+
+                if (conflict) {
+                    alert("Hiba: a kiválasztott banki tétel már hozzá van rendelve egy másik tranzakcióhoz. Bulk mentés leáll.");
+                    return;
+                }
                 // ===== UI státusz elem (ha nincs, létrehozzuk a modal tetején) =====
                 const ensureBulkStatusEl = () => {
                     let el = document.getElementById("bulkMatchStatus");
@@ -1030,7 +1069,49 @@ document.addEventListener("DOMContentLoaded", () => {
         formData.amount = normalizeSignedAmount(formData.amount, formData.transaction_type);
 
         console.log("TX FORM SUBMIT (AFTER NORMALIZE):", formData);
+        // ===== ÜTKÖZÉS ELLENŐRZÉS (több banki ID esetén is) =====
+        // Egy banki tétel nem lehet több tranzakcióhoz rendelve.
+        // statement_item formátum: "12, 18, 25"
+        const editIdNow = e.target.getAttribute("data-edit-id"); // lehet null
+const selectedBankIds = parseStatementItemIds(formData.statement_item);
 
+        // duplikált kiválasztás ugyanazon mezőn belül se legyen
+        const dedup = Array.from(new Set(selectedBankIds));
+        if (dedup.length !== selectedBankIds.length) {
+            alert("Ugyanaz a banki tétel többször van kiválasztva. Kérlek javítsd.");
+            return;
+        }
+
+        // ha nincs cache, próbáljuk frissíteni
+        if (!Array.isArray(transactionsCache)) {
+            try {
+                const r = await api.getTransactions();
+                transactionsCache = (r && r.success && Array.isArray(r.data)) ? r.data : [];
+            } catch (_) {
+                transactionsCache = [];
+            }
+        }
+
+        // ellenőrzés: bármely kiválasztott bankId szerepel-e másik tranzakció statement_item listájában
+        const conflict = (transactionsCache || []).find(t => {
+            const tid = String(t?.id ?? "");
+            if (editIdNow && tid === String(editIdNow)) return false; // saját rekordot engedjük
+
+            const ids = String(t?.statement_item ?? "")
+                .split(",")
+                .map(x => x.trim())
+                .filter(Boolean);
+
+            return ids.some(id => dedup.includes(id));
+        });
+
+        if (conflict) {
+            alert("Hiba: a kiválasztott banki tétel már hozzá van rendelve egy másik tranzakcióhoz.");
+            return; // mentés leáll
+        }
+
+        // normalizáljuk a mentendő formátumot: "id1, id2, id3"
+        formData.statement_item = dedup.join(", ");
         // Dátum mentési formátumra konvertálása
         // Dátumot ISO formátumban kell küldeni → yyyy-mm-dd maradjon
         // formData.date változatlanul marad
@@ -1105,20 +1186,17 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     const filtersPanel = document.getElementById("filtersPanel");
-    const toggleFiltersBtn = document.getElementById("toggleFiltersBtn");
-
-    // Gomb — manuális nyitás/zárás
-    toggleFiltersBtn.addEventListener("click", () => {
-        filtersPanel.classList.toggle("open");
-    });
-    const filterFields = [
-        "filterMonth", "filterDate", "filterAmount", "filterTitle",
-        "filterCategory", "filterPaymentType", "filterType",
-        "filterShared", "filterStatement"
-    ].map(id => document.getElementById(id));
+toggleFiltersBtn?.addEventListener("click", () => {
+    filtersPanel?.classList.toggle("open");
+});
+const filterFields = [
+    "filterMonth", "filterDate", "filterAmount", "filterTitle",
+    "filterCategory", "filterPaymentType", "filterType",
+    "filterShared", "filterStatement"
+].map(id => document.getElementById(id)).filter(Boolean);
 
     function updateFilterPanelState() {
-        const hasFilters = filterFields.some(el => el.value.trim() !== "");
+        const hasFilters = filterFields.some(el => String(el.value ?? "").trim() !== "");
         if (hasFilters) {
             filtersPanel.classList.add("open");
         } else {
@@ -1423,8 +1501,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ===== Lista betöltése =====
-    document.getElementById("loadListBtn").addEventListener("click", loadTransactions);
-    // Kezdőlap indításakor
+document.getElementById("loadListBtn")?.addEventListener("click", loadTransactions);    // Kezdőlap indításakor
     const loginPage = document.getElementById("page-login");
     const sidebar = document.querySelector(".sidebar");
     const content = document.querySelector(".content-wrapper");
@@ -1850,10 +1927,13 @@ async function loadTransactions() {
     const result = await api.getTransactions();
     const tbody = document.getElementById("transactionsBody");
 
-    if (!result || !result.success) {
-        tbody.innerHTML = `<tr><td colspan="10">Hiba a betöltéskor.</td></tr>`;
-        return;
+if (!result || !result.success) {
+    console.error("Nem sikerült betölteni a tranzakciókat.", result);
+    if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="9">Nincs jogosultság vagy hiba: ${escapeHtml(result?.error || "ismeretlen")}</td></tr>`;
     }
+    return;
+}
 
     const data = result.data;
     transactionsCache = Array.isArray(data) ? data : [];
@@ -2116,8 +2196,11 @@ async function loadTransactions() {
                         <input type="checkbox" disabled ${tx.is_shared === "x" ? "checked" : ""}>
                     </td>
 
-                    <td>${String(tx.statement_item ?? "").trim()}</td>
-
+<td>${
+parseStatementItemIds(tx.statement_item)
+    .map(id => `#${id}`)
+    .join(" · ")
+}</td>
                 </tr>
             `;
     });
@@ -2277,7 +2360,9 @@ function getMatchingBankItems(tx, bankItems) {
 }
 
 function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedBankIds = new Set()) {
-        const current = String(tx?.statement_item ?? "").trim();
+const currentIds = parseStatementItemIds(tx?.statement_item);
+
+    const currentSet = new Set(currentIds);
 
     // tx dátum ISO-ra (yyyy-mm-dd)
     const rawTxDate = String(tx?.date ?? "").trim();
@@ -2290,7 +2375,7 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedB
     matches = (matches || []).filter(b => {
         const bid = String(b?.id ?? "").trim();
         if (!bid) return false;
-        if (current && bid === current) return true; // a jelenlegi maradhat
+        if (currentSet.has(bid)) return true; // a jelenlegi(ek) maradhat(nak)
         return !usedBankIds.has(bid);
     });
 
@@ -2307,19 +2392,21 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedB
 
             if (bDateIso !== txDateIso) return false;
 
-            if (current && bid === current) return true;
+            if (currentSet.has(bid)) return true;
             return !usedBankIds.has(bid);
         });
     }
 
     // Ha már volt korábban kiválasztott statement_item, azt mindig mutassuk meg,
     // akkor is, ha sem az összeg-egyezésbe, sem a fallback (adott napi szabad) listába nem kerülne be.
-    if (current) {
-        const alreadyInList = (matches || []).some(b => String(b?.id ?? "").trim() === current);
-        if (!alreadyInList) {
-            const currentBank = (bankItems || []).find(b => String(b?.id ?? "").trim() === current);
-            if (currentBank) {
-                matches = [currentBank, ...(matches || [])];
+    if (currentIds.length) {
+        const have = new Set((matches || []).map(b => String(b?.id ?? "").trim()).filter(Boolean));
+
+        const missing = currentIds.filter(id => !have.has(id));
+        if (missing.length) {
+            const extras = (bankItems || []).filter(b => missing.includes(String(b?.id ?? "").trim()));
+            if (extras.length) {
+                matches = [...extras, ...(matches || [])];
             }
         }
     }
@@ -2365,7 +2452,7 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedB
         const id = String(b?.id ?? "").trim();
         const date = String(b?.transaction_date ?? "").trim();
         const amt = formatAmount(b?.amount);
-        const checked = (current && id === current) ? "checked" : "";
+        const checked = currentSet.has(id) ? "checked" : "";
 
         // több mező – többféle lehetséges oszlopnév támogatása
         const counterparty = pickField(b, ["partner_name", "counterparty_name", "name", "beneficiary", "payer"]);
@@ -2373,9 +2460,9 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedB
         const memo = pickField(b, ["memo", "comment", "description", "text", "note", "transaction_text"]);
         const direction = pickField(b, ["direction", "transaction_type", "type"]);
 
-        const currentBadge = (current && id === current)
-            ? `<span style="margin-left:6px;font-size:11px;opacity:.75;">jelenlegi</span>`
-            : "";
+const currentBadge = currentSet.has(id)
+  ? `<span style="margin-left:6px;font-size:11px;opacity:.75;">jelenlegi</span>`
+  : "";
 
         const line1 = `<span class="statement-item-id">#${esc(id)}</span>${currentBadge}
                    <span class="statement-item-date">${esc(date)}</span>
@@ -2393,7 +2480,7 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedB
 
         return `
       <label class="statement-item-row">
-        <input class="statement-item-radio" type="radio" name="statement_item_pick" value="${esc(id)}" ${checked}>
+        <input class="statement-item-check" type="checkbox" name="statement_item_pick" value="${esc(id)}" ${checked}>
         <span class="statement-item-content">
           <span class="statement-item-top">${line1}</span>
           ${line2Parts ? `<span class="statement-item-sub">${line2Parts}</span>` : ""}
@@ -2405,26 +2492,20 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedB
 
     pickerEl.innerHTML = info + rows;
 
-    pickerEl.querySelectorAll("input[type='radio'][name='statement_item_pick']").forEach(r => {
-        // rádiógomb toggle: ha a már kijelöltre kattintasz, legyen lehetőség törölni a jelölést
-        r.addEventListener("click", (ev) => {
-            const val = String(r.value || "").trim();
+    const syncHiddenFromChecks = () => {
+        const ids = Array.from(pickerEl.querySelectorAll("input[type='checkbox'][name='statement_item_pick']:checked"))
+            .map(el => String(el.value || "").trim())
+            .filter(Boolean);
 
-            // ha ugyanaz volt már beállítva, akkor "unselect"
-            if (hiddenInputEl.value === val) {
-                ev.preventDefault(); // ne maradjon checked
-                r.checked = false;
-                hiddenInputEl.value = "";
-                return;
-            }
+        hiddenInputEl.value = ids.join(", ");
+    };
 
-            // különben normál kiválasztás
-            hiddenInputEl.value = val;
-        });
+    // induláskor is normalizáljuk (pl. "1,2" -> "1, 2")
+    syncHiddenFromChecks();
 
-        // billentyűzetes/egyéb változtatás esetére is
-        r.addEventListener("change", () => {
-            if (r.checked) hiddenInputEl.value = String(r.value || "").trim();
+    pickerEl.querySelectorAll("input[type='checkbox'][name='statement_item_pick']").forEach(ch => {
+        ch.addEventListener("change", () => {
+            syncHiddenFromChecks();
         });
     });
 }
@@ -2491,15 +2572,15 @@ async function openTransactionEditor(tx) {
             const bankItems = await ensureBankTxCache();
 
             // már használt banki tételek (statement_item alapján)
+            // statement_item mostantól lehet: "12, 18, 25" (több banki tétel egy tranzakcióhoz)
             const usedBankIds = new Set(
                 (transactionsCache || [])
-                    .map(t => String(t?.statement_item ?? "").trim())
-                    .filter(Boolean)
+.flatMap(t => parseStatementItemIds(t?.statement_item))
             );
 
-            // a jelenlegi tx saját korábbi értékét engedjük (ne tűnjön el a listából)
-            const currentStmt = String(tx?.statement_item ?? "").trim();
-            if (currentStmt) usedBankIds.delete(currentStmt);
+            // a jelenlegi tx saját korábbi értékeit engedjük (ne tűnjenek el a listából)
+const currentStmtIds = parseStatementItemIds(tx?.statement_item);
+            currentStmtIds.forEach(id => usedBankIds.delete(id));
 
             // +1 paraméter: usedBankIds (a függvény a következő lépésben fogja használni)
             renderStatementItemPicker(tx, bankItems, picker, hidden, usedBankIds);
@@ -3533,7 +3614,14 @@ function parseHuNumber(v) {
         .replace(",", ".");      // tizedes vessző támogatás
     return Number(s);
 }
-
+function parseStatementItemIds(v) {
+  // támogatott szeparátorok: vessző, middle dot (·), pontosvessző
+  // trim + üresek eldobása
+  return String(v ?? "")
+    .split(/[,\u00B7;]+/g)
+    .map(s => s.trim())
+    .filter(Boolean);
+}
 function formatHuInteger(v) {
     const n = Math.abs(Number(v) || 0);
     return n.toLocaleString("hu-HU"); // pl. 2000 -> "2 000"

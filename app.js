@@ -3523,13 +3523,19 @@ async function loadSharedExpenses() {
             <td class="text-right">${formatAmount(row.amount)}</td>
             <td>${row.paid_by || ""}</td>
 
-            <td class="text-right">
-                ${formatAmount(Math.abs(Number(row.Zsolti_amount) || 0))}
-            </td>
+<td class="text-right">
+    ${(() => {
+        const v = Number(row.Zsolti_amount);
+        return (!v || v === 0) ? "" : formatAmount(Math.abs(v));
+    })()}
+</td>
 
-            <td class="text-right">
-                ${formatAmount(Math.abs(Number(row.Dori_amount) || 0))}
-            </td>
+<td class="text-right">
+    ${(() => {
+        const v = Number(row.Dori_amount);
+        return (!v || v === 0) ? "" : formatAmount(Math.abs(v));
+    })()}
+</td>
 
 
 
@@ -3804,8 +3810,16 @@ document.getElementById("sharedExpensesBody").addEventListener("click", (e) => {
     document.getElementById("sePaidBy").value = row.paid_by || "";
 
     // bontás mezők (törlesztésnél úgyis rejtve vannak, de értéket adhatunk)
-    document.getElementById("seZsoltiAmount").value = Math.abs(Number(row.Zsolti_amount) || 0);
-    document.getElementById("seDoriAmount").value = Math.abs(Number(row.Dori_amount) || 0);
+{
+    const zVal = Number(row.Zsolti_amount);
+    const dVal = Number(row.Dori_amount);
+
+    document.getElementById("seZsoltiAmount").value =
+        (!zVal || zVal === 0) ? "" : Math.abs(zVal);
+
+    document.getElementById("seDoriAmount").value =
+        (!dVal || dVal === 0) ? "" : Math.abs(dVal);
+}
 
     document.getElementById("seNotes").value = row.notes || "";
 

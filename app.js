@@ -3004,10 +3004,12 @@ if (field === "amount") {
 
 
     // Megjelenített / összes tétel
-    const resultCountEl = document.getElementById("bankImportResultCount");
-    if (resultCountEl) {
-        resultCountEl.textContent = `Találatok: ${pageItems.length} / ${safeItems.length} db`;
-    }
+// Megjelenített / összes (szűrt) tétel
+const resultCountEl = document.getElementById("bankImportResultCount");
+if (resultCountEl) {
+    // workingItems: a szűrés + rendezés utáni lista (erre kell a nevező)
+    resultCountEl.textContent = `Találatok: ${pageItems.length} / ${workingItems.length} db`;
+}
 
     // Gombok tiltása (eleje/vége + előző/következő)
     const firstBtn = document.getElementById("bankFirstPageBtn");

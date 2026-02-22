@@ -1286,37 +1286,72 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
 
-    document.getElementById("bankNextPageBtn")?.addEventListener("click", () => {
-        const perPageEl = document.getElementById("bankItemsPerPage");
-        const perPageRaw = perPageEl ? perPageEl.value : "100";
-        const pageSize =
-            perPageRaw === "all"
-                ? Math.max(1, bankImportItems.length)
-                : (Number(perPageRaw) || 100);
+document.getElementById("bankNextPageBtn")?.addEventListener("click", () => {
+    // totalPages számítás: a szűrt találatok alapján
+    const filterTextEl = document.getElementById("bankFilterText");
+    const filterUnmatchedEl = document.getElementById("bankFilterUnmatchedOnly");
 
-        const totalPages = Math.max(1, Math.ceil(bankImportItems.length / pageSize));
-        bankCurrentPage = Math.min(totalPages, bankCurrentPage + 1);
-        loadBankTransactions();
-    });
+    const q = String(filterTextEl?.value ?? "").trim().toLowerCase();
+    const unmatchedOnly = (filterUnmatchedEl?.checked === true);
 
-    document.getElementById("bankLastPageBtn")?.addEventListener("click", () => {
-        const perPageEl = document.getElementById("bankItemsPerPage");
-        const perPageRaw = perPageEl ? perPageEl.value : "100";
-        const pageSize =
-            perPageRaw === "all"
-                ? Math.max(1, bankImportItems.length)
-                : (Number(perPageRaw) || 100);
+    const filteredCount = (Array.isArray(bankImportItems) ? bankImportItems : []).filter(it => {
+        if (unmatchedOnly && String(it?.matched_transaction_ids ?? "").trim() !== "") return false;
+        if (!q) return true;
+        return Object.values(it || {}).some(v => String(v ?? "").toLowerCase().includes(q));
+    }).length;
 
-        const totalPages = Math.max(1, Math.ceil(bankImportItems.length / pageSize));
-        bankCurrentPage = totalPages;
-        loadBankTransactions();
-    });
+    const perPageEl = document.getElementById("bankItemsPerPage");
+    const perPageRaw = perPageEl ? perPageEl.value : "100";
+    const pageSize =
+        perPageRaw === "all"
+            ? Math.max(1, filteredCount)
+            : (Number(perPageRaw) || 100);
+
+    const totalPages = Math.max(1, Math.ceil(filteredCount / pageSize));
+    bankCurrentPage = Math.min(totalPages, bankCurrentPage + 1);
+    loadBankTransactions();
+});
+
+document.getElementById("bankLastPageBtn")?.addEventListener("click", () => {
+    // totalPages számítás: a szűrt találatok alapján
+    const filterTextEl = document.getElementById("bankFilterText");
+    const filterUnmatchedEl = document.getElementById("bankFilterUnmatchedOnly");
+
+    const q = String(filterTextEl?.value ?? "").trim().toLowerCase();
+    const unmatchedOnly = (filterUnmatchedEl?.checked === true);
+
+    const filteredCount = (Array.isArray(bankImportItems) ? bankImportItems : []).filter(it => {
+        if (unmatchedOnly && String(it?.matched_transaction_ids ?? "").trim() !== "") return false;
+        if (!q) return true;
+        return Object.values(it || {}).some(v => String(v ?? "").toLowerCase().includes(q));
+    }).length;
+
+    const perPageEl = document.getElementById("bankItemsPerPage");
+    const perPageRaw = perPageEl ? perPageEl.value : "100";
+    const pageSize =
+        perPageRaw === "all"
+            ? Math.max(1, filteredCount)
+            : (Number(perPageRaw) || 100);
+
+    const totalPages = Math.max(1, Math.ceil(filteredCount / pageSize));
+    bankCurrentPage = totalPages;
+    loadBankTransactions();
+});
 
     document.getElementById("bankItemsPerPage")?.addEventListener("change", () => {
         bankCurrentPage = 1;
         renderBankPreview(bankImportItems);
     });
+// Banki szűrők változására: vissza 1. oldalra + újrarender
+document.getElementById("bankFilterText")?.addEventListener("input", () => {
+    bankCurrentPage = 1;
+    renderBankPreview(bankImportItems);
+});
 
+document.getElementById("bankFilterUnmatchedOnly")?.addEventListener("change", () => {
+    bankCurrentPage = 1;
+    renderBankPreview(bankImportItems);
+});
     // ================================
     // Shared Expenses – Modal open/close (NEW only)
     // ================================
@@ -2760,7 +2795,60 @@ const normalizeAmount = (v) => {
 const renderBankPreview = (items) => {
     if (!bankHeadRow || !bankBody) return;
     const safeItems = Array.isArray(items) ? items : [];
+    // ===== BANK – KÉPERNYŐ SZŰRÉS + RENDEZÉS =====
+    const filterTextEl = document.getElementById("bankFilterText");
+    const filterUnmatchedEl = document.getElementById("bankFilterUnmatchedOnly");
 
+    const q = String(filterTextEl?.value ?? "").trim().toLowerCase();
+    const unmatchedOnly = (filterUnmatchedEl?.checked === true);
+
+    // 1) szűrés
+    let workingItems = safeItems.filter(it => {
+        if (unmatchedOnly && String(it?.matched_transaction_ids ?? "").trim() !== "") return false;
+        if (!q) return true;
+
+        // teljes sorban keresünk (összes mező)
+// teljes sorban keresünk (összes mező) + összeg normalizált egyezés
+const rowMatch = Object.values(it || {}).some(v => String(v ?? "").toLowerCase().includes(q));
+if (rowMatch) return true;
+
+// Összeg egyezés normalizeAmount alapján (pl. "1234,56" ~= "1 234,56")
+const qNum = q.replace(/\s+/g, "").replace(",", ".");
+const amt = normalizeAmount(it?.amount);
+if (typeof amt === "number" && qNum) {
+    const amtStr = String(amt);           // pl. "1234.56"
+    if (amtStr.includes(qNum)) return true;
+}
+
+return false;
+    });
+
+    // 2) rendezés (bankSortField / bankSortDirection state alapján)
+    const toComparable = (val, field) => {
+        if (val == null) return "";
+if (field === "amount") {
+    const n = normalizeAmount(val);
+    return (typeof n === "number") ? n : 0;
+}
+        // dátum mezők: "YYYY-MM-DD" vagy "YYYY-MM-DD HH:mm:ss"
+        if (field === "transaction_date" || field === "posting_date" || field === "created_at") {
+            const s = String(val).trim();
+            const t = Date.parse(s.replace(" ", "T"));
+            return isNaN(t) ? 0 : t;
+        }
+        return String(val).toLowerCase();
+    };
+
+    const dirMul = (bankSortDirection === "asc") ? 1 : -1;
+    workingItems = workingItems.slice().sort((a, b) => {
+        const av = toComparable(a?.[bankSortField], bankSortField);
+        const bv = toComparable(b?.[bankSortField], bankSortField);
+
+        if (typeof av === "number" && typeof bv === "number") {
+            return (av - bv) * dirMul;
+        }
+        return String(av).localeCompare(String(bv), "hu") * dirMul;
+    });
     const perPageEl = document.getElementById("bankItemsPerPage");
 
     const perPageValue = perPageEl ? perPageEl.value : "all";
@@ -2770,15 +2858,14 @@ const renderBankPreview = (items) => {
         window.bankCurrentPage = 1;
     }
 
-    const pageSize2 = readPageSize("bankItemsPerPage", safeItems.length, 100);
-    const meta = getPaginationMeta(safeItems.length, pageSize2, bankCurrentPage);
+    const pageSize2 = readPageSize("bankItemsPerPage", workingItems.length, 100);
+    const meta = getPaginationMeta(workingItems.length, pageSize2, bankCurrentPage);
     bankCurrentPage = meta.page;
 
-    let pageItems = safeItems;
-
+    let pageItems = workingItems;
     if (perPageValue !== "all") {
         if (paginationBox) paginationBox.style.display = "flex";
-        pageItems = safeItems.slice(meta.start, meta.end);
+        pageItems = workingItems.slice(meta.start, meta.end); 
 
         updatePaginationUI(
             {
@@ -2792,14 +2879,15 @@ const renderBankPreview = (items) => {
             meta.page,
             meta.totalPages,
             pageItems.length,
-            safeItems.length
+            workingItems.length
+
         );
     } else {
         bankCurrentPage = 1;
         if (paginationBox) paginationBox.style.display = "none";
 
         const resultCountEl = document.getElementById("bankImportResultCount");
-        if (resultCountEl) resultCountEl.textContent = `Találatok: ${safeItems.length} / ${safeItems.length} db`;
+        if (resultCountEl) resultCountEl.textContent = `Találatok: ${workingItems.length} / ${safeItems.length} db`;
     }
 
 
@@ -2853,11 +2941,31 @@ const renderBankPreview = (items) => {
     bankHeadRow.innerHTML = "";
     cols.forEach((c) => {
         const th = document.createElement("th");
-        th.textContent = labels[c] || c;
+
+        const isActive = (c === bankSortField);
+        const arrow = isActive ? (bankSortDirection === "asc" ? " ▲" : " ▼") : "";
+        th.textContent = (labels[c] || c) + arrow;
+
         th.dataset.sort = c;
         th.style.cursor = "pointer";
-        bankHeadRow.appendChild(th);
 
+        th.addEventListener("click", () => {
+            if (bankSortField === c) {
+                bankSortDirection = (bankSortDirection === "asc") ? "desc" : "asc";
+            } else {
+                bankSortField = c;
+                // alapértelmezett irány: dátum/összeg desc, egyéb asc
+                if (c === "transaction_date" || c === "posting_date" || c === "created_at" || c === "amount") {
+                    bankSortDirection = "desc";
+                } else {
+                    bankSortDirection = "asc";
+                }
+            }
+            bankCurrentPage = 1;
+            renderBankPreview(bankImportItems);
+        });
+
+        bankHeadRow.appendChild(th);
     });
 
     // body (max 200 sor preview)

@@ -178,7 +178,7 @@
                         <datalist id="sharedTitlesList"></datalist>
                     </div>
                 </div>
-                                <!-- Bulk Match Modal -->
+                <!-- Bulk Match Modal -->
                 <div id="bulkMatchModal" class="modal">
                     <div class="modal-content">
                         <h2>Csoportos párosítás</h2>
@@ -222,7 +222,7 @@
                         <input id="filterUnmatched" type="checkbox">
                         Csak nem párosított
                     </label>
-                    
+
                     <button id="clearFiltersBtn" class="secondary">Szűrők törlése</button>
                     <button id="loadListBtn">Lista betöltése</button>
                 </div>
@@ -287,6 +287,14 @@
                             <option value="100" selected>100</option>
                             <option value="all">Összes</option>
                         </select>
+                        <label for="bankFilterText" style="margin-left:12px;">Szűrés:</label>
+                        <input id="bankFilterText" type="text" placeholder="ID / partner / közlemény / összeg / dátum"
+                            style="min-width:260px;">
+
+                        <label class="filter-checkbox" style="margin-left:12px;">
+                            <input id="bankFilterUnmatchedOnly" type="checkbox">
+                            Csak nem rendelt
+                        </label>
                     </div>
 
                     <div id="bankImportResultCount" class="result-count"></div>

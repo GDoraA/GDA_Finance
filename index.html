@@ -38,6 +38,7 @@
             <button id="showTransactionsBtn" class="sidebar-btn">Tranzakciók</button>
             <button id="showSharedExpensesBtn" class="sidebar-btn">Megosztott költségek</button>
             <button id="showBankImportBtn" class="sidebar-btn">Bank import</button>
+            <button id="showOwnAccountsBtn" class="sidebar-btn">Saját számlák</button>
             <button id="showAdminUsersBtn" class="sidebar-btn">Admin</button>
             <button id="showAdminFunctionsBtn" class="sidebar-btn">Funkciók</button>
             <button id="showAdminPermissionsBtn" class="sidebar-btn">Jogosultságok</button>
@@ -295,6 +296,10 @@
                             <input id="bankFilterUnmatchedOnly" type="checkbox">
                             Csak nem rendelt
                         </label>
+                        <label class="filter-checkbox" style="margin-left:12px;">
+                            <input id="bankFilterHideInternalTransfers" type="checkbox">
+                            Saját számlák közti utalások elrejtése
+                        </label>
                     </div>
 
                     <div id="bankImportResultCount" class="result-count"></div>
@@ -456,6 +461,35 @@
                         <tbody id="adminPermissionsBody"></tbody>
                     </table>
                 </div>
+            </div>
+        </section>
+        <section id="page-own-accounts" class="page hidden">
+            <div class="page-header">
+                <h2>Saját számlák</h2>
+                <p class="muted">Itt add meg a saját számlaszámokat (pl. IBAN), hogy a belső utalás szűrés pontosabb
+                    legyen.</p>
+            </div>
+
+            <div class="card">
+                <form id="ownAccountsForm">
+                    <label for="ownAccountIban">Számlaszám / IBAN</label>
+                    <input id="ownAccountIban" name="iban" placeholder="pl. HU12...." required>
+                    <button type="submit">Hozzáadás</button>
+                    <div id="ownAccountsMsg" class="msg" style="display:none;"></div>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3 style="margin-top:0;">Felvett számlák</h3>
+                <table class="tx-table">
+                    <thead>
+                        <tr>
+                            <th>Számlaszám / IBAN</th>
+                            <th>Művelet</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ownAccountsBody"></tbody>
+                </table>
             </div>
         </section>
         <script src="utils/helpers.js"></script>

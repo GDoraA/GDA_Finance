@@ -16,7 +16,9 @@
     --input-bg: #fff;
     --border: #ddd;
 }
-
+*, *::before, *::after {
+    box-sizing: border-box;
+}
 /* ==========================================================================
    GLOBAL
    ========================================================================== */
@@ -316,7 +318,11 @@ button.secondary {
 /* ==========================================================================
    TABLE DISPLAY
    ========================================================================== */
-
+.table-wrapper {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+}
 .tx-table {
     width: 100%;
     border-collapse: separate;
@@ -348,11 +354,11 @@ button.secondary {
     top: 0;
     z-index: 5;
 }
-
-/* A táblázat mindig igazodjon az ablak szélességéhez */
+/* A táblázat kitölti a helyet, de ha sok oszlop van, inkább görgethető legyen */
 .tx-table {
     display: table;
     width: 100%;
+    min-width: max-content;
     table-layout: auto;
 }
 
@@ -789,6 +795,8 @@ body {
     margin-left: 220px;
     padding: 30px;
     width: calc(100% - 220px);
+    max-width: 100%;
+    overflow-x: visible;
 }
 
 /* Mobil nézet – tartalom (a sidebar-t a hamburgeres blokk kezeli lentebb) */
@@ -891,7 +899,8 @@ body.sidebar-collapsed .hamburger-btn {
     margin-left: 220px;
     padding: 30px;
     width: calc(100% - 220px);
-    transition: margin 0.25s ease;
+    max-width: 100%;
+    overflow-x: visible;
 }
 
 /* ============================
@@ -1043,7 +1052,7 @@ body.sidebar-collapsed .hamburger-btn {
 .tx-toolbar-left {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
     white-space: normal;
 }
@@ -1089,7 +1098,8 @@ body.sidebar-collapsed .hamburger-btn {
     align-items: center;
     gap: 6px;
     justify-content: flex-end;
-    white-space: nowrap;
+    flex-wrap: wrap;
+    white-space: normal;
 }
 
 /* felülírjuk a globális button width:100%-ot és "gombosságot" */
@@ -1194,7 +1204,8 @@ body.sidebar-collapsed .hamburger-btn {
     align-items: center;
     gap: 6px;
     justify-content: flex-start;
-    /* BALRA, ahogy korábban */
+    flex-wrap: wrap;
+    white-space: normal;
 }
 
 /* ikon gombok – ne legyenek "gombok" */

@@ -2822,7 +2822,7 @@ const renderBankPreview = (items) => {
     });
     const hideInternalTransfers =
         document.getElementById("bankFilterHideInternalTransfers")?.checked === true;
-
+let hiddenInternalCount = 0;
     // Saját számlák közti utalások elrejtése (pontosítva):
     // csak akkor tekintjük belső utalásnak, ha
     // - van Bejövő + Kimenő ugyanazzal az abs(amount)-tal, ÉS
@@ -2831,21 +2831,37 @@ const renderBankPreview = (items) => {
     if (hideInternalTransfers) {
         // Saját számlák cache: a Saját számlák oldalon a loadOwnAccounts() már betölti,
         // itt csak felhasználjuk, ha elérhető.
-        let hiddenInternalCount = 0;
         const ownList = (typeof window !== "undefined" && Array.isArray(window.__ownAccountsCache))
             ? window.__ownAccountsCache
             : [];
 
         const normAcc = (s) => String(s ?? "").replace(/\s+/g, "").trim().toLowerCase();
         const ownSet = new Set(ownList.map(normAcc).filter(Boolean));
+const classifyDir = (dirRaw, amt) => {
+    const d = String(dirRaw ?? "").trim().toLowerCase();
 
+    // Magyar
+    if (d === "bejövő" || d === "bejövo") return "in";
+    if (d === "kimenő" || d === "kimeno") return "out";
+
+    // Nemzetközi / bank exportok
+    if (d === "credit" || d === "cr" || d === "c") return "in";
+    if (d === "debit" || d === "dr" || d === "d") return "out";
+
+    // Ha nincs jól kitöltött irány, próbáljuk az előjelből
+    if (typeof amt === "number") {
+        if (amt < 0) return "out";
+        if (amt > 0) return "in";
+    }
+    return "";
+};
         const flagsByAbsAmount = new Map(); // absAmount -> { in: bool, out: bool }
 
         for (const it of workingItems) {
             const amt = normalizeAmount(it?.amount);
             if (typeof amt !== "number") continue;
 
-            const dir = String(it?.direction ?? "").trim();
+const dirClass = classifyDir(it?.direction, amt);
             const absAmt = Math.abs(amt);
 
             const acc1 = normAcc(it?.account_number);
@@ -2858,14 +2874,14 @@ const renderBankPreview = (items) => {
             if (!flagsByAbsAmount.has(absAmt)) flagsByAbsAmount.set(absAmt, { in: false, out: false });
             const rec = flagsByAbsAmount.get(absAmt);
 
-            if (dir === "Bejövő") rec.in = true;
-            else if (dir === "Kimenő") rec.out = true;
+if (dirClass === "in") rec.in = true;
+else if (dirClass === "out") rec.out = true;
         }
 
 const internalAbsAmounts = new Set(
-  [...flagsByAbsAmount.entries()]
-    .filter(([_, v]) => v.in && v.out)
-    .map(([k]) => k)
+    Array.from(flagsByAbsAmount.entries())
+        .filter(([_, v]) => v.in && v.out)
+        .map(([k]) => k)
 );
         // csak azokat rejtjük el, amiknél saját számla is érintett (ugyanazzal a logikával)
         workingItems = workingItems.filter(it => {
@@ -2893,13 +2909,12 @@ const internalAbsAmounts = new Set(
                 ? ` ${baseText} (${hiddenInternalCount} elrejtve)`
                 : ` ${baseText}`;
 
-        // Keressük meg a checkbox utáni szöveg node-ot, és azt írjuk át (ne lastChild!)
-        const textNode = Array.from(hideInternalLabel.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
-        if (textNode) {
-            textNode.textContent = newText;
-        } else {
-            hideInternalLabel.appendChild(document.createTextNode(newText));
-        }
+// Töröljük a label összes szöveg node-ját (a behúzások/újsorok is text node-ok),
+// majd visszaírunk egyetlen, egységes feliratot.
+Array.from(hideInternalLabel.childNodes).forEach(n => {
+    if (n.nodeType === Node.TEXT_NODE) hideInternalLabel.removeChild(n);
+});
+hideInternalLabel.appendChild(document.createTextNode(newText));
     }
     // 2) rendezés (bankSortField / bankSortDirection state alapján)
     const toComparable = (val, field) => {

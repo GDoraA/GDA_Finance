@@ -222,7 +222,14 @@ button:active {
 .card select {
     margin-bottom: 14px;
 }
-
+/* Tranzakciók – szűrők: mindig férjen ki, ne egy sorban nyúljon túl */
+#filtersPanel input,
+#filtersPanel select,
+#filtersPanel button {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
 /* ==========================================================================
    MOBILE RESPONSIVE
    ========================================================================== */
@@ -321,7 +328,20 @@ button.secondary {
     /* overflow: hidden;  <-- EZ VOLT A HIBÁS, KI KELL VENNI */
     box-shadow: var(--shadow);
 }
+/* Táblázat wrapper – ne lógjon ki, inkább görgessen */
+.table-wrapper {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
 
+/* Hosszú szövegek törése, hogy ne kényszerítse szélesre a táblát */
+.tx-table th,
+.tx-table td {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
 /* Sticky table header (desktop/tablet) */
 .tx-table thead th {
     position: sticky;
@@ -1023,8 +1043,9 @@ body.sidebar-collapsed .hamburger-btn {
 .tx-toolbar-left {
     display: flex;
     align-items: center;
-    gap: 8px;
-    white-space: nowrap;
+    gap: 10px;
+    flex-wrap: wrap;
+    white-space: normal;
 }
 
 /* CSV encoding selector – legyen kompakt a toolbarban */

@@ -246,22 +246,24 @@
                         <button id="txLastPageBtn" type="button" class="page-btn" aria-label="Utolsó oldal">⏭</button>
                     </div>
                 </div>
-                <table id="transactionsTable" class="tx-table">
-                    <thead>
-                        <tr>
-                            <th data-sort="month">Hónap</th>
-                            <th data-sort="date">Dátum</th>
-                            <th data-sort="amount">Összeg</th>
-                            <th data-sort="title">Jogcím</th>
-                            <th data-sort="category">Kategória</th>
-                            <th data-sort="payment_type">Fizetési mód</th>
-                            <th data-sort="transaction_type">Típus</th>
-                            <th data-sort="is_shared">Megosztott?</th>
-                            <th data-sort="statement_item">Kivonat sor</th>
-                        </tr>
-                    </thead>
-                    <tbody id="transactionsBody"></tbody>
-                </table>
+                <div class="table-wrapper">
+                    <table id="transactionsTable" class="tx-table">
+                        <thead>
+                            <tr>
+                                <th data-sort="month">Hónap</th>
+                                <th data-sort="date">Dátum</th>
+                                <th data-sort="amount">Összeg</th>
+                                <th data-sort="title">Jogcím</th>
+                                <th data-sort="category">Kategória</th>
+                                <th data-sort="payment_type">Fizetési mód</th>
+                                <th data-sort="transaction_type">Típus</th>
+                                <th data-sort="is_shared">Megosztott?</th>
+                                <th data-sort="statement_item">Kivonat sor</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionsBody"></tbody>
+                    </table>
+                </div>
             </div>
         </section>
         <section id="page-bank-import" class="hidden">
@@ -287,8 +289,7 @@
                             <option value="all">Összes</option>
                         </select>
                         <label for="bankFilterText" style="margin-left:12px;">Szűrés:</label>
-                        <input id="bankFilterText" type="text" placeholder="ID / partner / közlemény / összeg / dátum"
-                            style="min-width:260px;">
+                        <input id="bankFilterText" type="text" placeholder="ID / partner / közlemény / összeg / dátum">
 
                         <label class="filter-checkbox" style="margin-left:12px;">
                             <input id="bankFilterUnmatchedOnly" type="checkbox">
@@ -372,25 +373,28 @@
                 </div>
 
             </div>
-            <table id="sharedExpensesTable" class="tx-table">
-                <thead>
-                    <tr>
-                        <th data-sort="month">Hónap</th>
-                        <th data-sort="date">Dátum</th>
-                        <th data-sort="title">Megnevezés</th>
-                        <th data-sort="amount">Összeg</th>
-                        <th data-sort="paid_by">Fizette</th>
-                        <th data-sort="Zsolti_amount">Zsolti része</th>
-                        <th data-sort="Dori_amount">Dóri része</th>
-                        <th data-sort="remaining_amount">Maradék</th>
-                        <th data-sort="Zsolti_balance">Zsolti egyenleg</th>
-                        <th data-sort="Dori_balance">Dóri egyenleg</th>
-                        <th data-sort="balance_display">Egyenleg</th>
-                        <th data-sort="notes">Megjegyzés</th>
-                    </tr>
-                </thead>
-                <tbody id="sharedExpensesBody"></tbody>
-            </table>
+            <div class="table-wrapper">
+
+                <table id="sharedExpensesTable" class="tx-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="month">Hónap</th>
+                            <th data-sort="date">Dátum</th>
+                            <th data-sort="title">Megnevezés</th>
+                            <th data-sort="amount">Összeg</th>
+                            <th data-sort="paid_by">Fizette</th>
+                            <th data-sort="Zsolti_amount">Zsolti része</th>
+                            <th data-sort="Dori_amount">Dóri része</th>
+                            <th data-sort="remaining_amount">Maradék</th>
+                            <th data-sort="Zsolti_balance">Zsolti egyenleg</th>
+                            <th data-sort="Dori_balance">Dóri egyenleg</th>
+                            <th data-sort="balance_display">Egyenleg</th>
+                            <th data-sort="notes">Megjegyzés</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sharedExpensesBody"></tbody>
+                </table>
+            </div>
         </section>
         <!-- Admin – Users -->
         <section id="page-admin-users" class="hidden">

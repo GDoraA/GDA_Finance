@@ -2862,12 +2862,11 @@ const renderBankPreview = (items) => {
             else if (dir === "Kimenő") rec.out = true;
         }
 
-        const internalAbsAmounts = new Set(
-            [...flagsByAbsAmount.entries()]
-                .filter(([_, v]) => v.in && v.out)
-                .map(([k]) => k)
-        );
-
+const internalAbsAmounts = new Set(
+  [...flagsByAbsAmount.entries()]
+    .filter(([_, v]) => v.in && v.out)
+    .map(([k]) => k)
+);
         // csak azokat rejtjük el, amiknél saját számla is érintett (ugyanazzal a logikával)
         workingItems = workingItems.filter(it => {
             const amt = normalizeAmount(it?.amount);
@@ -3429,7 +3428,7 @@ document.getElementById("showAdminPermissionsBtn").addEventListener("click", () 
 // =========================
 // Saját számlák (value_sets: own_account) – UI nélkül
 // =========================
-const OWN_ACCOUNTS_SET = "own_account";
+const OWN_ACCOUNTS_SET = "Own_account";
 
 async function ensureOwnAccountsCache() {
     try {

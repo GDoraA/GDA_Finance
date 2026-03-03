@@ -791,12 +791,16 @@ function doGet(e) {
         header.forEach((name, idx) => {
           const cell = row[idx];
 
-          // dátumok stabil visszaadása (YYYY-MM-DD)
-          if (cell instanceof Date && !isNaN(cell.getTime())) {
-            obj[name] = Utilities.formatDate(cell, tz, "yyyy-MM-dd");
-          } else {
-            obj[name] = cell;
-          }
+// dátumok stabil visszaadása
+if (cell instanceof Date && !isNaN(cell.getTime())) {
+  // created_at esetén idő is kellhet
+  const fmt = (name === "created_at")
+    ? "yyyy-MM-dd HH:mm:ss"
+    : "yyyy-MM-dd";
+  obj[name] = Utilities.formatDate(cell, tz, fmt);
+} else {
+  obj[name] = cell;
+}
         });
                 // ÚJ: a banki tételhez rendelt tranzakció ID-k (csak kijelzéshez)
         const btId = String(obj.id || "").trim();
@@ -809,8 +813,7 @@ function doGet(e) {
     } else if (action === "deleteSharedExpense") {
       requirePermission_(auth, "se_delete", "write");
       result = deleteSharedExpense_(p.id || "");
-    } else if (action === "getMyPermissions") {
-      result = getMyPermissions_(auth.email);
+
     } else if (action === "whoami") {
       result = { success: true, user: { id: auth.id, name: auth.name, email: auth.email } };
     } else if (action === "getMyPermissions") {
@@ -1405,7 +1408,7 @@ function getValueSets_() {
   }
 
   const values = sheet.getDataRange().getValues();
-  if (values.length < 2) {
+if (values.length < 2) {
     return {
       success: true,
       sets: {
@@ -1413,7 +1416,8 @@ function getValueSets_() {
         categories: [],
         payments: [],
         types: [],
-        paid_by: []
+        paid_by: [],
+        Own_account: []
       }
     };
   }
@@ -1421,35 +1425,40 @@ function getValueSets_() {
   const header = values[0];
 
   // Oszlopindexek
+// Oszlopindexek
   const colTitle = header.indexOf("title_values");
   const colCategory = header.indexOf("category_values");
   const colPayment = header.indexOf("payment_type_values");
   const colType = header.indexOf("transaction_type_values");
   const colPaidBy = header.indexOf("paid_by");
+  const colOwnAccount = header.indexOf("Own_account");
 
-  const titles = [];
+const titles = [];
   const categories = [];
   const payments = [];
   const types = [];
   const paid_by = [];
+  const Own_account = [];
 
-  for (let i = 1; i < values.length; i++) {
+for (let i = 1; i < values.length; i++) {
     const row = values[i];
     if (colTitle !== -1 && row[colTitle]) titles.push(row[colTitle]);
     if (colCategory !== -1 && row[colCategory]) categories.push(row[colCategory]);
     if (colPayment !== -1 && row[colPayment]) payments.push(row[colPayment]);
     if (colType !== -1 && row[colType]) types.push(row[colType]);
     if (colPaidBy !== -1 && row[colPaidBy]) paid_by.push(row[colPaidBy]);
+    if (colOwnAccount !== -1 && row[colOwnAccount]) Own_account.push(row[colOwnAccount]);
   }
 
-  return {
+return {
     success: true,
     sets: {
       titles,
       categories,
       payments,
       types,
-      paid_by
+      paid_by,
+      Own_account
     }
   };
 }

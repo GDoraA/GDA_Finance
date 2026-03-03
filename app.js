@@ -2502,11 +2502,14 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedB
             return da - db;
         });
     }
-
+const amountById = new Map();
     const rows = matches.map(b => {
         const id = String(b?.id ?? "").trim();
         const date = String(b?.transaction_date ?? "").trim();
         const amt = formatAmount(b?.amount);
+        const rawN = normalizeAmount(b?.amount);
+const n = (typeof rawN === "number") ? rawN : (Number(b?.amount ?? 0) || 0);
+amountById.set(id, n);
         const checked = currentSet.has(id) ? "checked" : "";
 
         // több mező – többféle lehetséges oszlopnév támogatása
@@ -2553,6 +2556,11 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedB
             .filter(Boolean);
 
         hiddenInputEl.value = ids.join(", ");
+        const sumEl = document.getElementById("statementItemSelectedSum");
+if (sumEl) {
+    const total = ids.reduce((acc, id) => acc + (amountById.get(id) || 0), 0);
+    sumEl.textContent = formatAmount(total);
+}
     };
 
     // induláskor is normalizáljuk (pl. "1,2" -> "1, 2")

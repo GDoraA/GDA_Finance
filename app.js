@@ -2779,7 +2779,68 @@ const bankBody = document.getElementById("bankImportPreviewBody");
 
 const setBankStatus = (msg) => { if (bankStatus) bankStatus.textContent = msg || ""; };
 
+function closeBankItemModal() {
+    const modal = document.getElementById("bankItemModal");
+    const overlay = document.getElementById("bankItemOverlay");
+    if (modal) modal.classList.remove("open");
+    if (overlay) overlay.classList.remove("open");
+}
 
+function openBankItemModal(item) {
+    const modal = document.getElementById("bankItemModal");
+    const overlay = document.getElementById("bankItemOverlay");
+    const details = document.getElementById("bankItemDetails");
+    const closeBtn = document.getElementById("bankItemCloseBtn");
+
+    if (!modal || !overlay || !details) return;
+
+    const fields = [
+        ["id", "ID"],
+        ["matched_transaction_ids", "TR ID"],
+        ["month", "Hó"],
+        ["transaction_date", "Tr.dátum"],
+        ["posting_date", "Könyvelés"],
+        ["amount", "Összeg"],
+        ["direction", "Irány"],
+        ["partner_name", "Partnernév"],
+        ["partner_account", "Partner számla"],
+        ["memo", "Közlemény"],
+        ["type", "Típus"],
+        ["spend_category", "Kategória"],
+        ["account_name", "Számlanév"],
+        ["account_number", "Számlaszám"],
+        ["currency", "Deviza"],
+        ["source_file", "Forrás"],
+        ["import_batch_id", "Import ID"],
+        ["created_by", "Rögzítő"],
+        ["created_at", "Rögz. ideje"]
+    ];
+
+    const html = fields.map(([k, label]) => {
+        const v = (item && item[k] != null) ? item[k] : "";
+        const val = (String(v).trim() === "") ? "—" : escapeHtml(String(v));
+        return `
+            <div class="bank-item-field">
+                <div class="bank-item-label">${escapeHtml(label)}</div>
+                <div class="bank-item-value">${val}</div>
+            </div>
+        `;
+    }).join("");
+
+    details.innerHTML = `<div class="bank-item-grid">${html}</div>`;
+
+    if (closeBtn && !closeBtn.__bankBound) {
+        closeBtn.addEventListener("click", closeBankItemModal);
+        closeBtn.__bankBound = true;
+    }
+    if (!overlay.__bankBound) {
+        overlay.addEventListener("click", closeBankItemModal);
+        overlay.__bankBound = true;
+    }
+
+    modal.classList.add("open");
+    overlay.classList.add("open");
+}
 
 const toMonthYYYYMM = (isoDate) => {
     // isoDate: YYYY-MM-DD
@@ -2999,13 +3060,13 @@ hideInternalLabel.appendChild(document.createTextNode(newText));
         "month",
         "transaction_date",
         "posting_date",
-        "type",
         "amount",
         "direction",
         "partner_name",
         "partner_account",
-        "spend_category",
         "memo",
+        "type",
+        "spend_category",
         "account_name",
         "account_number",
         "currency",
@@ -3014,33 +3075,35 @@ hideInternalLabel.appendChild(document.createTextNode(newText));
         "created_by",
         "created_at"
     ];
-
+    // A "Típus" oszloptól kezdve mindent elrejtünk (type és utána)
+    const typeIdx = cols.indexOf("type");
+    const visibleCols = (typeIdx > -1) ? cols.slice(0, typeIdx) : cols;
 
     const labels = {
         id: "ID",
-        matched_transaction_ids: "Rendelt tranzakció ID-k",
-        month: "Hónap",
-        transaction_date: "Tranzakció dátum",
-        posting_date: "Könyvelés dátum",
-        type: "Típus",
+        matched_transaction_ids: "TR ID",
+        month: "Hó",
+        transaction_date: "Tr.dátum",
+        posting_date: "Könyvelés",
         amount: "Összeg",
         direction: "Irány",
-        partner_name: "Partner neve",
+        partner_name: "Partnernév",
         partner_account: "Partner számla",
-        spend_category: "Költési kategória",
         memo: "Közlemény",
-        account_name: "Számla neve",
+        type: "Típus",
+        spend_category: "Kategória",
+        account_name: "Számlanév",
         account_number: "Számlaszám",
         currency: "Deviza",
-        source_file: "Forrás fájl",
-        import_batch_id: "Import batch ID",
-        created_by: "Rögzítette",
-        created_at: "Rögzítés ideje"
+        source_file: "Forrás",
+        import_batch_id: "Import ID",
+        created_by: "Rögzítő",
+        created_at: "Rögz. ideje"
     };
 
     // fejléc
     bankHeadRow.innerHTML = "";
-    cols.forEach((c) => {
+    visibleCols.forEach((c) => {
         const th = document.createElement("th");
 
         const isActive = (c === bankSortField);
@@ -3074,8 +3137,12 @@ hideInternalLabel.appendChild(document.createTextNode(newText));
     pageItems.forEach((it) => {
 
         const tr = document.createElement("tr");
-
-        cols.forEach((c) => {
+        tr.style.cursor = "pointer";
+        tr.addEventListener("click", (ev) => {
+            if (ev.target && ev.target.closest("button,a,input,select,textarea,label")) return;
+            openBankItemModal(it);
+        });
+        visibleCols.forEach((c) => {
             const td = document.createElement("td");
 
             if (c === "linked_transaction_ids") {

@@ -1228,7 +1228,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             txCurrentPage = 1;
-            loadTransactions();
+renderTransactions(transactionsCache);
         });
     });
 
@@ -1255,34 +1255,34 @@ document.addEventListener("DOMContentLoaded", () => {
     // Lapozó gombok: egyszeri eseménykezelők (NEM loadTransactions-ben!)
     document.getElementById("txFirstPageBtn")?.addEventListener("click", () => {
         txCurrentPage = 1;
-        loadTransactions();
+renderTransactions(transactionsCache);
     });
 
     document.getElementById("txPrevPageBtn")?.addEventListener("click", () => {
         if (txCurrentPage > 1) {
             txCurrentPage -= 1;   // garantáltan +/-1
-            loadTransactions();
+renderTransactions(transactionsCache);
         }
     });
 
     document.getElementById("txNextPageBtn")?.addEventListener("click", () => {
         txCurrentPage += 1;       // a felső korlátot loadTransactions vágja vissza
-        loadTransactions();
+renderTransactions(transactionsCache);
     });
 
     document.getElementById("txLastPageBtn")?.addEventListener("click", () => {
         // Utolsó oldalra ugrás: a legegyszerűbb és stabil megoldás,
         // hogy "túl nagyra" tesszük, a loadTransactions pedig visszavágja totalPages-re.
         txCurrentPage = 999999;
-        loadTransactions();
+renderTransactions(transactionsCache);
     });
     document.getElementById("bankFirstPageBtn")?.addEventListener("click", () => {
         bankCurrentPage = 1;
-        loadBankTransactions();
+renderBankPreview(bankImportItems);
     });
     document.getElementById("bankPrevPageBtn")?.addEventListener("click", () => {
         bankCurrentPage = Math.max(1, bankCurrentPage - 1);
-        loadBankTransactions();
+renderBankPreview(bankImportItems);
     });
 
 
@@ -1309,7 +1309,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const totalPages = Math.max(1, Math.ceil(filteredCount / pageSize));
         bankCurrentPage = Math.min(totalPages, bankCurrentPage + 1);
-        loadBankTransactions();
+renderBankPreview(bankImportItems);
     });
 
     document.getElementById("bankLastPageBtn")?.addEventListener("click", () => {
@@ -1335,7 +1335,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const totalPages = Math.max(1, Math.ceil(filteredCount / pageSize));
         bankCurrentPage = totalPages;
-        loadBankTransactions();
+renderBankPreview(bankImportItems);
     });
 
     document.getElementById("bankItemsPerPage")?.addEventListener("change", () => {
@@ -1343,10 +1343,15 @@ document.addEventListener("DOMContentLoaded", () => {
         renderBankPreview(bankImportItems);
     });
     // Banki szűrők változására: vissza 1. oldalra + újrarender
-    document.getElementById("bankFilterText")?.addEventListener("input", () => {
-        bankCurrentPage = 1;
+document.getElementById("bankFilterText")?.addEventListener("input", () => {
+    bankCurrentPage = 1;
+    clearTimeout(bankFilterTextDebounce);
+    bankFilterTextDebounce = setTimeout(() => {
         renderBankPreview(bankImportItems);
-    });
+    }, 180);
+});
+
+
 
     document.getElementById("bankFilterUnmatchedOnly")?.addEventListener("change", () => {
         bankCurrentPage = 1;
@@ -1538,7 +1543,7 @@ document.addEventListener("DOMContentLoaded", () => {
         el.addEventListener("input", () => {
             updateFilterPanelState();
             txCurrentPage = 1;
-            loadTransactions();
+renderTransactions(transactionsCache);
         });
     });
 
@@ -1961,6 +1966,8 @@ let seRowsById = new Map(); // shared expense rekord cache id alapján
 let bankCurrentPage = 1;
 let bankSortField = "transaction_date";
 let bankSortDirection = "desc";
+let bankFilterTextDebounce = null;
+
 
 async function loadTransactions() {
     // ===== SORT ICONS RESET (TRANSACTIONS) =====
@@ -1971,18 +1978,17 @@ async function loadTransactions() {
         }
     });
 
-    const result = await api.getTransactions();
     const tbody = document.getElementById("transactionsBody");
+    const data = await ensureTransactionsCache();
 
-    if (!result || !result.success) {
-        console.error("Nem sikerült betölteni a tranzakciókat.", result);
+    if (!Array.isArray(data)) {
+        console.error("Nem sikerült betölteni a tranzakciókat.");
         if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="9">Nincs jogosultság vagy hiba: ${escapeHtml(result?.error || "ismeretlen")}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9">Nincs jogosultság vagy hiba: ismeretlen</td></tr>`;
         }
         return;
     }
 
-    const data = result.data;
     transactionsCache = Array.isArray(data) ? data : [];
     // --- Szűrőmezők ---
     const fMonth = document.getElementById("filterMonth").value.trim();
@@ -1996,7 +2002,7 @@ async function loadTransactions() {
     const fStatement = document.getElementById("filterStatement").value.trim().toLowerCase();
     const fUnmatched = document.getElementById("filterUnmatched")?.checked === true;
     // --- Szűrés ---
-    const filtered = data.filter(tx => {
+filteredTransactions = data.filter(tx => {
 
         if (fMonth && String(tx.month) !== fMonth) return false;
 
@@ -2163,7 +2169,7 @@ async function loadTransactions() {
 
 
     // --- Kiírás ---
-    if (filtered.length === 0) {
+if (filteredTransactions.length === 0) {
         tbody.innerHTML = `<tr><td colspan="10">Nincs megjeleníthető adat.</td></tr>`;
         return;
     }
@@ -2173,16 +2179,16 @@ async function loadTransactions() {
     const itemsPerPageSelect = document.getElementById("itemsPerPage");
     const itemsPerPageValue = itemsPerPageSelect ? itemsPerPageSelect.value : "all";
 
-    const pageSize = readPageSize("itemsPerPage", filtered.length, 100);
-    const meta = getPaginationMeta(filtered.length, pageSize, txCurrentPage);
+const pageSize = readPageSize("itemsPerPage", filteredTransactions.length, 100);
+const meta = getPaginationMeta(filteredTransactions.length, pageSize, txCurrentPage);
     txCurrentPage = meta.page;
 
-    let visibleItems = filtered;
+let visibleItems = filteredTransactions;
 
     if (itemsPerPageValue !== "all") {
         if (paginationBox) paginationBox.style.display = "flex";
 
-        visibleItems = filtered.slice(meta.start, meta.end);
+visibleItems = filteredTransactions.slice(meta.start, meta.end);
 
         updatePaginationUI(
             {
@@ -2196,7 +2202,7 @@ async function loadTransactions() {
             meta.page,
             meta.totalPages,
             visibleItems.length,
-            filtered.length
+filteredTransactions.length
         );
     } else {
         // Összes elem esetén nincs lapozás
@@ -2205,7 +2211,7 @@ async function loadTransactions() {
     }
 
     // ===== Találatok: megjelenített / összes =====
-    const txt = `Találatok: ${visibleItems.length} / ${filtered.length} db`;
+const txt = `Találatok: ${visibleItems.length} / ${filteredTransactions.length} db`;
     if (rcTop) rcTop.textContent = txt;
     if (rcBottom) rcBottom.textContent = txt;
 
@@ -2326,12 +2332,29 @@ async function loadTransactions() {
 // ===== Bank_Transactions cache (Transactions modal dropdownhoz) =====
 let bankTxCache = null;
 let transactionsCache = null; // legutóbb betöltött tranzakciók (bulk match-hez)
+let filteredTransactions = [];
+let bankToTxMap = new Map();
+
 let bankTxCachePromise = null;
 async function ensureTransactionsCache() {
     if (Array.isArray(transactionsCache)) return transactionsCache;
     try {
         const r = await api.getTransactions();
         transactionsCache = (r && r.success && Array.isArray(r.data)) ? r.data : [];
+                bankToTxMap.clear();
+
+        transactionsCache.forEach(t => {
+            const bankIds = String(t.bank_transaction_id || "")
+                .split(",")
+                .map(s => s.trim())
+                .filter(Boolean);
+
+            bankIds.forEach(id => {
+                if (!bankToTxMap.has(id)) bankToTxMap.set(id, []);
+                bankToTxMap.get(id).push(t.id);
+            });
+        });
+
     } catch (_) {
         transactionsCache = [];
     }
@@ -2765,6 +2788,8 @@ document.getElementById("showBankImportBtn").addEventListener("click", () => {
 // BANK IMPORT (CSV)
 // =========================
 let bankImportItems = [];
+let filteredBankItems = [];
+
 let bankImportSelectedFile = null;
 let bankImportBatchId = "";
 
@@ -3147,21 +3172,13 @@ hideInternalLabel.appendChild(document.createTextNode(newText));
 
             if (c === "linked_transaction_ids") {
                 const bankId = String(it?.id ?? "").trim();
-
-                const txIds = (Array.isArray(transactionsCache) ? transactionsCache : [])
-                    .filter(t => {
-                        const raw = String(t?.statement_item ?? "").trim();
-                        if (!raw) return false;
-                        const parts = raw.split(",").map(x => x.trim()).filter(Boolean);
-                        return parts.includes(bankId);
-                    })
-                    .map(t => String(t?.id ?? "").trim())
-                    .filter(Boolean);
+                const txIds = bankToTxMap.get(bankId) || [];
 
                 td.textContent = txIds.join(", ");
                 tr.appendChild(td);
                 return;
             }
+
 
             const v = (it && it[c] != null) ? it[c] : "";
             td.textContent = String(v);

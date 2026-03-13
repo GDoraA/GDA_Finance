@@ -1,6 +1,6 @@
 // ----------- API KONFIG -------------
 
-const API_URL = "https://script.google.com/macros/s/AKfycbwO0m_aVT0_0HoUH0ORfioaX60d2V3B9iBBkBpZ5IGhUms4vQ56mrdvuaY266Bpr2o/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbx9fDKm5L9OltkSULdJQMDmYYeFiXJDWrBqEC8nnqJreg5PdfWS8moDSWPOZrOFSQ8/exec";
 
 
 // ----------- JSONP HÍVÓ FUNKCIÓ -------------

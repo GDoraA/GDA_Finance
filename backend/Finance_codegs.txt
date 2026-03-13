@@ -745,6 +745,15 @@ function doGet(e) {
 
       result = addBankTransactions_(items);
     } else if (action === "getBankTransactions") {
+            const cache = CacheService.getScriptCache();
+      const cached = cache.get("bank_transactions_list");
+
+      if (cached) {
+        try {
+          return createJsonOrJsonpResponse_(JSON.parse(cached), callback);
+        } catch (e) {}
+      }
+
       // jogosultság: egyelőre ugyanahhoz kötjük, mint az importot (write -> read is ok)
       requirePermission_(auth, "tx_import", "read");
 
@@ -809,6 +818,7 @@ if (cell instanceof Date && !isNaN(cell.getTime())) {
       });
 
       result = { success: true, data: rows };
+      cache.put("bank_transactions_list", JSON.stringify(result), 60);
 
     } else if (action === "deleteSharedExpense") {
       requirePermission_(auth, "se_delete", "write");
@@ -1375,6 +1385,15 @@ function deleteTransaction_(id) {
 }
 
 function getTransactions_() {
+    const cache = CacheService.getScriptCache();
+  const cached = cache.get("transactions_list");
+
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch (e) {}
+  }
+
   const sheet = SpreadsheetApp.getActive().getSheetByName("Transactions");
   const data = sheet.getDataRange().getValues();
 
@@ -1399,7 +1418,10 @@ function getTransactions_() {
   });
 
 
-  return { success: true, data: rows };
+    const result = { success: true, data: rows };
+  cache.put("transactions_list", JSON.stringify(result), 60);
+  return result;
+
 }
 function getValueSets_() {
   const sheet = SpreadsheetApp.getActive().getSheetByName("Value_Sets");

@@ -1186,6 +1186,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     const filtersPanel = document.getElementById("filtersPanel");
+    const toggleFiltersBtn = document.getElementById("toggleFiltersBtn");
     toggleFiltersBtn?.addEventListener("click", () => {
         filtersPanel?.classList.toggle("open");
     });
@@ -1228,7 +1229,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             txCurrentPage = 1;
-renderTransactions(transactionsCache);
+            renderTransactions(transactionsCache);
         });
     });
 
@@ -1255,34 +1256,34 @@ renderTransactions(transactionsCache);
     // Lapozó gombok: egyszeri eseménykezelők (NEM loadTransactions-ben!)
     document.getElementById("txFirstPageBtn")?.addEventListener("click", () => {
         txCurrentPage = 1;
-renderTransactions(transactionsCache);
+        renderTransactions(transactionsCache);
     });
 
     document.getElementById("txPrevPageBtn")?.addEventListener("click", () => {
         if (txCurrentPage > 1) {
             txCurrentPage -= 1;   // garantáltan +/-1
-renderTransactions(transactionsCache);
+            renderTransactions(transactionsCache);
         }
     });
 
     document.getElementById("txNextPageBtn")?.addEventListener("click", () => {
         txCurrentPage += 1;       // a felső korlátot loadTransactions vágja vissza
-renderTransactions(transactionsCache);
+        renderTransactions(transactionsCache);
     });
 
     document.getElementById("txLastPageBtn")?.addEventListener("click", () => {
         // Utolsó oldalra ugrás: a legegyszerűbb és stabil megoldás,
         // hogy "túl nagyra" tesszük, a loadTransactions pedig visszavágja totalPages-re.
         txCurrentPage = 999999;
-renderTransactions(transactionsCache);
+        renderTransactions(transactionsCache);
     });
     document.getElementById("bankFirstPageBtn")?.addEventListener("click", () => {
         bankCurrentPage = 1;
-renderBankPreview(bankImportItems);
+        renderBankPreview(bankImportItems);
     });
     document.getElementById("bankPrevPageBtn")?.addEventListener("click", () => {
         bankCurrentPage = Math.max(1, bankCurrentPage - 1);
-renderBankPreview(bankImportItems);
+        renderBankPreview(bankImportItems);
     });
 
 
@@ -1309,7 +1310,7 @@ renderBankPreview(bankImportItems);
 
         const totalPages = Math.max(1, Math.ceil(filteredCount / pageSize));
         bankCurrentPage = Math.min(totalPages, bankCurrentPage + 1);
-renderBankPreview(bankImportItems);
+        renderBankPreview(bankImportItems);
     });
 
     document.getElementById("bankLastPageBtn")?.addEventListener("click", () => {
@@ -1335,7 +1336,7 @@ renderBankPreview(bankImportItems);
 
         const totalPages = Math.max(1, Math.ceil(filteredCount / pageSize));
         bankCurrentPage = totalPages;
-renderBankPreview(bankImportItems);
+        renderBankPreview(bankImportItems);
     });
 
     document.getElementById("bankItemsPerPage")?.addEventListener("change", () => {
@@ -1343,13 +1344,13 @@ renderBankPreview(bankImportItems);
         renderBankPreview(bankImportItems);
     });
     // Banki szűrők változására: vissza 1. oldalra + újrarender
-document.getElementById("bankFilterText")?.addEventListener("input", () => {
-    bankCurrentPage = 1;
-    clearTimeout(bankFilterTextDebounce);
-    bankFilterTextDebounce = setTimeout(() => {
-        renderBankPreview(bankImportItems);
-    }, 180);
-});
+    document.getElementById("bankFilterText")?.addEventListener("input", () => {
+        bankCurrentPage = 1;
+        clearTimeout(bankFilterTextDebounce);
+        bankFilterTextDebounce = setTimeout(() => {
+            renderBankPreview(bankImportItems);
+        }, 180);
+    });
 
 
 
@@ -1543,7 +1544,7 @@ document.getElementById("bankFilterText")?.addEventListener("input", () => {
         el.addEventListener("input", () => {
             updateFilterPanelState();
             txCurrentPage = 1;
-renderTransactions(transactionsCache);
+            renderTransactions(transactionsCache);
         });
     });
 
@@ -1552,7 +1553,7 @@ renderTransactions(transactionsCache);
     document.getElementById("loadListBtn")?.addEventListener("click", loadTransactions);    // Kezdőlap indításakor
     const loginPage = document.getElementById("page-login");
     const sidebar = document.querySelector(".sidebar");
-    const content = document.querySelector(".content-wrapper");
+const content = document.querySelector(".content-wrapper");
     let loginMode = "login"; // "login" | "setup"
     const confirmBlock = document.getElementById("loginConfirmBlock");
 
@@ -1601,83 +1602,8 @@ renderTransactions(transactionsCache);
         const resp = await api.whoami();
         return !!(resp && resp.success);
     };
-    let myPermissions = {};
-
-    function applySidebarPermissions() {
-        const txBtn = document.getElementById("showTransactionsBtn");
-        const seBtn = document.getElementById("showSharedExpensesBtn");
-        const bankImportBtn = document.getElementById("showBankImportBtn");
-        const adminUsersBtn = document.getElementById("showAdminUsersBtn");
-        const adminFunctionsBtn = document.getElementById("showAdminFunctionsBtn");
-        const adminPermissionsBtn = document.getElementById("showAdminPermissionsBtn");
-        const ownAccountsBtn = document.getElementById("showOwnAccountsBtn");
-        // Oldalon belüli akciógombok
-        const txCreateBtn = document.getElementById("openModalBtn");            // Új tranzakció
-        const txImportBtn = document.getElementById("importCsvBtn");            // Import
-        const seCreateBtn = document.getElementById("addSharedExpenseBtn");     // + Új megosztott tétel
-        const seSettleBtn = document.getElementById("addSettlementInlineBtn");  // + Törlesztés
-
-        // Kényszerített megjelenítés: ne üres stringgel “reseteljünk”, mert az nem mindig hozza vissza
-        const setBtnVisible = (btn, visible) => {
-            if (!btn) return;
-            btn.style.display = visible ? "inline-flex" : "none";
-        };
 
 
-        // A permissions táblában az access tipikusan: none / read / write
-        // De UI szempontból: bármi, ami nem "none", hozzáférésnek számít (konzisztens a getLandingPage()-gel)
-        const hasAccess = (key) => {
-            const v = myPermissions?.[key];
-            if (v === undefined || v === null) return false;
-            return String(v).trim().toLowerCase() !== "none";
-        };
-
-
-        // RESET: ha korábban el volt rejtve (display:none), most legyen visszaállítva,
-        // különben “beragad” és hiába kap jogot, nem jelenik meg.
-        [txBtn, seBtn, bankImportBtn, adminUsersBtn, adminFunctionsBtn, adminPermissionsBtn,
-            txCreateBtn, txImportBtn, seCreateBtn, seSettleBtn].forEach((b) => {
-
-                if (b) b.style.display = "";
-            });
-
-
-        // Oldal-gombok: ha nincs jog, ne jelenjenek meg
-        // Fontos: az oldal akkor is legyen elérhető/látható, ha bármely tx_* / se_* funkcióhoz van jog,
-        // nem csak akkor, ha konkrétan tx_read / se_read van kiosztva.
-        const hasAny = (prefix) =>
-            Object.keys(myPermissions || {}).some((k) => k.startsWith(prefix) && hasAccess(k));
-
-        const canSeeTxPage = hasAny("tx_");
-        const canSeeSePage = hasAny("se_");
-
-        // Oldalmenü – oldal szintű jogosultságok
-        if (!canSeeTxPage && txBtn) txBtn.style.display = "none";
-        if (!canSeeSePage && seBtn) seBtn.style.display = "none";
-        // Bank import: ugyanahhoz a jogosultsághoz kötjük, mint a tranzakció importot
-        if (!hasAccess("tx_import") && bankImportBtn) bankImportBtn.style.display = "none";
-
-        // Admin menüpontok – kizárólag saját admin jog alapján
-        if (!hasAccess("admin_users") && adminUsersBtn) adminUsersBtn.style.display = "none";
-        if (!hasAccess("admin_functions") && adminFunctionsBtn) adminFunctionsBtn.style.display = "none";
-        if (!hasAccess("admin_permissions") && adminPermissionsBtn) adminPermissionsBtn.style.display = "none";
-
-        // Transactions akciók
-        if (!hasAccess("tx_create") && txCreateBtn) txCreateBtn.style.display = "none";
-        if (!hasAccess("tx_import") && txImportBtn) txImportBtn.style.display = "none";
-
-        // Shared Expenses akciók
-        if (!hasAccess("se_create") && seCreateBtn) seCreateBtn.style.display = "none";
-        if (!hasAccess("se_settlement_create") && seSettleBtn) seSettleBtn.style.display = "none";
-        // Transactions akciógombok
-        setBtnVisible(txCreateBtn, hasAccess("tx_create"));
-        setBtnVisible(txImportBtn, hasAccess("tx_import"));
-
-        // Shared Expenses akciógombok
-        setBtnVisible(seCreateBtn, hasAccess("se_create"));
-        setBtnVisible(seSettleBtn, hasAccess("se_settlement_create"));
-
-    }
 
     function getLandingPage() {
         const hasAccess = (key) => {
@@ -1968,7 +1894,9 @@ let bankSortField = "transaction_date";
 let bankSortDirection = "desc";
 let bankFilterTextDebounce = null;
 
-
+function renderTransactions() {
+    return loadTransactions();
+}
 async function loadTransactions() {
     // ===== SORT ICONS RESET (TRANSACTIONS) =====
     document.querySelectorAll("#transactionsTable thead th[data-sort]").forEach(th => {
@@ -2002,7 +1930,7 @@ async function loadTransactions() {
     const fStatement = document.getElementById("filterStatement").value.trim().toLowerCase();
     const fUnmatched = document.getElementById("filterUnmatched")?.checked === true;
     // --- Szűrés ---
-filteredTransactions = data.filter(tx => {
+    filteredTransactions = data.filter(tx => {
 
         if (fMonth && String(tx.month) !== fMonth) return false;
 
@@ -2066,7 +1994,7 @@ filteredTransactions = data.filter(tx => {
             return isNaN(t) ? null : t;
         };
 
-        filtered.sort((a, b) => {
+        filteredTransactions.sort((a, b) => {
             const va = a[txSortField];
             const vb = b[txSortField];
 
@@ -2169,7 +2097,7 @@ filteredTransactions = data.filter(tx => {
 
 
     // --- Kiírás ---
-if (filteredTransactions.length === 0) {
+    if (filteredTransactions.length === 0) {
         tbody.innerHTML = `<tr><td colspan="10">Nincs megjeleníthető adat.</td></tr>`;
         return;
     }
@@ -2179,16 +2107,16 @@ if (filteredTransactions.length === 0) {
     const itemsPerPageSelect = document.getElementById("itemsPerPage");
     const itemsPerPageValue = itemsPerPageSelect ? itemsPerPageSelect.value : "all";
 
-const pageSize = readPageSize("itemsPerPage", filteredTransactions.length, 100);
-const meta = getPaginationMeta(filteredTransactions.length, pageSize, txCurrentPage);
+    const pageSize = readPageSize("itemsPerPage", filteredTransactions.length, 100);
+    const meta = getPaginationMeta(filteredTransactions.length, pageSize, txCurrentPage);
     txCurrentPage = meta.page;
 
-let visibleItems = filteredTransactions;
+    let visibleItems = filteredTransactions;
 
     if (itemsPerPageValue !== "all") {
         if (paginationBox) paginationBox.style.display = "flex";
 
-visibleItems = filteredTransactions.slice(meta.start, meta.end);
+        visibleItems = filteredTransactions.slice(meta.start, meta.end);
 
         updatePaginationUI(
             {
@@ -2202,7 +2130,7 @@ visibleItems = filteredTransactions.slice(meta.start, meta.end);
             meta.page,
             meta.totalPages,
             visibleItems.length,
-filteredTransactions.length
+            filteredTransactions.length
         );
     } else {
         // Összes elem esetén nincs lapozás
@@ -2211,7 +2139,7 @@ filteredTransactions.length
     }
 
     // ===== Találatok: megjelenített / összes =====
-const txt = `Találatok: ${visibleItems.length} / ${filteredTransactions.length} db`;
+    const txt = `Találatok: ${visibleItems.length} / ${filteredTransactions.length} db`;
     if (rcTop) rcTop.textContent = txt;
     if (rcBottom) rcBottom.textContent = txt;
 
@@ -2332,6 +2260,7 @@ const txt = `Találatok: ${visibleItems.length} / ${filteredTransactions.length}
 // ===== Bank_Transactions cache (Transactions modal dropdownhoz) =====
 let bankTxCache = null;
 let transactionsCache = null; // legutóbb betöltött tranzakciók (bulk match-hez)
+let myPermissions = {};
 let filteredTransactions = [];
 let bankToTxMap = new Map();
 
@@ -2341,10 +2270,10 @@ async function ensureTransactionsCache() {
     try {
         const r = await api.getTransactions();
         transactionsCache = (r && r.success && Array.isArray(r.data)) ? r.data : [];
-                bankToTxMap.clear();
+        bankToTxMap.clear();
 
         transactionsCache.forEach(t => {
-            const bankIds = String(t.bank_transaction_id || "")
+            const bankIds = String(t.statement_item || "")
                 .split(",")
                 .map(s => s.trim())
                 .filter(Boolean);
@@ -2525,14 +2454,14 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedB
             return da - db;
         });
     }
-const amountById = new Map();
+    const amountById = new Map();
     const rows = matches.map(b => {
         const id = String(b?.id ?? "").trim();
         const date = String(b?.transaction_date ?? "").trim();
         const amt = formatAmount(b?.amount);
         const rawN = normalizeAmount(b?.amount);
-const n = (typeof rawN === "number") ? rawN : (Number(b?.amount ?? 0) || 0);
-amountById.set(id, n);
+        const n = (typeof rawN === "number") ? rawN : (Number(b?.amount ?? 0) || 0);
+        amountById.set(id, n);
         const checked = currentSet.has(id) ? "checked" : "";
 
         // több mező – többféle lehetséges oszlopnév támogatása
@@ -2580,10 +2509,10 @@ amountById.set(id, n);
 
         hiddenInputEl.value = ids.join(", ");
         const sumEl = document.getElementById("statementItemSelectedSum");
-if (sumEl) {
-    const total = ids.reduce((acc, id) => acc + (amountById.get(id) || 0), 0);
-    sumEl.textContent = formatAmount(total);
-}
+        if (sumEl) {
+            const total = ids.reduce((acc, id) => acc + (amountById.get(id) || 0), 0);
+            sumEl.textContent = formatAmount(total);
+        }
     };
 
     // induláskor is normalizáljuk (pl. "1,2" -> "1, 2")
@@ -2690,7 +2619,81 @@ async function openTransactionEditor(tx) {
     modal.classList.add("open");
     overlay.classList.add("open");
 }
+function applySidebarPermissions() {
+    const txBtn = document.getElementById("showTransactionsBtn");
+    const seBtn = document.getElementById("showSharedExpensesBtn");
+    const bankImportBtn = document.getElementById("showBankImportBtn");
+    const adminUsersBtn = document.getElementById("showAdminUsersBtn");
+    const adminFunctionsBtn = document.getElementById("showAdminFunctionsBtn");
+    const adminPermissionsBtn = document.getElementById("showAdminPermissionsBtn");
+    const ownAccountsBtn = document.getElementById("showOwnAccountsBtn");
+    // Oldalon belüli akciógombok
+    const txCreateBtn = document.getElementById("openModalBtn");            // Új tranzakció
+    const txImportBtn = document.getElementById("importCsvBtn");            // Import
+    const seCreateBtn = document.getElementById("addSharedExpenseBtn");     // + Új megosztott tétel
+    const seSettleBtn = document.getElementById("addSettlementInlineBtn");  // + Törlesztés
 
+    // Kényszerített megjelenítés: ne üres stringgel “reseteljünk”, mert az nem mindig hozza vissza
+    const setBtnVisible = (btn, visible) => {
+        if (!btn) return;
+        btn.style.display = visible ? "inline-flex" : "none";
+    };
+
+
+    // A permissions táblában az access tipikusan: none / read / write
+    // De UI szempontból: bármi, ami nem "none", hozzáférésnek számít (konzisztens a getLandingPage()-gel)
+    const hasAccess = (key) => {
+        const v = myPermissions?.[key];
+        if (v === undefined || v === null) return false;
+        return String(v).trim().toLowerCase() !== "none";
+    };
+
+
+    // RESET: ha korábban el volt rejtve (display:none), most legyen visszaállítva,
+    // különben “beragad” és hiába kap jogot, nem jelenik meg.
+    [txBtn, seBtn, bankImportBtn, adminUsersBtn, adminFunctionsBtn, adminPermissionsBtn,
+        txCreateBtn, txImportBtn, seCreateBtn, seSettleBtn].forEach((b) => {
+
+            if (b) b.style.display = "";
+        });
+
+
+    // Oldal-gombok: ha nincs jog, ne jelenjenek meg
+    // Fontos: az oldal akkor is legyen elérhető/látható, ha bármely tx_* / se_* funkcióhoz van jog,
+    // nem csak akkor, ha konkrétan tx_read / se_read van kiosztva.
+    const hasAny = (prefix) =>
+        Object.keys(myPermissions || {}).some((k) => k.startsWith(prefix) && hasAccess(k));
+
+    const canSeeTxPage = hasAny("tx_");
+    const canSeeSePage = hasAny("se_");
+
+    // Oldalmenü – oldal szintű jogosultságok
+    if (!canSeeTxPage && txBtn) txBtn.style.display = "none";
+    if (!canSeeSePage && seBtn) seBtn.style.display = "none";
+    // Bank import: ugyanahhoz a jogosultsághoz kötjük, mint a tranzakció importot
+    if (!hasAccess("tx_import") && bankImportBtn) bankImportBtn.style.display = "none";
+
+    // Admin menüpontok – kizárólag saját admin jog alapján
+    if (!hasAccess("admin_users") && adminUsersBtn) adminUsersBtn.style.display = "none";
+    if (!hasAccess("admin_functions") && adminFunctionsBtn) adminFunctionsBtn.style.display = "none";
+    if (!hasAccess("admin_permissions") && adminPermissionsBtn) adminPermissionsBtn.style.display = "none";
+
+    // Transactions akciók
+    if (!hasAccess("tx_create") && txCreateBtn) txCreateBtn.style.display = "none";
+    if (!hasAccess("tx_import") && txImportBtn) txImportBtn.style.display = "none";
+
+    // Shared Expenses akciók
+    if (!hasAccess("se_create") && seCreateBtn) seCreateBtn.style.display = "none";
+    if (!hasAccess("se_settlement_create") && seSettleBtn) seSettleBtn.style.display = "none";
+    // Transactions akciógombok
+    setBtnVisible(txCreateBtn, hasAccess("tx_create"));
+    setBtnVisible(txImportBtn, hasAccess("tx_import"));
+
+    // Shared Expenses akciógombok
+    setBtnVisible(seCreateBtn, hasAccess("se_create"));
+    setBtnVisible(seSettleBtn, hasAccess("se_settlement_create"));
+
+}
 // Váltás a két panel között
 function showPage(page) {
     const txPage = document.getElementById("page-transactions");
@@ -2720,7 +2723,7 @@ function showPage(page) {
         txPage?.classList.remove("hidden");
         txBtn?.classList.add("active");
         loadTransactions();
-        applySidebarPermissions();
+        typeof applySidebarPermissions === "function" && applySidebarPermissions();
         return;
     }
 
@@ -2728,8 +2731,7 @@ function showPage(page) {
         sharedPage?.classList.remove("hidden");
         sharedBtn?.classList.add("active");
         loadSharedExpenses();
-        applySidebarPermissions();
-        return;
+        typeof applySidebarPermissions === "function" && applySidebarPermissions(); return;
     }
 
     if (page === "bank-import") {
@@ -2744,7 +2746,7 @@ function showPage(page) {
         ownAccountsPage?.classList.remove("hidden");
         ownAccountsBtn?.classList.add("active");
         loadOwnAccounts();
-        applySidebarPermissions();
+        typeof applySidebarPermissions === "function" && applySidebarPermissions();
         return;
     }
 
@@ -2752,7 +2754,7 @@ function showPage(page) {
         adminPage?.classList.remove("hidden");
         adminBtn?.classList.add("active");
         loadAdminUsers();
-        applySidebarPermissions();
+        typeof applySidebarPermissions === "function" && applySidebarPermissions();
         return;
     }
 
@@ -2760,7 +2762,7 @@ function showPage(page) {
         adminFunctionsPage?.classList.remove("hidden");
         adminFunctionsBtn?.classList.add("active");
         loadAdminFunctions();
-        applySidebarPermissions();
+        typeof applySidebarPermissions === "function" && applySidebarPermissions();
         return;
     }
 
@@ -2768,7 +2770,7 @@ function showPage(page) {
         adminPermissionsPage?.classList.remove("hidden");
         adminPermissionsBtn?.classList.add("active");
         loadAdminPermissions();
-        applySidebarPermissions();
+        typeof applySidebarPermissions === "function" && applySidebarPermissions();
         return;
     }
 }
@@ -2916,7 +2918,7 @@ const renderBankPreview = (items) => {
     });
     const hideInternalTransfers =
         document.getElementById("bankFilterHideInternalTransfers")?.checked === true;
-let hiddenInternalCount = 0;
+    let hiddenInternalCount = 0;
     // Saját számlák közti utalások elrejtése (pontosítva):
     // csak akkor tekintjük belső utalásnak, ha
     // - van Bejövő + Kimenő ugyanazzal az abs(amount)-tal, ÉS
@@ -2931,31 +2933,31 @@ let hiddenInternalCount = 0;
 
         const normAcc = (s) => String(s ?? "").replace(/\s+/g, "").trim().toLowerCase();
         const ownSet = new Set(ownList.map(normAcc).filter(Boolean));
-const classifyDir = (dirRaw, amt) => {
-    const d = String(dirRaw ?? "").trim().toLowerCase();
+        const classifyDir = (dirRaw, amt) => {
+            const d = String(dirRaw ?? "").trim().toLowerCase();
 
-    // Magyar
-    if (d === "bejövő" || d === "bejövo") return "in";
-    if (d === "kimenő" || d === "kimeno") return "out";
+            // Magyar
+            if (d === "bejövő" || d === "bejövo") return "in";
+            if (d === "kimenő" || d === "kimeno") return "out";
 
-    // Nemzetközi / bank exportok
-    if (d === "credit" || d === "cr" || d === "c") return "in";
-    if (d === "debit" || d === "dr" || d === "d") return "out";
+            // Nemzetközi / bank exportok
+            if (d === "credit" || d === "cr" || d === "c") return "in";
+            if (d === "debit" || d === "dr" || d === "d") return "out";
 
-    // Ha nincs jól kitöltött irány, próbáljuk az előjelből
-    if (typeof amt === "number") {
-        if (amt < 0) return "out";
-        if (amt > 0) return "in";
-    }
-    return "";
-};
+            // Ha nincs jól kitöltött irány, próbáljuk az előjelből
+            if (typeof amt === "number") {
+                if (amt < 0) return "out";
+                if (amt > 0) return "in";
+            }
+            return "";
+        };
         const flagsByAbsAmount = new Map(); // absAmount -> { in: bool, out: bool }
 
         for (const it of workingItems) {
             const amt = normalizeAmount(it?.amount);
             if (typeof amt !== "number") continue;
 
-const dirClass = classifyDir(it?.direction, amt);
+            const dirClass = classifyDir(it?.direction, amt);
             const absAmt = Math.abs(amt);
 
             const acc1 = normAcc(it?.account_number);
@@ -2968,15 +2970,15 @@ const dirClass = classifyDir(it?.direction, amt);
             if (!flagsByAbsAmount.has(absAmt)) flagsByAbsAmount.set(absAmt, { in: false, out: false });
             const rec = flagsByAbsAmount.get(absAmt);
 
-if (dirClass === "in") rec.in = true;
-else if (dirClass === "out") rec.out = true;
+            if (dirClass === "in") rec.in = true;
+            else if (dirClass === "out") rec.out = true;
         }
 
-const internalAbsAmounts = new Set(
-    Array.from(flagsByAbsAmount.entries())
-        .filter(([_, v]) => v.in && v.out)
-        .map(([k]) => k)
-);
+        const internalAbsAmounts = new Set(
+            Array.from(flagsByAbsAmount.entries())
+                .filter(([_, v]) => v.in && v.out)
+                .map(([k]) => k)
+        );
         // csak azokat rejtjük el, amiknél saját számla is érintett (ugyanazzal a logikával)
         workingItems = workingItems.filter(it => {
             const amt = normalizeAmount(it?.amount);
@@ -3003,12 +3005,12 @@ const internalAbsAmounts = new Set(
                 ? ` ${baseText} (${hiddenInternalCount} elrejtve)`
                 : ` ${baseText}`;
 
-// Töröljük a label összes szöveg node-ját (a behúzások/újsorok is text node-ok),
-// majd visszaírunk egyetlen, egységes feliratot.
-Array.from(hideInternalLabel.childNodes).forEach(n => {
-    if (n.nodeType === Node.TEXT_NODE) hideInternalLabel.removeChild(n);
-});
-hideInternalLabel.appendChild(document.createTextNode(newText));
+        // Töröljük a label összes szöveg node-ját (a behúzások/újsorok is text node-ok),
+        // majd visszaírunk egyetlen, egységes feliratot.
+        Array.from(hideInternalLabel.childNodes).forEach(n => {
+            if (n.nodeType === Node.TEXT_NODE) hideInternalLabel.removeChild(n);
+        });
+        hideInternalLabel.appendChild(document.createTextNode(newText));
     }
     // 2) rendezés (bankSortField / bankSortDirection state alapján)
     const toComparable = (val, field) => {
@@ -3170,7 +3172,7 @@ hideInternalLabel.appendChild(document.createTextNode(newText));
         visibleCols.forEach((c) => {
             const td = document.createElement("td");
 
-            if (c === "linked_transaction_ids") {
+            if (c === "matched_transaction_ids") {
                 const bankId = String(it?.id ?? "").trim();
                 const txIds = bankToTxMap.get(bankId) || [];
 
@@ -3214,7 +3216,7 @@ hideInternalLabel.appendChild(document.createTextNode(newText));
 
 async function loadBankTransactions() {
     try {
-                await ensureOwnAccountsCache();
+        await ensureOwnAccountsCache();
         if (!api?.getBankTransactions) {
             setBankStatus("Hiba: api.getBankTransactions nincs definiálva (api.js).");
             return;

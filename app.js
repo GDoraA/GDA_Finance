@@ -971,7 +971,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             document.getElementById("txModal")?.classList.remove("open");
             document.getElementById("modalOverlay")?.classList.remove("open");
-            loadTransactions();
+            await loadTransactions(true);
 
         } catch (err) {
             console.error("deleteTransaction error:", err);
@@ -1157,9 +1157,6 @@ if (result && result.success) {
     // szerkesztési mód kikapcsolása
     e.target.removeAttribute("data-edit-id");
 
-    // cache ürítése, hogy biztosan friss adat jöjjön a backendről
-    transactionsCache = null;
-
     // datalist frissítése
     await loadDropdownValues();
 
@@ -1168,7 +1165,7 @@ if (result && result.success) {
     overlay.classList.remove("open");
 
     // lista frissítése
-    await loadTransactions();
+    await loadTransactions(true);
     await loadSharedExpenses();
 } else {
                 er.style.display = "block";

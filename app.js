@@ -1147,27 +1147,30 @@ document.addEventListener("DOMContentLoaded", () => {
             console.log("API RESULT:", result);
 
 
-            if (result && result.success) {
-                s.style.display = "block";
-                setTimeout(() => { s.style.display = "none"; }, 1500);
+if (result && result.success) {
+    s.style.display = "block";
+    setTimeout(() => { s.style.display = "none"; }, 1500);
 
-                // form ürítése
-                e.target.reset();
+    // form ürítése
+    e.target.reset();
 
-                // szerkesztési mód kikapcsolása
-                e.target.removeAttribute("data-edit-id");
+    // szerkesztési mód kikapcsolása
+    e.target.removeAttribute("data-edit-id");
 
-                // datalist frissítése
-                loadDropdownValues();
+    // cache ürítése, hogy biztosan friss adat jöjjön a backendről
+    transactionsCache = null;
 
-                // modal bezárása
-                modal.classList.remove("open");
-                overlay.classList.remove("open");
+    // datalist frissítése
+    await loadDropdownValues();
 
-                // lista frissítése
-                loadTransactions();
-                loadSharedExpenses();
-            } else {
+    // modal bezárása
+    modal.classList.remove("open");
+    overlay.classList.remove("open");
+
+    // lista frissítése
+    await loadTransactions();
+    await loadSharedExpenses();
+} else {
                 er.style.display = "block";
                 console.error("SAVE FAILED:", result);
                 // Ha van hibaüzenet a backendből, azt is írjuk ki
@@ -1897,7 +1900,7 @@ let bankFilterTextDebounce = null;
 function renderTransactions() {
     return loadTransactions();
 }
-async function loadTransactions() {
+async function loadTransactions(forceRefresh = false) {
     // ===== SORT ICONS RESET (TRANSACTIONS) =====
     document.querySelectorAll("#transactionsTable thead th[data-sort]").forEach(th => {
         th.classList.remove("sort-asc", "sort-desc");
@@ -1907,7 +1910,7 @@ async function loadTransactions() {
     });
 
     const tbody = document.getElementById("transactionsBody");
-    const data = await ensureTransactionsCache();
+    const data = await ensureTransactionsCache(forceRefresh);
 
     if (!Array.isArray(data)) {
         console.error("Nem sikerült betölteni a tranzakciókat.");
@@ -2265,8 +2268,8 @@ let filteredTransactions = [];
 let bankToTxMap = new Map();
 
 let bankTxCachePromise = null;
-async function ensureTransactionsCache() {
-    if (Array.isArray(transactionsCache)) return transactionsCache;
+async function ensureTransactionsCache(forceRefresh = false) {
+    if (!forceRefresh && Array.isArray(transactionsCache)) return transactionsCache;
     try {
         const r = await api.getTransactions();
         transactionsCache = (r && r.success && Array.isArray(r.data)) ? r.data : [];

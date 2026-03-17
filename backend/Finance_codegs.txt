@@ -818,7 +818,6 @@ if (cell instanceof Date && !isNaN(cell.getTime())) {
       });
 
       result = { success: true, data: rows };
-      cache.put("bank_transactions_list", JSON.stringify(result), 60);
 
     } else if (action === "deleteSharedExpense") {
       requirePermission_(auth, "se_delete", "write");
@@ -1419,7 +1418,6 @@ function getTransactions_() {
 
 
     const result = { success: true, data: rows };
-  cache.put("transactions_list", JSON.stringify(result), 60);
   return result;
 
 }

@@ -644,6 +644,9 @@ function doGet(e) {
     } else if (action === "getValueSets") {
       result = getValueSets_();
 
+    } else if (action === "getValueSetsDetailed") {
+      result = getValueSetsDetailed_();
+
     } else if (action === "updateTransaction") {
       const tx = {
         id: p.id || "",
@@ -1482,7 +1485,77 @@ return {
     }
   };
 }
+function getValueSetsDetailed_() {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Value_Sets");
+  if (!sheet) {
+    return { success: false, error: 'Nem található a "Value_Sets" munkalap.' };
+  }
 
+  const values = sheet.getDataRange().getValues();
+  const categoryNames = [
+    "title_values",
+    "category_values",
+    "payment_type_values",
+    "transaction_type_values",
+    "paid_by",
+    "Own_account"
+  ];
+
+  if (values.length < 2) {
+    return {
+      success: true,
+      categories: categoryNames,
+      itemsByCategory: {
+        title_values: [],
+        category_values: [],
+        payment_type_values: [],
+        transaction_type_values: [],
+        paid_by: [],
+        Own_account: []
+      }
+    };
+  }
+
+  const header = values[0];
+  const itemsByCategory = {
+    title_values: [],
+    category_values: [],
+    payment_type_values: [],
+    transaction_type_values: [],
+    paid_by: [],
+    Own_account: []
+  };
+
+  const indexMap = {
+    title_values: header.indexOf("title_values"),
+    category_values: header.indexOf("category_values"),
+    payment_type_values: header.indexOf("payment_type_values"),
+    transaction_type_values: header.indexOf("transaction_type_values"),
+    paid_by: header.indexOf("paid_by"),
+    Own_account: header.indexOf("Own_account")
+  };
+
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+
+    categoryNames.forEach(name => {
+      const colIndex = indexMap[name];
+      if (colIndex !== -1 && row[colIndex] !== "" && row[colIndex] != null) {
+        itemsByCategory[name].push(String(row[colIndex]).trim());
+      }
+    });
+  }
+
+  categoryNames.forEach(name => {
+    itemsByCategory[name] = [...new Set(itemsByCategory[name].filter(Boolean))];
+  });
+
+  return {
+    success: true,
+    categories: categoryNames,
+    itemsByCategory
+  };
+}
 function addValueIfMissing_(columnName, value) {
   if (!value) return;
 

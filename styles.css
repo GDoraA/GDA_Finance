@@ -314,7 +314,40 @@ button:active {
 button.secondary {
     background: #bbb;
 }
+/* ===== Banki tétel modal (részletek) ===== */
+#bankItemModal {
+    max-width: 980px;
+}
 
+.bank-item-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 16px;
+}
+
+.bank-item-field {
+    border: 1px solid #eee;
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: #fff;
+}
+
+.bank-item-label {
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 6px;
+}
+
+.bank-item-value {
+    font-weight: 600;
+    word-break: break-word;
+}
+
+@media (max-width: 700px) {
+    .bank-item-grid {
+        grid-template-columns: 1fr;
+    }
+}
 /* ==========================================================================
    TABLE DISPLAY
    ========================================================================== */

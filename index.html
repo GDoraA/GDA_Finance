@@ -322,8 +322,21 @@
                         <tbody id="bankImportPreviewBody"></tbody>
                     </table>
                 </div>
-
             </div>
+                            <!-- Banki tranzakció részletek modal háttér -->
+                <div id="bankItemOverlay" class="modal-overlay"></div>
+
+                <!-- Banki tranzakció részletek modal -->
+                <div id="bankItemModal" class="modal">
+                    <div class="modal-content">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                            <h2 style="margin:0;">Banki tétel részletei</h2>
+                            <button id="bankItemCloseBtn" type="button" class="secondary">Mégse</button>
+                        </div>
+
+                        <div id="bankItemDetails" style="margin-top:12px;"></div>
+                    </div>
+                </div>
         </section>
         <!-- Shared Expenses Panel -->
         <section id="page-shared-expenses" class="hidden">
@@ -374,7 +387,6 @@
 
             </div>
             <div class="table-wrapper">
-
                 <table id="sharedExpensesTable" class="tx-table">
                     <thead>
                         <tr>

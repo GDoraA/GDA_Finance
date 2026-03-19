@@ -1147,27 +1147,27 @@ document.addEventListener("DOMContentLoaded", () => {
             console.log("API RESULT:", result);
 
 
-if (result && result.success) {
-    s.style.display = "block";
-    setTimeout(() => { s.style.display = "none"; }, 1500);
+            if (result && result.success) {
+                s.style.display = "block";
+                setTimeout(() => { s.style.display = "none"; }, 1500);
 
-    // form ürítése
-    e.target.reset();
+                // form ürítése
+                e.target.reset();
 
-    // szerkesztési mód kikapcsolása
-    e.target.removeAttribute("data-edit-id");
+                // szerkesztési mód kikapcsolása
+                e.target.removeAttribute("data-edit-id");
 
-    // datalist frissítése
-    await loadDropdownValues();
+                // datalist frissítése
+                await loadDropdownValues();
 
-    // modal bezárása
-    modal.classList.remove("open");
-    overlay.classList.remove("open");
+                // modal bezárása
+                modal.classList.remove("open");
+                overlay.classList.remove("open");
 
-    // lista frissítése
-    await loadTransactions(true);
-    await loadSharedExpenses();
-} else {
+                // lista frissítése
+                await loadTransactions(true);
+                await loadSharedExpenses();
+            } else {
                 er.style.display = "block";
                 console.error("SAVE FAILED:", result);
                 // Ha van hibaüzenet a backendből, azt is írjuk ki
@@ -1553,7 +1553,7 @@ if (result && result.success) {
     document.getElementById("loadListBtn")?.addEventListener("click", loadTransactions);    // Kezdőlap indításakor
     const loginPage = document.getElementById("page-login");
     const sidebar = document.querySelector(".sidebar");
-const content = document.querySelector(".content-wrapper");
+    const content = document.querySelector(".content-wrapper");
     let loginMode = "login"; // "login" | "setup"
     const confirmBlock = document.getElementById("loginConfirmBlock");
 
@@ -2699,6 +2699,7 @@ function showPage(page) {
     const txPage = document.getElementById("page-transactions");
     const sharedPage = document.getElementById("page-shared-expenses");
     const bankImportPage = document.getElementById("page-bank-import");
+    const valueSetsPage = document.getElementById("page-value-sets");
     const ownAccountsPage = document.getElementById("page-own-accounts");
     const adminPage = document.getElementById("page-admin-users");
     const adminFunctionsPage = document.getElementById("page-admin-functions");
@@ -2707,16 +2708,17 @@ function showPage(page) {
     const txBtn = document.getElementById("showTransactionsBtn");
     const sharedBtn = document.getElementById("showSharedExpensesBtn");
     const bankImportBtn = document.getElementById("showBankImportBtn");
+    const valueSetsBtn = document.getElementById("showValueSetsBtn");
     const ownAccountsBtn = document.getElementById("showOwnAccountsBtn");
     const adminBtn = document.getElementById("showAdminUsersBtn");
     const adminFunctionsBtn = document.getElementById("showAdminFunctionsBtn");
     const adminPermissionsBtn = document.getElementById("showAdminPermissionsBtn");
 
     // mindent elrejt + active reset (minden ismert oldalra/gombra)
-    [txPage, sharedPage, bankImportPage, ownAccountsPage, adminPage, adminFunctionsPage, adminPermissionsPage]
+    [txPage, sharedPage, bankImportPage, valueSetsPage, ownAccountsPage, adminPage, adminFunctionsPage, adminPermissionsPage]
         .forEach(p => p && p.classList.add("hidden"));
 
-    [txBtn, sharedBtn, bankImportBtn, ownAccountsBtn, adminBtn, adminFunctionsBtn, adminPermissionsBtn]
+    [txBtn, sharedBtn, bankImportBtn, valueSetsBtn, ownAccountsBtn, adminBtn, adminFunctionsBtn, adminPermissionsBtn]
         .forEach(b => b && b.classList.remove("active"));
 
     if (page === "transactions") {
@@ -2738,6 +2740,14 @@ function showPage(page) {
         bankImportPage?.classList.remove("hidden");
         bankImportBtn?.classList.add("active");
         loadBankTransactions();
+        typeof applySidebarPermissions === "function" && applySidebarPermissions();
+        return;
+    }
+
+    if (page === "value-sets") {
+        valueSetsPage?.classList.remove("hidden");
+        valueSetsBtn?.classList.add("active");
+        typeof loadValueSetsPage === "function" && loadValueSetsPage();
         typeof applySidebarPermissions === "function" && applySidebarPermissions();
         return;
     }
@@ -3554,7 +3564,145 @@ async function ensureOwnAccountsCache() {
         window.__ownAccountsCache = [];
     }
 }
+let valueSetsSort = { field: "value", dir: "asc" };
+let valueSetsPage = 1;
 
+function renderValueSetsTable(list) {
+    const tbody = document.querySelector("#valueSetsTable tbody");
+    const filterInput = document.getElementById("valueSetFilterText");
+    const itemsPerPageSelect = document.getElementById("valueSetItemsPerPage");
+    const pagination = document.getElementById("valueSetsPagination");
+
+    if (!tbody) return;
+
+    let items = Array.isArray(list) ? list : [];
+
+    // SZŰRÉS
+    const filter = (filterInput?.value || "").toLowerCase().trim();
+    if (filter) {
+        items = items.filter(v => String(v ?? "").toLowerCase().includes(filter));
+    }
+
+    // RENDEZÉS
+    items.sort((a, b) => {
+        const av = String(a ?? "").toLowerCase();
+        const bv = String(b ?? "").toLowerCase();
+
+        if (av < bv) return valueSetsSort.dir === "asc" ? -1 : 1;
+        if (av > bv) return valueSetsSort.dir === "asc" ? 1 : -1;
+        return 0;
+    });
+
+    // LAPOZÁS
+    const itemsPerPage = Math.max(1, Number(itemsPerPageSelect?.value || 20));
+    const totalPages = Math.max(1, Math.ceil(items.length / itemsPerPage));
+    if (valueSetsPage > totalPages) valueSetsPage = totalPages;
+
+    const start = (valueSetsPage - 1) * itemsPerPage;
+    const pagedItems = items.slice(start, start + itemsPerPage);
+
+    tbody.innerHTML = pagedItems
+        .map(v => `<tr><td>${escapeHtml(String(v ?? "").trim())}</td></tr>`)
+        .join("");
+
+    const resultCount = document.getElementById("valueSetResultCount");
+    if (resultCount) {
+        resultCount.textContent = `${items.length} érték • ${valueSetsPage}/${totalPages} oldal`;
+    }
+
+    if (pagination) {
+        pagination.innerHTML = `
+            <button type="button" ${valueSetsPage <= 1 ? "disabled" : ""} data-page="prev">Előző</button>
+            <span>${valueSetsPage} / ${totalPages}</span>
+            <button type="button" ${valueSetsPage >= totalPages ? "disabled" : ""} data-page="next">Következő</button>
+        `;
+
+        pagination.querySelector('[data-page="prev"]')?.addEventListener("click", () => {
+            if (valueSetsPage > 1) {
+                valueSetsPage--;
+                renderValueSetsTable(list);
+            }
+        });
+
+        pagination.querySelector('[data-page="next"]')?.addEventListener("click", () => {
+            if (valueSetsPage < totalPages) {
+                valueSetsPage++;
+                renderValueSetsTable(list);
+            }
+        });
+    }
+}
+
+async function loadValueSetsPage() {
+    const categorySelect = document.getElementById("valueSetCategorySelect");
+    const resultCount = document.getElementById("valueSetResultCount");
+    if (!categorySelect) return;
+
+    const res = await api.getValueSetsDetailed();
+    if (!res || !res.success) {
+        if (resultCount) resultCount.textContent = "Nem sikerült betölteni az értékkészleteket.";
+        return;
+    }
+
+    const categories = Array.isArray(res.categories) ? res.categories : [];
+    const itemsByCategory = res.itemsByCategory || {};
+
+    if (!categorySelect.dataset.initialized) {
+        categorySelect.innerHTML = categories
+            .map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
+            .join("");
+const filterInput = document.getElementById("valueSetFilterText");
+if (filterInput && !filterInput.dataset.initialized) {
+    filterInput.addEventListener("input", () => {
+        valueSetsPage = 1;
+        const selected = categorySelect.value;
+        const list = Array.isArray(itemsByCategory[selected]) ? itemsByCategory[selected] : [];
+        renderValueSetsTable(list);
+    });
+    filterInput.dataset.initialized = "1";
+}
+const itemsPerPageSelect = document.getElementById("valueSetItemsPerPage");
+if (itemsPerPageSelect && !itemsPerPageSelect.dataset.initialized) {
+    itemsPerPageSelect.addEventListener("change", () => {
+        valueSetsPage = 1;
+        const selected = categorySelect.value;
+        const list = Array.isArray(itemsByCategory[selected]) ? itemsByCategory[selected] : [];
+        renderValueSetsTable(list);
+    });
+    itemsPerPageSelect.dataset.initialized = "1";
+}
+categorySelect.addEventListener("change", () => {
+    valueSetsPage = 1;
+    const selected = categorySelect.value;
+    const list = Array.isArray(itemsByCategory[selected]) ? itemsByCategory[selected] : [];
+    renderValueSetsTable(list);
+});
+
+        categorySelect.dataset.initialized = "1";
+    }
+
+    const selected = categorySelect.value || categories[0] || "";
+    if (selected && !categorySelect.value) {
+        categorySelect.value = selected;
+    }
+
+    const list = Array.isArray(itemsByCategory[selected]) ? itemsByCategory[selected] : [];
+    renderValueSetsTable(list);
+    const th = document.querySelector("#valueSetsTable thead th[data-sort]");
+if (th && !th.dataset.initialized) {
+    th.addEventListener("click", () => {
+        valueSetsSort.dir = valueSetsSort.dir === "asc" ? "desc" : "asc";
+
+        const categorySelect = document.getElementById("valueSetCategorySelect");
+        const selected = categorySelect?.value;
+        const list = Array.isArray(itemsByCategory[selected]) ? itemsByCategory[selected] : [];
+
+        renderValueSetsTable(list);
+    });
+
+    th.dataset.initialized = "1";
+}
+}
 function renderOwnAccounts(list) {
     const tbody = document.getElementById("ownAccountsBody");
     if (!tbody) return;
@@ -3606,6 +3754,9 @@ document.getElementById("ownAccountsForm")?.addEventListener("submit", async (e)
     if (input) input.value = "";
     await loadOwnAccounts();
     setOwnAccountsMsg("Hozzáadva.");
+});
+document.getElementById("showValueSetsBtn")?.addEventListener("click", () => {
+    showPage("value-sets");
 });
 document.getElementById("showOwnAccountsBtn")?.addEventListener("click", () => {
     showPage("own-accounts");

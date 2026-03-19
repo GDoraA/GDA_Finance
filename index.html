@@ -38,7 +38,7 @@
             <button id="showTransactionsBtn" class="sidebar-btn">Tranzakciók</button>
             <button id="showSharedExpensesBtn" class="sidebar-btn">Megosztott költségek</button>
             <button id="showBankImportBtn" class="sidebar-btn">Bank import</button>
-            <button id="showAdminUsersBtn" class="sidebar-btn">Admin</button>
+            <button id="showValueSetsBtn" class="sidebar-btn">Értékkészletek</button>       <button id="showAdminUsersBtn" class="sidebar-btn">Admin</button>
             <button id="showAdminFunctionsBtn" class="sidebar-btn">Funkciók</button>
             <button id="showAdminPermissionsBtn" class="sidebar-btn">Jogosultságok</button>
             <button id="logoutBtn" class="sidebar-btn secondary" type="button">Kijelentkezés</button>
@@ -477,6 +477,39 @@
                 </div>
             </div>
         </section>
+        <section id="page-value-sets" class="page hidden">
+  <h2>Értékkészletek</h2>
+
+  <div class="toolbar">
+    <label for="valueSetCategorySelect">Kategória:</label>
+    <select id="valueSetCategorySelect"></select>
+
+    <label for="valueSetFilterText">Szűrés:</label>
+    <input id="valueSetFilterText" type="text" placeholder="Keresés...">
+
+    <label for="valueSetItemsPerPage">Tételek oldalanként:</label>
+    <select id="valueSetItemsPerPage">
+      <option value="10">10</option>
+      <option value="20" selected>20</option>
+      <option value="50">50</option>
+    </select>
+  </div>
+
+  <div id="valueSetResultCount"></div>
+
+  <div class="table-wrapper">
+    <table id="valueSetsTable" class="tx-table">
+      <thead>
+        <tr>
+          <th data-sort="value">Érték</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div id="valueSetsPagination" class="pagination"></div>
+</section>
         <section id="page-own-accounts" class="page hidden">
             <div class="page-header">
                 <h2>Saját számlák</h2>

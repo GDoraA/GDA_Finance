@@ -1,412 +1,25 @@
 document.addEventListener("DOMContentLoaded", () => {
-    const sidebar = document.querySelector(".sidebar");
-    const content = document.querySelector(".content-wrapper");
-    const hamburger = document.getElementById("hamburgerBtn");
-    const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
-
-    const applyDesktopState = (collapsed) => {
-        document.body.classList.toggle("sidebar-collapsed", collapsed);
-        sidebar.classList.toggle("collapsed", collapsed);
-        content.classList.toggle("sidebar-collapsed", collapsed);
-
-        if (sidebarToggleBtn) {
-            sidebarToggleBtn.textContent = collapsed ? "▶" : "◀";
-
-        }
-        localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0");
-    };
-
-    const isMobile = () => window.matchMedia("(max-width: 700px)").matches;
-
-    // induló állapot (desktopon mentett beállítás)
-    if (!isMobile()) {
-        // Sidebar state csak akkor, ha már app módban vagyunk (van auth token)
-        const hasToken = !!localStorage.getItem("gda_auth_token");
-        if (hasToken) {
-            const saved = localStorage.getItem("sidebarCollapsed") === "1";
-            applyDesktopState(saved);
-        }
-
-    }
-
-    // Hamburger: mobilon open/close, desktopon collapsed toggle
-    hamburger?.addEventListener("click", () => {
-        if (isMobile()) {
-            sidebar.classList.toggle("open");
-        } else {
-            applyDesktopState(!sidebar.classList.contains("collapsed"));
-        }
+    document.addEventListener("page:shared", () => {
+        loadSharedExpenses();
     });
-
-    // Sidebar tetején lévő gomb: desktopon collapsed toggle (mobilon is működhet, de ott inkább a hamburger a UX)
-    sidebarToggleBtn?.addEventListener("click", () => {
-        if (isMobile()) {
-            sidebar.classList.toggle("open");
-        } else {
-            applyDesktopState(!sidebar.classList.contains("collapsed"));
-        }
+    document.addEventListener("page:bank-import", () => {
+        loadBankTransactions();
     });
-
-    // Ha átméretezed az ablakot, a logika ne “ragadjon be”
-    window.addEventListener("resize", () => {
-        if (isMobile()) {
-            // mobil: a collapsed desktop állapotot ne erőltesse
-            document.body.classList.remove("sidebar-collapsed");
-            sidebar.classList.remove("collapsed");
-            content.classList.remove("sidebar-collapsed");
-        } else {
-            const saved = localStorage.getItem("sidebarCollapsed") === "1";
-            applyDesktopState(saved);
-            sidebar.classList.remove("open"); // desktopon ne használjuk az "open"-t
-        }
+    document.addEventListener("page:value-sets", () => {
+        typeof loadValueSetsPage === "function" && loadValueSetsPage();
     });
-});
-
-
-document.addEventListener("DOMContentLoaded", () => {
-
-    // ===== MODAL =====
-    const modal = document.getElementById("txModal");
-    const overlay = document.getElementById("modalOverlay");
-    const openBtn = document.getElementById("openModalBtn");
-    const closeBtn = document.getElementById("closeModalBtn");
-    function hideTxModalMessages() {
-        const s = document.getElementById("successMsg");
-        const e = document.getElementById("errorMsg");
-        if (s) s.style.display = "none";
-        if (e) e.style.display = "none";
-    }
-
-    if (openBtn && modal && overlay) {
-        openBtn.addEventListener("click", () => {
-            const form = document.getElementById("txForm");
-            if (form) {
-                form.reset();
-                form.removeAttribute("data-edit-id");
-                const delBtn = document.getElementById("txDeleteBtn");
-                const copyBtn = document.getElementById("txCopyBtn");
-                if (delBtn) delBtn.style.display = "none";
-                if (copyBtn) copyBtn.style.display = "none";
-            }
-            modal.classList.add("open");
-            overlay.classList.add("open");
-        });
-    }
-    // ===== BULK MATCH MODAL =====
-    const bulkMatchBtn = document.getElementById("bulkMatchBtn");
-    const bulkMatchModal = document.getElementById("bulkMatchModal");
-    const bulkMatchCancelBtn = document.getElementById("bulkMatchCancelBtn");
-    const bulkMatchSaveBtn = document.getElementById("bulkMatchSaveBtn");
-    const bulkMatchListEl = document.getElementById("bulkMatchList");
-
-    const closeBulkMatchModal = () => {
-        if (bulkMatchModal) bulkMatchModal.classList.remove("open");
-        if (overlay) overlay.classList.remove("open");
-    };
-
-    const buildBulkMatchRowHtml = (tx, bank) => {
-        const esc = (s) => String(s ?? "")
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-
-        const txId = String(tx?.id ?? "").trim();
-        const txDate = formatDateForList(tx?.date);
-        const txAmt = formatAmount(tx?.amount);
-        const txTitle = String(tx?.title ?? "").trim();
-        const txCat = String(tx?.category ?? "").trim();
-
-        const bId = String(bank?.id ?? "").trim();
-        const bDate = String(bank?.transaction_date ?? "").trim();
-        const bAmt = formatAmount(bank?.amount);
-        const bPartner = String(bank?.partner_name ?? "").trim();
-        const bMemo = String(bank?.memo ?? "").trim();
-
-        const left = [`#${txId}`, txDate, `${txAmt} Ft`, txTitle, txCat].filter(Boolean).join(" | ");
-        const right = [`#${bId}`, bDate, `${bAmt} Ft`, bPartner, bMemo].filter(Boolean).join(" | ");
-
-        return `
-        <div class="bulk-match-row" data-tx-id="${esc(txId)}" data-bank-id="${esc(bId)}">
-            <div class="col-left">${esc(left)}</div>
-            <div class="col-right">${esc(right)}</div>
-            <div class="col-check">
-                <input type="checkbox" class="bulk-match-approve" checked>
-            </div>
-        </div>
-    `;
-    };
-
-    async function renderBulkMatchList() {
-        if (!bulkMatchListEl) return;
-
-        // biztos legyen friss cache (ha valamiért még nem volt loadTransactions)
-        if (!Array.isArray(transactionsCache)) {
-            try {
-                const r = await api.getTransactions();
-                transactionsCache = (r && r.success && Array.isArray(r.data)) ? r.data : [];
-            } catch (_) {
-                transactionsCache = [];
-            }
-        }
-
-        const bankItems = await ensureBankTxCache();
-
-        // már használt banki tételek (statement_item alapján)
-        // manuálisan lehet több ID: "12, 18, 25" -> itt mindet figyelembe kell venni,
-        // hogy bulk-ban ne ajánljunk fel már foglalt banki tételt
-        const usedBankIds = new Set(
-            (transactionsCache || [])
-                .flatMap(t => String(t?.statement_item ?? "")
-                    .split(",")
-                    .map(x => x.trim())
-                    .filter(Boolean)
-                )
-        );
-
-        // csak nem párosított tranzakciók, amikhez van találat
-        const candidates = (transactionsCache || [])
-            .filter(tx => !String(tx?.statement_item ?? "").trim())
-            .map(tx => {
-                const matchesAll = getMatchingBankItems(tx, bankItems);
-                // csak olyan banki találat, ami még nincs felhasználva
-                const matchesFree = matchesAll.filter(b => {
-                    const bid = String(b?.id ?? "").trim();
-                    return bid && !usedBankIds.has(bid);
-                });
-                return { tx, matches: matchesFree };
-            })
-            .filter(x => x.matches.length > 0);
-
-        if (candidates.length === 0) {
-            bulkMatchListEl.innerHTML = `<div class="muted">— nincs megjeleníthető automatikus találat (dátum + összeg alapján) —</div>`;
-            return;
-        }
-
-        // 1 tranzakció = 1 ajánlott banki tétel (első találat), default jóváhagyva (checked)
-        bulkMatchListEl.innerHTML = candidates
-            .map(x => buildBulkMatchRowHtml(x.tx, x.matches[0]))
-            .join("");
-    }
-
-    if (bulkMatchBtn && bulkMatchModal && overlay) {
-        bulkMatchBtn.addEventListener("click", async () => {
-            // biztos ami biztos: a txModal ne maradjon nyitva
-            if (modal) modal.classList.remove("open");
-
-            try {
-                await renderBulkMatchList();
-            } catch (e) {
-                console.error("Bulk match lista render hiba:", e);
-                if (bulkMatchListEl) {
-                    bulkMatchListEl.innerHTML = `<div class="muted">Nem sikerült betölteni az automatikus találatokat.</div>`;
-                }
-            }
-
-            bulkMatchModal.classList.add("open");
-            overlay.classList.add("open");
-        });
-    }
-
-    if (bulkMatchCancelBtn && bulkMatchModal && overlay) {
-        bulkMatchCancelBtn.addEventListener("click", () => {
-            closeBulkMatchModal();
-        });
-    }
-
-    // Mentés: csak a bepipált sorokat menti (bulk backend action)
-    if (bulkMatchSaveBtn && bulkMatchModal && overlay) {
-        bulkMatchSaveBtn.addEventListener("click", async () => {
-            try {
-                const rows = bulkMatchListEl
-                    ? Array.from(bulkMatchListEl.querySelectorAll(".bulk-match-row"))
-                    : [];
-
-                const approved = rows.filter(r => {
-                    const cb = r.querySelector("input.bulk-match-approve");
-                    return cb && cb.checked;
-                });
-
-                if (approved.length === 0) {
-                    closeBulkMatchModal();
-                    return;
-                }
-
-                bulkMatchSaveBtn.disabled = true;
-
-                const items = approved
-                    .map(r => {
-                        const txId = String(r.getAttribute("data-tx-id") || "").trim();
-                        const bankId = String(r.getAttribute("data-bank-id") || "").trim();
-                        return (txId && bankId) ? { id: txId, statement_item: bankId } : null;
-                    })
-                    .filter(Boolean);
-
-                if (items.length === 0) {
-                    closeBulkMatchModal();
-                    return;
-                }
-                // ===== HARD STOP: egy banki tétel nem lehet több tranzakcióhoz rendelve =====
-                // (manuális checkboxos több-hozzárendelés miatt a statement_item lehet "12, 18")
-                if (!Array.isArray(transactionsCache)) {
-                    try {
-                        const r = await api.getTransactions();
-                        transactionsCache = (r && r.success && Array.isArray(r.data)) ? r.data : [];
-                    } catch (_) {
-                        transactionsCache = [];
-                    }
-                }
-
-                const usedByOtherTx = new Map(); // bankId -> txId
-                (transactionsCache || []).forEach(t => {
-                    const txId = String(t?.id ?? "").trim();
-                    const ids = String(t?.statement_item ?? "")
-                        .split(",")
-                        .map(x => x.trim())
-                        .filter(Boolean);
-
-                    ids.forEach(id => {
-                        if (!usedByOtherTx.has(id)) usedByOtherTx.set(id, txId);
-                    });
-                });
-
-                // ha bármely kiválasztott bankId már foglalt másik tx-ben, álljunk meg
-                const conflict = items.find(it => {
-                    const bankId = String(it.statement_item ?? "").trim();
-                    const ownerTxId = usedByOtherTx.get(bankId);
-                    return ownerTxId && ownerTxId !== String(it.id);
-                });
-
-                if (conflict) {
-                    alert("Hiba: a kiválasztott banki tétel már hozzá van rendelve egy másik tranzakcióhoz. Bulk mentés leáll.");
-                    return;
-                }
-                // ===== UI státusz elem (ha nincs, létrehozzuk a modal tetején) =====
-                const ensureBulkStatusEl = () => {
-                    let el = document.getElementById("bulkMatchStatus");
-                    if (!el && bulkMatchModal) {
-                        const content = bulkMatchModal.querySelector(".modal-content");
-                        if (content) {
-                            el = document.createElement("div");
-                            el.id = "bulkMatchStatus";
-                            el.style.margin = "8px 0 12px 0";
-                            el.style.padding = "8px";
-                            el.style.border = "1px solid #ddd";
-                            el.style.borderRadius = "8px";
-                            el.style.fontSize = "0.9rem";
-                            // h2 után szúrjuk be
-                            const h2 = content.querySelector("h2");
-                            if (h2 && h2.nextSibling) content.insertBefore(el, h2.nextSibling);
-                            else content.insertBefore(el, content.firstChild);
-                        }
-                    }
-                    return el;
-                };
-
-                const statusEl = ensureBulkStatusEl();
-                const setStatus = (html) => {
-                    if (statusEl) statusEl.innerHTML = html;
-                };
-
-                // ===== Progress + összesítés =====
-                const total = items.length;
-                let processed = 0;
-                let okTotal = 0;
-                let failTotal = 0;
-                const errorList = []; // {id, error}
-
-                setStatus(`Mentés folyamatban… <strong>0 / ${total}</strong>`);
-
-                // JSONP miatt az URL hossza limitált → daraboljuk a mentést kisebb csomagokra
-                const CHUNK_SIZE = 50;
-
-                for (let i = 0; i < items.length; i += CHUNK_SIZE) {
-                    const chunk = items.slice(i, i + CHUNK_SIZE);
-
-                    setStatus(`Mentés folyamatban… <strong>${processed} / ${total}</strong> (csomag: ${Math.floor(i / CHUNK_SIZE) + 1})`);
-
-                    const resp = await api.bulkMatchTransactions(chunk);
-                    if (!resp || !resp.success) {
-                        throw new Error(resp?.error || resp?.message || "Bulk mentés sikertelen (chunk).");
-                    }
-
-                    // backend aggregátumok
-                    okTotal += Number(resp.ok || 0);
-                    failTotal += Number(resp.fail || 0);
-
-                    // részletes hibák gyűjtése
-                    if (Array.isArray(resp.results)) {
-                        resp.results.forEach(r => {
-                            if (r && r.success === false) {
-                                errorList.push({
-                                    id: String(r.id ?? ""),
-                                    error: String(r.error ?? "Ismeretlen hiba")
-                                });
-                            }
-                        });
-                    }
-
-                    processed += chunk.length;
-                    setStatus(`Mentés folyamatban… <strong>${processed} / ${total}</strong>`);
-                }
-
-                // cache frissítés (helyben) – csak a sikeresen kért párokra
-                for (const it of items) {
-                    const tx = (transactionsCache || []).find(t => String(t?.id ?? "").trim() === String(it.id));
-                    if (tx) tx.statement_item = String(it.statement_item);
-                }
-
-                // VÉGSŐ RIport a modalban (nem zárjuk be automatikusan, hogy lásd a státuszt)
-                let reportHtml = `✅ Mentés kész. <strong>Sikeres:</strong> ${okTotal} / ${total}`;
-                if (failTotal > 0) reportHtml += ` • <strong>Hibás:</strong> ${failTotal}`;
-
-                if (errorList.length > 0) {
-                    const itemsHtml = errorList
-                        .slice(0, 200) // ne legyen végtelen hosszú
-                        .map(e => `<li><strong>${String(e.id || "—")}</strong>: ${String(e.error || "")}</li>`)
-                        .join("");
-
-                    reportHtml += `
-        <div style="margin-top:10px;">
-            <div><strong>Hibák listája</strong> (max 200):</div>
-            <ul style="max-height:180px; overflow:auto; margin:6px 0 0 18px; padding:0;">
-                ${itemsHtml}
-            </ul>
-        </div>
-    `;
-                }
-
-                setStatus(reportHtml);
-
-                // Lista frissítés, hogy azonnal zöld/pipás legyen ahol kell
-                await loadTransactions();
-
-                // cache frissítés (helyben, majd listafrissítés)
-                for (const it of items) {
-                    const tx = (transactionsCache || []).find(t => String(t?.id ?? "").trim() === String(it.id));
-                    if (tx) tx.statement_item = String(it.statement_item);
-                }
-
-                closeBulkMatchModal();
-                await loadTransactions();
-
-            } catch (e) {
-                console.error("Bulk match mentés hiba:", e);
-                alert(e?.message || "Hiba történt a csoportos párosítás mentésekor.");
-            } finally {
-                bulkMatchSaveBtn.disabled = false;
-            }
-        });
-    }
-
-    if (closeBtn && modal && overlay) {
-        closeBtn.addEventListener("click", () => {
-            modal.classList.remove("open");
-            overlay.classList.remove("open");
-        });
-    }
-
+    document.addEventListener("page:own-accounts", () => {
+        typeof loadOwnAccounts === "function" && loadOwnAccounts();
+    });
+    document.addEventListener("page:admin-users", () => {
+        typeof loadAdminUsers === "function" && loadAdminUsers();
+    });
+    document.addEventListener("page:admin-functions", () => {
+        typeof loadAdminFunctions === "function" && loadAdminFunctions();
+    });
+    document.addEventListener("page:admin-permissions", () => {
+        typeof loadAdminPermissions === "function" && loadAdminPermissions();
+    });
     // =========================
     // CSV IMPORT (Transactions)
     // =========================
@@ -416,16 +29,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const importStatus = document.getElementById("importStatus");
     const cancelImportBtn = document.getElementById("cancelImportBtn");
     const importErrorsBox = document.getElementById("importErrors");
-
     const renderImportErrors = (errors) => {
         if (!importErrorsBox) return;
-
         if (!errors || errors.length === 0) {
             importErrorsBox.style.display = "none";
             importErrorsBox.innerHTML = "";
             return;
         }
-
         const items = errors.slice(0, 200).map(e => {
             const reason = e.reason ? `<div><strong>Ok:</strong> ${escapeHtml(e.reason)}</div>` : "";
             const raw = e.rawLine ? `<div><strong>Sor:</strong> <code>${escapeHtml(e.rawLine)}</code></div>` : "";
@@ -437,11 +47,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
             `;
         }).join("");
-
         const more = errors.length > 200
             ? `<div class="csv-error-more">További hibák: ${errors.length - 200} (a megjelenítés 200 sorra korlátozott)</div>`
             : "";
-
         importErrorsBox.innerHTML = `
             <div class="csv-errors-title"><strong>Hibás / kihagyott sorok (${errors.length} db)</strong></div>
             ${items}
@@ -449,7 +57,6 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
         importErrorsBox.style.display = "block";
     };
-
     // egyszerű HTML escape (biztonság + stabil render)
     const escapeHtml = (s) => String(s ?? "")
         .replace(/&/g, "&amp;")
@@ -457,31 +64,25 @@ document.addEventListener("DOMContentLoaded", () => {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
-
     cancelImportBtn?.addEventListener("click", () => {
         csvImportCancelled = true;
         setImportStatus("Import leállítva felhasználó által.");
     });
-
     // CSV súgó panel toggle
     const csvHelpBtn = document.getElementById("csvHelpBtn");
     const csvHelpPanel = document.getElementById("csvHelpPanel");
-
     csvHelpBtn?.addEventListener("click", () => {
         csvHelpPanel?.classList.toggle("open");
     });
-
     const setImportStatus = (msg) => {
         if (importStatus) importStatus.textContent = msg || "";
     };
-
     // Egyszerű delimiter detektálás: HU bankoknál gyakori a ';'
     const detectDelimiter = (line) => {
         const commas = (line.match(/,/g) || []).length;
         const semis = (line.match(/;/g) || []).length;
         return semis > commas ? ";" : ",";
     };
-
     // CSV sor parse (idézőjeles mezők támogatása)
     const parseCsvLine = (line, delimiter) => {
         const out = [];
@@ -951,74 +552,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-
-    // Tranzakció törlése modalból
-    document.getElementById("txDeleteBtn")?.addEventListener("click", async () => {
-        const form = document.getElementById("txForm");
-        const txId = form?.getAttribute("data-edit-id");
-
-        if (!txId) return;
-
-        const ok = confirm("Biztosan törlöd ezt a tranzakciót? A kapcsolódó tételek is törlődhetnek.");
-        if (!ok) return;
-
-        try {
-            const resp = await api.deleteTransaction(txId);
-            if (!resp || !resp.success) {
-                alert(resp?.error || resp?.message || "A törlés nem sikerült.");
-                return;
-            }
-
-            document.getElementById("txModal")?.classList.remove("open");
-            document.getElementById("modalOverlay")?.classList.remove("open");
-            await loadTransactions(true);
-
-        } catch (err) {
-            console.error("deleteTransaction error:", err);
-            alert("Váratlan hiba történt a törlés során.");
-        }
-    });
-    // Tranzakció másolása (date + month nélkül)
-    document.getElementById("txCopyBtn")?.addEventListener("click", () => {
-        const form = document.getElementById("txForm");
-        if (!form) return;
-
-        // Csak a dátum + hónap ürül, minden más marad
-        const dateEl = form.querySelector("input[name='date']");
-        const monthEl = form.querySelector("input[name='month']");
-
-        if (dateEl) dateEl.value = "";
-        if (monthEl) monthEl.value = "";
-
-        // ÚJ rekord lesz (ne módosítson)
-        form.removeAttribute("data-edit-id");
-        const submitBtn = form.querySelector("button[type='submit'], #txSubmitBtn");
-        if (submitBtn) submitBtn.textContent = "Mentés";
-
-        // Törlés gomb ne látszódjon új rekordnál
-        const delBtn = document.getElementById("txDeleteBtn");
-        if (delBtn) delBtn.style.display = "none";
-
-        // Másolás gomb maradhat elérhető (ha egymás után több másolat kell)
-        const copyBtn = document.getElementById("txCopyBtn");
-        if (copyBtn) copyBtn.style.display = "inline-block";
-        // Fókusz az új dátum mezőre
-        if (dateEl) {
-            dateEl.focus();
-            // ha supported, nyissa meg a date pickert
-            if (typeof dateEl.showPicker === "function") {
-                try { dateEl.showPicker(); } catch (e) { }
-            }
-        }
-
-        // Ha van olyan logikád, ami dátumból számolja a hónapot,
-        // itt érdemes meghívni/triggerelni (különben marad üres és a user tölti).
-        if (dateEl && monthEl) {
-            // ha a month valahol change-re/blur-re számolódik, ezt triggereljük
-            dateEl.dispatchEvent(new Event("change", { bubbles: true }));
-        }
-    });
-
     // ===== Dátum → hónap (csak a tranzakciós formon belül) =====
     const txDateInput = document.querySelector("#txForm input[name='date']");
     const txMonthInput = document.querySelector("#txForm input[name='month']");
@@ -1029,209 +562,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-
-
-
     // ===== Datalist betöltés =====
     loadDropdownValues();
 
-    // ===== Mentés =====
-    document.getElementById("txForm")?.addEventListener("submit", async e => {
-        e.preventDefault();
-
-        const form = new FormData(e.target);
-        const formData = Object.fromEntries(form.entries());
-        console.log("TX FORM SUBMIT RAW (BEFORE NORMALIZE):", formData);
-        // Ha valamiért üres maradt a month, számoljuk a date-ből
-        if (!formData.month && formData.date) {
-            formData.month = deriveMonth(formData.date);
-        }
-
-        // Megosztott checkbox → "x" / ""
-        const isSharedCheckbox = document.querySelector("#txForm input[name='is_shared']");
-        formData.is_shared = (isSharedCheckbox && isSharedCheckbox.checked) ? "x" : "";
-        // ===== ÖSSZEG NORMALIZÁLÁS =====
-        // UI: a felhasználó mindig pozitív összeget ír be
-        // Mentés: expense -> negatív, income -> pozitív
-        const normalizeSignedAmount = (raw, txType) => {
-            const str = String(raw ?? "").trim();
-            if (!str) return "";
-
-            // támogatja: "1 234", "1 234,56"
-            const n = Number(str.replace(/\s+/g, "").replace(",", "."));
-            if (isNaN(n)) return str; // ha valamiért nem szám, hagyjuk változatlanul
-
-            const abs = Math.abs(n);
-            const signed = (txType === "Kiadás") ? -abs : abs;
-            return String(signed);
-        };
-
-        formData.amount = normalizeSignedAmount(formData.amount, formData.transaction_type);
-
-        console.log("TX FORM SUBMIT (AFTER NORMALIZE):", formData);
-        // ===== ÜTKÖZÉS ELLENŐRZÉS (több banki ID esetén is) =====
-        // Egy banki tétel nem lehet több tranzakcióhoz rendelve.
-        // statement_item formátum: "12, 18, 25"
-        const editIdNow = e.target.getAttribute("data-edit-id"); // lehet null
-        const selectedBankIds = parseStatementItemIds(formData.statement_item);
-
-        // duplikált kiválasztás ugyanazon mezőn belül se legyen
-        const dedup = Array.from(new Set(selectedBankIds));
-        if (dedup.length !== selectedBankIds.length) {
-            alert("Ugyanaz a banki tétel többször van kiválasztva. Kérlek javítsd.");
-            return;
-        }
-
-        // ha nincs cache, próbáljuk frissíteni
-        if (!Array.isArray(transactionsCache)) {
-            try {
-                const r = await api.getTransactions();
-                transactionsCache = (r && r.success && Array.isArray(r.data)) ? r.data : [];
-            } catch (_) {
-                transactionsCache = [];
-            }
-        }
-
-        // ellenőrzés: bármely kiválasztott bankId szerepel-e másik tranzakció statement_item listájában
-        const conflict = (transactionsCache || []).find(t => {
-            const tid = String(t?.id ?? "");
-            if (editIdNow && tid === String(editIdNow)) return false; // saját rekordot engedjük
-
-            const ids = String(t?.statement_item ?? "")
-                .split(",")
-                .map(x => x.trim())
-                .filter(Boolean);
-
-            return ids.some(id => dedup.includes(id));
-        });
-
-        if (conflict) {
-            alert("Hiba: a kiválasztott banki tétel már hozzá van rendelve egy másik tranzakcióhoz.");
-            return; // mentés leáll
-        }
-
-        // normalizáljuk a mentendő formátumot: "id1, id2, id3"
-        formData.statement_item = dedup.join(", ");
-        // Dátum mentési formátumra konvertálása
-        // Dátumot ISO formátumban kell küldeni → yyyy-mm-dd maradjon
-        // formData.date változatlanul marad
-
-        const s = document.getElementById("successMsg");
-        const er = document.getElementById("errorMsg");
-        s.style.display = "none";
-        er.style.display = "none";
-
-        // Ha van edit ID, akkor módosítunk – ha nincs, új rekord jön létre
-        const editId = e.target.getAttribute("data-edit-id");
-        console.log("EDIT MODE?", { editId });
-        let result;
-
-        try {
-            if (editId) {
-                // ===== MÓDOSÍTÁS =====
-                formData.id = editId;
-                console.log("FORMDATA OBJECT CONTENTS:", JSON.stringify(formData, null, 2));
-
-                console.log("CALL updateTransaction WITH:", formData);
-                result = await api.updateTransaction(formData);
-                console.log("UPDATE RESULT RAW:", result);
-                console.log("UPDATE SUCCESS:", result?.success);
-                console.log("UPDATE MESSAGE:", result?.message);
-
-
-            } else {
-                // ===== ÚJ REKORD =====
-                result = await api.addTransaction(formData);
-            }
-
-            console.log("API RESULT:", result);
-
-
-            if (result && result.success) {
-                s.style.display = "block";
-                setTimeout(() => { s.style.display = "none"; }, 1500);
-
-                // form ürítése
-                e.target.reset();
-
-                // szerkesztési mód kikapcsolása
-                e.target.removeAttribute("data-edit-id");
-
-                // datalist frissítése
-                await loadDropdownValues();
-
-                // modal bezárása
-                modal.classList.remove("open");
-                overlay.classList.remove("open");
-
-                // lista frissítése
-                await loadTransactions(true);
-                await loadSharedExpenses();
-            } else {
-                er.style.display = "block";
-                console.error("SAVE FAILED:", result);
-                // Ha van hibaüzenet a backendből, azt is írjuk ki
-                if (result?.error) {
-                    er.textContent = result.error;
-                } else {
-                    er.textContent = "A mentés sikertelen (ismeretlen hiba).";
-                }
-            }
-
-
-        } catch (err) {
-            er.style.display = "block";
-            console.error(err);
-        }
-    });
-
-    const filtersPanel = document.getElementById("filtersPanel");
-    const toggleFiltersBtn = document.getElementById("toggleFiltersBtn");
-    toggleFiltersBtn?.addEventListener("click", () => {
-        filtersPanel?.classList.toggle("open");
-    });
-    const filterFields = [
-        "filterMonth", "filterDate", "filterAmount", "filterTitle",
-        "filterCategory", "filterPaymentType", "filterType",
-        "filterShared", "filterStatement", "filterUnmatched"
-    ].map(id => document.getElementById(id)).filter(Boolean);
-
-    function updateFilterPanelState() {
-        const hasFilters = filterFields.some(el => {
-            if (!el) return false;
-            if (el.type === "checkbox") return el.checked === true;
-            return String(el.value ?? "").trim() !== "";
-        });
-        if (hasFilters) {
-            filtersPanel.classList.add("open");
-        } else {
-            filtersPanel.classList.remove("open");
-        }
-    }
-    document.getElementById("itemsPerPage")?.addEventListener("change", () => {
-        txCurrentPage = 1;
-        loadTransactions();
-    });
-
-    // ===== TRANSACTIONS – FEJLÉCRE KATTINTVA RENDEZÉS =====
-    document.querySelectorAll("#transactionsTable thead th[data-sort]").forEach(th => {
-        th.style.cursor = "pointer";
-
-        th.addEventListener("click", () => {
-            const field = th.getAttribute("data-sort");
-            if (!field) return;
-
-            if (txSortField === field) {
-                txSortDirection = (txSortDirection === "asc") ? "desc" : "asc";
-            } else {
-                txSortField = field;
-                txSortDirection = "asc";
-            }
-
-            txCurrentPage = 1;
-            renderTransactions(transactionsCache);
-        });
-    });
 
     // ===== SHARED EXPENSES – FEJLÉCRE KATTINTVA RENDEZÉS (CSAK STATE) =====
     document.querySelectorAll("#sharedExpensesTable thead th[data-sort]").forEach(th => {
@@ -1247,35 +580,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 seSortField = field;
                 seSortDirection = "asc";
             }
-
-            loadSharedExpenses();
         });
-    });
-
-
-    // Lapozó gombok: egyszeri eseménykezelők (NEM loadTransactions-ben!)
-    document.getElementById("txFirstPageBtn")?.addEventListener("click", () => {
-        txCurrentPage = 1;
-        renderTransactions(transactionsCache);
-    });
-
-    document.getElementById("txPrevPageBtn")?.addEventListener("click", () => {
-        if (txCurrentPage > 1) {
-            txCurrentPage -= 1;   // garantáltan +/-1
-            renderTransactions(transactionsCache);
-        }
-    });
-
-    document.getElementById("txNextPageBtn")?.addEventListener("click", () => {
-        txCurrentPage += 1;       // a felső korlátot loadTransactions vágja vissza
-        renderTransactions(transactionsCache);
-    });
-
-    document.getElementById("txLastPageBtn")?.addEventListener("click", () => {
-        // Utolsó oldalra ugrás: a legegyszerűbb és stabil megoldás,
-        // hogy "túl nagyra" tesszük, a loadTransactions pedig visszavágja totalPages-re.
-        txCurrentPage = 999999;
-        renderTransactions(transactionsCache);
     });
     document.getElementById("bankFirstPageBtn")?.addEventListener("click", () => {
         bankCurrentPage = 1;
@@ -1285,22 +590,17 @@ document.addEventListener("DOMContentLoaded", () => {
         bankCurrentPage = Math.max(1, bankCurrentPage - 1);
         renderBankPreview(bankImportItems);
     });
-
-
     document.getElementById("bankNextPageBtn")?.addEventListener("click", () => {
         // totalPages számítás: a szűrt találatok alapján
         const filterTextEl = document.getElementById("bankFilterText");
         const filterUnmatchedEl = document.getElementById("bankFilterUnmatchedOnly");
-
         const q = String(filterTextEl?.value ?? "").trim().toLowerCase();
         const unmatchedOnly = (filterUnmatchedEl?.checked === true);
-
         const filteredCount = (Array.isArray(bankImportItems) ? bankImportItems : []).filter(it => {
             if (unmatchedOnly && String(it?.matched_transaction_ids ?? "").trim() !== "") return false;
             if (!q) return true;
             return Object.values(it || {}).some(v => String(v ?? "").toLowerCase().includes(q));
         }).length;
-
         const perPageEl = document.getElementById("bankItemsPerPage");
         const perPageRaw = perPageEl ? perPageEl.value : "100";
         const pageSize =
@@ -1450,8 +750,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
             document.getElementById("seModal")?.classList.remove("open");
             document.getElementById("seModalOverlay")?.classList.remove("open");
-
-            loadSharedExpenses();
         } catch (err) {
             console.error("deleteSharedExpense error:", err);
             alert("Váratlan hiba történt a törlés során.");
@@ -1537,20 +835,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
 
-    // Minden szűrőmező változásakor:
-    // 1) frissítjük a panel nyitott/zárt állapotát
-    // 2) újratöltjük a listát az aktuális szűrőfeltételekkel
-    filterFields.forEach(el => {
-        el.addEventListener("input", () => {
-            updateFilterPanelState();
-            txCurrentPage = 1;
-            renderTransactions(transactionsCache);
-        });
-    });
+
 
 
     // ===== Lista betöltése =====
-    document.getElementById("loadListBtn")?.addEventListener("click", loadTransactions);    // Kezdőlap indításakor
     const loginPage = document.getElementById("page-login");
     const sidebar = document.querySelector(".sidebar");
     const content = document.querySelector(".content-wrapper");
@@ -1713,9 +1001,6 @@ document.addEventListener("DOMContentLoaded", () => {
         await loadMyPermissions();
 
         showPage(getLandingPage());
-
-
-        loadSharedExpenses();
     });
 
     // indulás
@@ -1732,39 +1017,12 @@ document.addEventListener("DOMContentLoaded", () => {
         await loadMyPermissions();
 
         showPage(getLandingPage());
-
-
-        loadSharedExpenses();
-
     })();
 
 
 });
 
-// ===== SZŰRŐK TÖRLÉSE =====
-document.getElementById("clearFiltersBtn").addEventListener("click", () => {
 
-    const fields = [
-        "filterMonth", "filterDate", "filterAmount", "filterTitle",
-        "filterCategory", "filterPaymentType", "filterType",
-        "filterShared", "filterStatement", "filterUnmatched"
-    ];
-    // mezők kiürítése
-    fields.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            if (el.type === "checkbox") el.checked = false;
-            else el.value = "";
-        }
-    });
-
-    // szűrőpanel bezárása
-    const filtersPanel = document.getElementById("filtersPanel");
-    filtersPanel.classList.remove("open");
-
-    // teljes lista újratöltése
-    loadTransactions();
-});
 
 
 // ======================================================
@@ -1832,20 +1090,13 @@ function formatSignedAmount(amount) {
     const sign = num < 0 ? "-" : "";
     return sign + formatAmount(Math.abs(num));
 }
-
-
-
-
 // ======================================================
 // DATALIST ÉRTÉKEK BETÖLTÉSE
 // ======================================================
-
 async function loadDropdownValues() {
     const result = await api.getValueSets();
     if (!result || !result.success) return;
-
     const sets = result.sets;
-
     // Modal datalist-ek
     fillDatalist("titlesList", sets.titles);
     fillDatalist("sharedTitlesList", sets.titles);
@@ -1853,33 +1104,24 @@ async function loadDropdownValues() {
     fillDatalist("paymentTypesList", sets.payments);
     fillDatalist("transactionTypesList", sets.types);
     fillDatalist("paidByList", sets.paid_by || []);
-
     // Új értékkészlet a fizető felekhez
     fillDatalist("paidByList", sets.paid_by || []);
-
     // Szűrő datalist-ek
     fillDatalist("filterTitlesList", sets.titles);
     fillDatalist("filterCategoriesList", sets.categories);
     fillDatalist("filterPaymentsList", sets.payments);
     fillDatalist("filterTypesList", sets.types);
-
 }
-
-
-
 function fillDatalist(listId, values) {
     const dl = document.getElementById(listId);
     if (!dl) return;
-
     dl.innerHTML = "";
-
     values.forEach(v => {
         const opt = document.createElement("option");
         opt.value = v;
         dl.appendChild(opt);
     });
 }
-
 // ======================================================
 // LISTÁZÁS & SZŰRÉS
 // ======================================================
@@ -1894,401 +1136,8 @@ let bankSortField = "transaction_date";
 let bankSortDirection = "desc";
 let bankFilterTextDebounce = null;
 
-function renderTransactions() {
-    return loadTransactions();
-}
-async function loadTransactions(forceRefresh = false) {
-    // ===== SORT ICONS RESET (TRANSACTIONS) =====
-    document.querySelectorAll("#transactionsTable thead th[data-sort]").forEach(th => {
-        th.classList.remove("sort-asc", "sort-desc");
-        if (th.getAttribute("data-sort") === txSortField) {
-            th.classList.add(txSortDirection === "asc" ? "sort-asc" : "sort-desc");
-        }
-    });
-
-    const tbody = document.getElementById("transactionsBody");
-    const data = await ensureTransactionsCache(forceRefresh);
-
-    if (!Array.isArray(data)) {
-        console.error("Nem sikerült betölteni a tranzakciókat.");
-        if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="9">Nincs jogosultság vagy hiba: ismeretlen</td></tr>`;
-        }
-        return;
-    }
-
-    transactionsCache = Array.isArray(data) ? data : [];
-    // --- Szűrőmezők ---
-    const fMonth = document.getElementById("filterMonth").value.trim();
-    const fDate = document.getElementById("filterDate").value.trim();
-    const fAmount = document.getElementById("filterAmount").value.trim();
-    const fTitle = document.getElementById("filterTitle").value.trim().toLowerCase();
-    const fCategory = document.getElementById("filterCategory").value.trim().toLowerCase();
-    const fType = document.getElementById("filterType").value.trim().toLowerCase();
-    const fPayment = document.getElementById("filterPaymentType").value.trim().toLowerCase();
-    const fShared = document.getElementById("filterShared").value;
-    const fStatement = document.getElementById("filterStatement").value.trim().toLowerCase();
-    const fUnmatched = document.getElementById("filterUnmatched")?.checked === true;
-    // --- Szűrés ---
-    filteredTransactions = data.filter(tx => {
-
-        if (fMonth && String(tx.month) !== fMonth) return false;
-
-        if (fDate) {
-            const txDateFmt = formatDateForList(tx.date);
-            if (txDateFmt !== formatDateForList(fDate)) {
-                return false;
-            }
-        }
-
-
-        // Összeg szűrés: támogatja a >1000 vagy <5000 formátumot
-        if (fAmount) {
-            const txAmtAbs = Math.abs(Number(tx.amount));
-
-            if (fAmount.startsWith(">")) {
-                const min = Number(fAmount.substring(1));
-                if (!(txAmtAbs > min)) return false;
-            } else if (fAmount.startsWith("<")) {
-                const max = Number(fAmount.substring(1));
-                if (!(txAmtAbs < max)) return false;
-            } else {
-                if (String(txAmtAbs) !== fAmount) return false;
-            }
-        }
-
-
-        if (fTitle && !String(tx.title).toLowerCase().includes(fTitle)) return false;
-
-        if (fCategory && !String(tx.category).toLowerCase().includes(fCategory)) return false;
-
-        if (fPayment && !String(tx.payment_type).toLowerCase().includes(fPayment)) return false;
-
-        if (fType && String(tx.transaction_type || "").trim().toLowerCase() !== fType) return false;
-
-        // Megosztott? szűrés javítása
-        if (fShared) {
-            // backend: "x" = megosztott, "" = nem megosztott
-            const sharedValue = tx.is_shared === "x" ? "x" : "0";
-            if (sharedValue !== fShared) return false;
-        }
-
-        if (fUnmatched && String(tx?.statement_item ?? "").trim() !== "") return false;
-        if (fStatement && !String(tx.statement_item).toLowerCase().includes(fStatement)) return false;
-
-        return true;
-    });
-
-    // ===== ÚJ: RENDEZÉS (a lapozás előtt, a filtered teljes halmazon) =====
-    if (txSortField) {
-        const dir = (txSortDirection === "asc") ? 1 : -1;
-
-        const toNum = (v) => {
-            // támogatja: 1234, "1 234", "1 234,56"
-            const n = Number(String(v).replace(/\s+/g, "").replace(",", "."));
-            return isNaN(n) ? null : n;
-        };
-
-        const toTime = (v) => {
-            const t = new Date(v).getTime();
-            return isNaN(t) ? null : t;
-        };
-
-        filteredTransactions.sort((a, b) => {
-            const va = a[txSortField];
-            const vb = b[txSortField];
-
-            // null/undefined a végére
-            if (va == null && vb == null) return 0;
-            if (va == null) return 1;
-            if (vb == null) return -1;
-
-            switch (txSortField) {
-                case "amount": {
-                    const na = toNum(va);
-                    const nb = toNum(vb);
-                    if (na == null && nb == null) return 0;
-                    if (na == null) return 1;
-                    if (nb == null) return -1;
-                    return (na - nb) * dir;
-                }
-
-                case "month": {
-                    const na = Number(va);
-                    const nb = Number(vb);
-                    if (isNaN(na) && isNaN(nb)) return 0;
-                    if (isNaN(na)) return 1;
-                    if (isNaN(nb)) return -1;
-                    return (na - nb) * dir;
-                }
-
-                case "date": {
-                    const ta = toTime(va);
-                    const tb = toTime(vb);
-                    if (ta == null && tb == null) return 0;
-                    if (ta == null) return 1;
-                    if (tb == null) return -1;
-                    return (ta - tb) * dir;
-                }
-
-                case "is_shared": {
-                    const ba = (va === "x") ? 1 : 0;
-                    const bb = (vb === "x") ? 1 : 0;
-                    return (ba - bb) * dir;
-                }
-
-                default: {
-                    // title/category/payment_type/transaction_type/statement_item
-                    const sa = String(va).toLowerCase();
-                    const sb = String(vb).toLowerCase();
-                    return sa.localeCompare(sb, "hu") * dir;
-                }
-            }
-        });
-    }
-
-
-    // ===== Találatok kijelző elemek (csak referencia) =====
-    const rcTop = document.getElementById("transactions-result-count");
-    const rcBottom = document.getElementById("transactions-result-count-bottom");
-
-    // ===== Egyenlegek számítása típus alapján =====
-    let expenseTotal = 0;
-    let incomeTotal = 0;
-    let savingTotal = 0;
-
-    (data || []).forEach(tx => {
-
-        const t = String(tx.transaction_type || "").trim().toLowerCase();
-        const amount = Number(tx.amount) || 0;
-
-        const isSaving = t.includes("megtak") || t === "saving";
-        const isExpense = t.includes("kiad") || t === "expense";
-        const isIncome = t.includes("bev") || t === "income";
-
-        if (isSaving) {
-            savingTotal += amount;
-        } else if (isExpense) {
-            expenseTotal += amount;
-        } else if (isIncome) {
-            incomeTotal += amount;
-        }
-    });
-
-    // ===== Egyenlegek kiírása (index.html ID-k alapján) =====
-    const be = document.getElementById("txExpenseTotal");
-    const bi = document.getElementById("txIncomeTotal");
-    const bs = document.getElementById("txSavingTotal");
-
-    if (be) be.textContent = `${formatAmount(expenseTotal)} Ft`;
-    if (bi) bi.textContent = `${formatAmount(incomeTotal)} Ft`;
-    if (bs) bs.textContent = `${formatAmount(savingTotal)} Ft`;
-
-    // ===== Nettó egyenleg: Bevétel - Kiadás =====
-    const netBalance = incomeTotal - Math.abs(expenseTotal);
-
-    const nb = document.getElementById("txNetBalance");
-    if (nb) {
-        const signClass = netBalance < 0 ? "amount-expense" : "amount-income";
-        nb.className = signClass;
-        nb.textContent = `${formatSignedAmount(netBalance)} Ft`;
-
-    }
-
-
-    // --- Kiírás ---
-    if (filteredTransactions.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10">Nincs megjeleníthető adat.</td></tr>`;
-        return;
-    }
-
-    // --- Elemszám kezelése (itemsPerPage) – közös helperrel ---
-    const paginationBox = document.getElementById("transactions-pagination");
-    const itemsPerPageSelect = document.getElementById("itemsPerPage");
-    const itemsPerPageValue = itemsPerPageSelect ? itemsPerPageSelect.value : "all";
-
-    const pageSize = readPageSize("itemsPerPage", filteredTransactions.length, 100);
-    const meta = getPaginationMeta(filteredTransactions.length, pageSize, txCurrentPage);
-    txCurrentPage = meta.page;
-
-    let visibleItems = filteredTransactions;
-
-    if (itemsPerPageValue !== "all") {
-        if (paginationBox) paginationBox.style.display = "flex";
-
-        visibleItems = filteredTransactions.slice(meta.start, meta.end);
-
-        updatePaginationUI(
-            {
-                pageInfoId: "txPageInfo",
-                resultCountId: null,
-                firstBtnId: "txFirstPageBtn",
-                prevBtnId: "txPrevPageBtn",
-                nextBtnId: "txNextPageBtn",
-                lastBtnId: "txLastPageBtn"
-            },
-            meta.page,
-            meta.totalPages,
-            visibleItems.length,
-            filteredTransactions.length
-        );
-    } else {
-        // Összes elem esetén nincs lapozás
-        txCurrentPage = 1;
-        if (paginationBox) paginationBox.style.display = "none";
-    }
-
-    // ===== Találatok: megjelenített / összes =====
-    const txt = `Találatok: ${visibleItems.length} / ${filteredTransactions.length} db`;
-    if (rcTop) rcTop.textContent = txt;
-    if (rcBottom) rcBottom.textContent = txt;
-
-
-    let rows = "";
-
-    visibleItems.forEach(tx => {
-        rows += `
-                <tr data-id="${tx.id}" class="${(tx.statement_item && String(tx.statement_item).trim() !== "") ? "is-matched" : ""}">
-                    <td>${tx.month}</td>
-                    <td>${formatDateForList(tx.date)}</td>
-                    <td class="${(() => {
-                const t = String(tx.transaction_type || "").trim().toLowerCase();
-
-                const isSaving = t.includes("megtak") || t === "saving";
-                const isExpense = t.includes("kiad") || t === "expense" || (Number(tx.amount) < 0);
-                const isIncome = t.includes("bev") || t === "income" || (Number(tx.amount) > 0);
-
-                if (isSaving) return "amount-saving";
-                if (isExpense) return "amount-expense";
-                if (isIncome) return "amount-income";
-                return "";
-            })()
-            }">
-                        ${formatAmount(tx.amount)}
-                    </td>
-
-
-
-                    <td>${tx.title}</td>
-                    <td>${tx.category}</td>
-                    <td>${tx.payment_type}</td>
-                    <td>${tx.transaction_type}</td>
-                    <td>
-                        <input type="checkbox" disabled ${tx.is_shared === "x" ? "checked" : ""}>
-                    </td>
-
-<td>${parseStatementItemIds(tx.statement_item)
-                .map(id => `#${id}`)
-                .join(" · ")
-            }</td>
-                </tr>
-            `;
-    });
-
-
-    tbody.innerHTML = rows;
-    // ===== STATEMENT ITEM SELECTEK FELTÖLTÉSE (Bank_Transactions alapján) =====
-    try {
-        const bankItems = await ensureBankTxCache();
-
-        visibleItems.forEach(tx => {
-            const sel = document.getElementById(`stmt_${String(tx?.id ?? "").trim()}`);
-            if (!sel) return;
-
-            sel.innerHTML = buildStatementItemOptions(tx, bankItems);
-
-            const current = String(tx?.statement_item ?? "").trim();
-            if (current) sel.value = current;
-
-            // Ne nyissa meg a szerkesztő modalt, ha a dropdownra kattintasz
-            sel.addEventListener("click", (e) => e.stopPropagation());
-
-            sel.addEventListener("change", async (e) => {
-                e.stopPropagation();
-
-                const txId = String(sel.dataset.txId || "").trim();
-                const newValue = String(sel.value || "").trim();
-                if (!txId) return;
-
-                // TELJES SOR KÜLDÉSE, hogy backend ne nullázza a hiányzó mezőket
-                const safeDate = String(tx?.date ?? "").includes("T") ? String(tx.date).split("T")[0] : String(tx?.date ?? "").trim();
-
-                const payload = {
-                    id: txId,
-                    month: String(tx?.month ?? "").trim(),
-                    date: safeDate,
-                    amount: String(tx?.amount ?? ""),                 // már signed érték a listában
-                    title: String(tx?.title ?? "").trim(),
-                    category: String(tx?.category ?? "").trim(),
-                    payment_type: String(tx?.payment_type ?? "").trim(),
-                    transaction_type: String(tx?.transaction_type ?? "").trim(),
-                    is_shared: (tx?.is_shared === "x" || tx?.is_shared === true || tx?.is_shared === "true") ? "x" : "",
-                    statement_item: newValue
-                };
-
-                const resp = await api.updateTransaction(payload);
-                if (resp && resp.success) {
-                    // frontenden is frissítsük a memóriában, hogy ne villanjon vissza
-                    tx.statement_item = newValue;
-                } else {
-                    alert(resp?.error || resp?.message || "Nem sikerült menteni a banki tétel összerendelést.");
-                }
-
-            });
-
-        });
-    } catch (e) {
-        console.error("statement_item select hydrate hiba:", e);
-    }
-
-    // ===== TABLÁZAT SORAINAK KATTINTÁSA – SZERKESZTÉS =====
-    const rowsElements = document.querySelectorAll("#transactionsBody tr");
-
-    rowsElements.forEach(row => {
-        row.addEventListener("click", () => {
-            const id = row.getAttribute("data-id");
-
-            // A teljes rekordot megkeressük a betöltött adatok között
-            const tx = data.find(item => String(item.id) === String(id));
-
-            if (tx) {
-                openTransactionEditor(tx);
-            }
-        });
-    });
-}
 // ===== Bank_Transactions cache (Transactions modal dropdownhoz) =====
-let bankTxCache = null;
-let transactionsCache = null; // legutóbb betöltött tranzakciók (bulk match-hez)
 let myPermissions = {};
-let filteredTransactions = [];
-let bankToTxMap = new Map();
-
-let bankTxCachePromise = null;
-async function ensureTransactionsCache(forceRefresh = false) {
-    if (!forceRefresh && Array.isArray(transactionsCache)) return transactionsCache;
-    try {
-        const r = await api.getTransactions();
-        transactionsCache = (r && r.success && Array.isArray(r.data)) ? r.data : [];
-        bankToTxMap.clear();
-
-        transactionsCache.forEach(t => {
-            const bankIds = String(t.statement_item || "")
-                .split(",")
-                .map(s => s.trim())
-                .filter(Boolean);
-
-            bankIds.forEach(id => {
-                if (!bankToTxMap.has(id)) bankToTxMap.set(id, []);
-                bankToTxMap.get(id).push(t.id);
-            });
-        });
-
-    } catch (_) {
-        transactionsCache = [];
-    }
-    return transactionsCache;
-}
 const toIsoDate = (v) => {
     const s = String(v ?? "").trim();
     if (!s) return "";
@@ -2299,41 +1148,18 @@ const toIsoDate = (v) => {
     const d = new Date(s);
     return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
 };
-
-
-
-async function ensureBankTxCache() {
-    if (bankTxCache) return bankTxCache;
-    if (bankTxCachePromise) return bankTxCachePromise;
-
-    bankTxCachePromise = (async () => {
-        const resp = await api.getBankTransactions();
-        const items = (resp && resp.success && Array.isArray(resp.data)) ? resp.data : [];
-        bankTxCache = items;
-        bankTxCachePromise = null;
-        return bankTxCache;
-    })();
-
-    return bankTxCachePromise;
-}
-
 function buildStatementItemOptions(tx, bankItems) {
     const rawTxDate = String(tx?.date ?? "").trim();
     const txDateIso = rawTxDate.includes("T") ? rawTxDate.split("T")[0] : toInputDateLocal(rawTxDate);
     const txAmt = Number(tx?.amount);
-
     const matches = (bankItems || []).filter(b => {
         const bDateIso = String(b?.transaction_date ?? "").trim();
         const bAmt = Number(b?.amount);
-
         if (!txDateIso) return false;
         if (!bDateIso) return false;
         if (Number.isNaN(txAmt) || Number.isNaN(bAmt)) return false;
-
         return (bDateIso === txDateIso) && (Math.abs(bAmt) === Math.abs(txAmt));
     });
-
-
     // opció szöveg: id + partner + memo (ha van)
     const opts = [
         `<option value="">— válassz banki tételt —</option>`,
@@ -2345,39 +1171,16 @@ function buildStatementItemOptions(tx, bankItems) {
             return `<option value="${id}">${label || id}</option>`;
         })
     ];
-
     return opts.join("");
 }
-function getMatchingBankItems(tx, bankItems) {
-    const rawTxDate = String(tx?.date ?? "").trim();
-    const txDateIso = rawTxDate.includes("T") ? rawTxDate.split("T")[0] : toInputDateLocal(rawTxDate);
-
-    const txAmt = Number(tx?.amount);
-
-    return (bankItems || []).filter(b => {
-        const bDateIso = String(b?.transaction_date ?? "").trim();
-        const bAmt = Number(b?.amount);
-
-        if (!txDateIso || !bDateIso) return false;
-        if (Number.isNaN(txAmt) || Number.isNaN(bAmt)) return false;
-
-        // előjel kezelése: abs összehasonlítás
-        return (bDateIso === txDateIso) && (Math.abs(bAmt) === Math.abs(txAmt));
-    });
-}
-
 function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedBankIds = new Set()) {
     const currentIds = parseStatementItemIds(tx?.statement_item);
-
     const currentSet = new Set(currentIds);
-
     // tx dátum ISO-ra (yyyy-mm-dd)
     const rawTxDate = String(tx?.date ?? "").trim();
     const txDateIso = rawTxDate.includes("T") ? rawTxDate.split("T")[0] : toInputDateLocal(rawTxDate);
-
     // 1) első kör: dátum + összeg alapján egyezők
     let matches = getMatchingBankItems(tx, bankItems);
-
     // 1/a) szűrés: ne jelenjen meg olyan banki tétel, ami már máshoz van társítva
     matches = (matches || []).filter(b => {
         const bid = String(b?.id ?? "").trim();
@@ -2385,7 +1188,6 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedB
         if (currentSet.has(bid)) return true; // a jelenlegi(ek) maradhat(nak)
         return !usedBankIds.has(bid);
     });
-
     // 2) fallback: ha nincs egyező összeg, akkor az adott napi "szabad" banki tételek
     let isFallback = false;
     if (!matches.length) {
@@ -2393,22 +1195,17 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedB
         matches = (bankItems || []).filter(b => {
             const bid = String(b?.id ?? "").trim();
             if (!bid) return false;
-
             const bDateIso = String(b?.transaction_date ?? "").trim();
             if (!txDateIso || !bDateIso) return false;
-
             if (bDateIso !== txDateIso) return false;
-
             if (currentSet.has(bid)) return true;
             return !usedBankIds.has(bid);
         });
     }
-
     // Ha már volt korábban kiválasztott statement_item, azt mindig mutassuk meg,
     // akkor is, ha sem az összeg-egyezésbe, sem a fallback (adott napi szabad) listába nem kerülne be.
     if (currentIds.length) {
         const have = new Set((matches || []).map(b => String(b?.id ?? "").trim()).filter(Boolean));
-
         const missing = currentIds.filter(id => !have.has(id));
         if (missing.length) {
             const extras = (bankItems || []).filter(b => missing.includes(String(b?.id ?? "").trim()));
@@ -2417,19 +1214,16 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedB
             }
         }
     }
-
     if (!matches.length) {
         pickerEl.innerHTML = `<div class="muted">Nincs választható banki tétel (sem egyező összeggel, sem az adott napon szabadon).</div>`;
         return;
     }
-
     const esc = (s) => String(s ?? "")
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
-
     const pickField = (obj, keys) => {
         for (const k of keys) {
             const v = obj?.[k];
@@ -2437,13 +1231,11 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedB
         }
         return "";
     };
-
     const info = isFallback
         ? `<div class="muted" style="margin-bottom:4px;">
               <span style="font-size:11px;opacity:.75;">fallback</span>
            </div>`
         : "";
-
     // fallback esetén: a legközelebbi összeg legyen elöl
     // (ha nem fallback, a meglévő "matches" sorrendet megtartjuk)
     if (isFallback) {
@@ -2463,31 +1255,25 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedB
         const n = (typeof rawN === "number") ? rawN : (Number(b?.amount ?? 0) || 0);
         amountById.set(id, n);
         const checked = currentSet.has(id) ? "checked" : "";
-
         // több mező – többféle lehetséges oszlopnév támogatása
         const counterparty = pickField(b, ["partner_name", "counterparty_name", "name", "beneficiary", "payer"]);
         const account = pickField(b, ["partner_account", "counterparty_account", "account", "iban"]);
         const memo = pickField(b, ["memo", "comment", "description", "text", "note", "transaction_text"]);
         const direction = pickField(b, ["direction", "transaction_type", "type"]);
-
         const currentBadge = currentSet.has(id)
             ? `<span style="margin-left:6px;font-size:11px;opacity:.75;">jelenlegi</span>`
             : "";
-
         const line1 = `<span class="statement-item-id">#${esc(id)}</span>${currentBadge}
                    <span class="statement-item-date">${esc(date)}</span>
                    <span class="statement-item-amt">${esc(amt)}</span>`;
-
         const line2Parts = [
             counterparty ? `<span class="statement-item-party">${esc(counterparty)}</span>` : "",
             memo ? `<span class="statement-item-memo">${esc(memo)}</span>` : ""
         ].filter(Boolean).join(" — ");
-
         const line3Parts = [
             direction ? `<span class="statement-item-dir">${esc(direction)}</span>` : "",
             account ? `<span class="statement-item-acct">${esc(account)}</span>` : ""
         ].filter(Boolean).join(" · ");
-
         return `
       <label class="statement-item-row">
         <input class="statement-item-check" type="checkbox" name="statement_item_pick" value="${esc(id)}" ${checked}>
@@ -2499,14 +1285,11 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedB
       </label>
     `;
     }).join("");
-
     pickerEl.innerHTML = info + rows;
-
     const syncHiddenFromChecks = () => {
         const ids = Array.from(pickerEl.querySelectorAll("input[type='checkbox'][name='statement_item_pick']:checked"))
             .map(el => String(el.value || "").trim())
             .filter(Boolean);
-
         hiddenInputEl.value = ids.join(", ");
         const sumEl = document.getElementById("statementItemSelectedSum");
         if (sumEl) {
@@ -2514,28 +1297,22 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedB
             sumEl.textContent = formatAmount(total);
         }
     };
-
     // induláskor is normalizáljuk (pl. "1,2" -> "1, 2")
     syncHiddenFromChecks();
-
     pickerEl.querySelectorAll("input[type='checkbox'][name='statement_item_pick']").forEach(ch => {
         ch.addEventListener("change", () => {
             syncHiddenFromChecks();
         });
     });
 }
-
 function buildStatementItemSelectHtml(tx) {
     // statement_item = kiválasztott bank tranzakció id (string)
     const selectedId = String(tx?.statement_item ?? "").trim();
-
     // dropdown alapból üres opciókkal (később töltjük async)
     // fontos: a táblázat renderelése szinkron, ezért az async betöltést utólag végezzük
     const safeTxId = String(tx?.id ?? "").trim();
-
     // Egyedi azonosító, hogy később megtaláljuk és feltöltsük
     const selectId = `stmt_${safeTxId}`;
-
     // Placeholder: amíg a bankTxCache be nem jön
     return `
   <button type="button"
@@ -2546,78 +1323,6 @@ function buildStatementItemSelectHtml(tx) {
   </button>
   <div class="statement-item-picker-popover" id="${selectId}_pop" data-open="0"></div>
 `;
-
-}
-
-async function openTransactionEditor(tx) {
-    const modal = document.getElementById("txModal");
-    const overlay = document.getElementById("modalOverlay");
-
-    // mezők kitöltése
-    // ISO → yyyy-MM-dd
-    const dateOnly = tx.date.split("T")[0];
-    document.querySelector("input[name='date']").value = dateOnly;
-    document.querySelector("input[name='month']").value = tx.month;
-    document.querySelector("input[name='amount']").value = Math.abs(Number(tx.amount) || 0);
-    document.querySelector("input[name='title']").value = tx.title;
-    document.querySelector("input[name='category']").value = tx.category;
-    document.querySelector("input[name='payment_type']").value = tx.payment_type;
-    document.querySelector("input[name='transaction_type']").value = tx.transaction_type;
-    document.querySelector("input[name='is_shared']").checked =
-        (tx.is_shared === "x" || tx.is_shared === true || tx.is_shared === "true");
-    // statement_item dropdown (Bank_Transactions date+amount alapján)
-    // statement_item választólista (Bank_Transactions date+amount alapján)
-    const picker = document.getElementById("statementItemPicker");
-    const hidden = document.getElementById("statementItemValue");
-
-    if (hidden) hidden.value = String(tx?.statement_item ?? "").trim();
-
-    if (picker && hidden) {
-        try {
-            // biztos legyen friss transactionsCache (kell a "már használt banki tételek" szűréshez)
-            if (!Array.isArray(transactionsCache)) {
-                try {
-                    const r = await api.getTransactions();
-                    transactionsCache = (r && r.success && Array.isArray(r.data)) ? r.data : [];
-                } catch (_) {
-                    transactionsCache = [];
-                }
-            }
-
-            const bankItems = await ensureBankTxCache();
-
-            // már használt banki tételek (statement_item alapján)
-            // statement_item mostantól lehet: "12, 18, 25" (több banki tétel egy tranzakcióhoz)
-            const usedBankIds = new Set(
-                (transactionsCache || [])
-                    .flatMap(t => parseStatementItemIds(t?.statement_item))
-            );
-
-            // a jelenlegi tx saját korábbi értékeit engedjük (ne tűnjenek el a listából)
-            const currentStmtIds = parseStatementItemIds(tx?.statement_item);
-            currentStmtIds.forEach(id => usedBankIds.delete(id));
-
-            // +1 paraméter: usedBankIds (a függvény a következő lépésben fogja használni)
-            renderStatementItemPicker(tx, bankItems, picker, hidden, usedBankIds);
-        } catch (e) {
-            console.error("Bank_Transactions cache betöltés hiba:", e);
-            picker.innerHTML = `<div class="muted">Nem sikerült betölteni a banki tételeket.</div>`;
-        }
-    }
-
-
-
-    // a szerkesztendő ID-t eltároljuk a formban (nem látszik, de szükséges)
-    document.getElementById("txForm").setAttribute("data-edit-id", tx.id);
-    // Szerkesztés módban a Törlés + Másolás gomb látszódjon
-    const delBtn = document.getElementById("txDeleteBtn");
-    const copyBtn = document.getElementById("txCopyBtn");
-    if (delBtn) delBtn.style.display = "inline-block";
-    if (copyBtn) copyBtn.style.display = "inline-block";
-
-    // modal megnyitása
-    modal.classList.add("open");
-    overlay.classList.add("open");
 }
 function applySidebarPermissions() {
     const txBtn = document.getElementById("showTransactionsBtn");
@@ -2632,14 +1337,11 @@ function applySidebarPermissions() {
     const txImportBtn = document.getElementById("importCsvBtn");            // Import
     const seCreateBtn = document.getElementById("addSharedExpenseBtn");     // + Új megosztott tétel
     const seSettleBtn = document.getElementById("addSettlementInlineBtn");  // + Törlesztés
-
     // Kényszerített megjelenítés: ne üres stringgel “reseteljünk”, mert az nem mindig hozza vissza
     const setBtnVisible = (btn, visible) => {
         if (!btn) return;
         btn.style.display = visible ? "inline-flex" : "none";
     };
-
-
     // A permissions táblában az access tipikusan: none / read / write
     // De UI szempontból: bármi, ami nem "none", hozzáférésnek számít (konzisztens a getLandingPage()-gel)
     const hasAccess = (key) => {
@@ -2647,190 +1349,67 @@ function applySidebarPermissions() {
         if (v === undefined || v === null) return false;
         return String(v).trim().toLowerCase() !== "none";
     };
-
-
     // RESET: ha korábban el volt rejtve (display:none), most legyen visszaállítva,
     // különben “beragad” és hiába kap jogot, nem jelenik meg.
     [txBtn, seBtn, bankImportBtn, adminUsersBtn, adminFunctionsBtn, adminPermissionsBtn,
         txCreateBtn, txImportBtn, seCreateBtn, seSettleBtn].forEach((b) => {
-
             if (b) b.style.display = "";
         });
-
-
     // Oldal-gombok: ha nincs jog, ne jelenjenek meg
     // Fontos: az oldal akkor is legyen elérhető/látható, ha bármely tx_* / se_* funkcióhoz van jog,
     // nem csak akkor, ha konkrétan tx_read / se_read van kiosztva.
     const hasAny = (prefix) =>
         Object.keys(myPermissions || {}).some((k) => k.startsWith(prefix) && hasAccess(k));
-
     const canSeeTxPage = hasAny("tx_");
     const canSeeSePage = hasAny("se_");
-
     // Oldalmenü – oldal szintű jogosultságok
     if (!canSeeTxPage && txBtn) txBtn.style.display = "none";
     if (!canSeeSePage && seBtn) seBtn.style.display = "none";
     // Bank import: ugyanahhoz a jogosultsághoz kötjük, mint a tranzakció importot
     if (!hasAccess("tx_import") && bankImportBtn) bankImportBtn.style.display = "none";
-
     // Admin menüpontok – kizárólag saját admin jog alapján
     if (!hasAccess("admin_users") && adminUsersBtn) adminUsersBtn.style.display = "none";
     if (!hasAccess("admin_functions") && adminFunctionsBtn) adminFunctionsBtn.style.display = "none";
     if (!hasAccess("admin_permissions") && adminPermissionsBtn) adminPermissionsBtn.style.display = "none";
-
     // Transactions akciók
     if (!hasAccess("tx_create") && txCreateBtn) txCreateBtn.style.display = "none";
     if (!hasAccess("tx_import") && txImportBtn) txImportBtn.style.display = "none";
-
     // Shared Expenses akciók
     if (!hasAccess("se_create") && seCreateBtn) seCreateBtn.style.display = "none";
     if (!hasAccess("se_settlement_create") && seSettleBtn) seSettleBtn.style.display = "none";
     // Transactions akciógombok
     setBtnVisible(txCreateBtn, hasAccess("tx_create"));
     setBtnVisible(txImportBtn, hasAccess("tx_import"));
-
     // Shared Expenses akciógombok
     setBtnVisible(seCreateBtn, hasAccess("se_create"));
     setBtnVisible(seSettleBtn, hasAccess("se_settlement_create"));
-
 }
-// Váltás a két panel között
-function showPage(page) {
-    const txPage = document.getElementById("page-transactions");
-    const sharedPage = document.getElementById("page-shared-expenses");
-    const bankImportPage = document.getElementById("page-bank-import");
-    const valueSetsPage = document.getElementById("page-value-sets");
-    const ownAccountsPage = document.getElementById("page-own-accounts");
-    const adminPage = document.getElementById("page-admin-users");
-    const adminFunctionsPage = document.getElementById("page-admin-functions");
-    const adminPermissionsPage = document.getElementById("page-admin-permissions");
-
-    const txBtn = document.getElementById("showTransactionsBtn");
-    const sharedBtn = document.getElementById("showSharedExpensesBtn");
-    const bankImportBtn = document.getElementById("showBankImportBtn");
-    const valueSetsBtn = document.getElementById("showValueSetsBtn");
-    const ownAccountsBtn = document.getElementById("showOwnAccountsBtn");
-    const adminBtn = document.getElementById("showAdminUsersBtn");
-    const adminFunctionsBtn = document.getElementById("showAdminFunctionsBtn");
-    const adminPermissionsBtn = document.getElementById("showAdminPermissionsBtn");
-
-    // mindent elrejt + active reset (minden ismert oldalra/gombra)
-    [txPage, sharedPage, bankImportPage, valueSetsPage, ownAccountsPage, adminPage, adminFunctionsPage, adminPermissionsPage]
-        .forEach(p => p && p.classList.add("hidden"));
-
-    [txBtn, sharedBtn, bankImportBtn, valueSetsBtn, ownAccountsBtn, adminBtn, adminFunctionsBtn, adminPermissionsBtn]
-        .forEach(b => b && b.classList.remove("active"));
-
-    if (page === "transactions") {
-        txPage?.classList.remove("hidden");
-        txBtn?.classList.add("active");
-        loadTransactions();
-        typeof applySidebarPermissions === "function" && applySidebarPermissions();
-        return;
-    }
-
-    if (page === "shared") {
-        sharedPage?.classList.remove("hidden");
-        sharedBtn?.classList.add("active");
-        loadSharedExpenses();
-        typeof applySidebarPermissions === "function" && applySidebarPermissions(); return;
-    }
-
-    if (page === "bank-import") {
-        bankImportPage?.classList.remove("hidden");
-        bankImportBtn?.classList.add("active");
-        loadBankTransactions();
-        typeof applySidebarPermissions === "function" && applySidebarPermissions();
-        return;
-    }
-
-    if (page === "value-sets") {
-        valueSetsPage?.classList.remove("hidden");
-        valueSetsBtn?.classList.add("active");
-        typeof loadValueSetsPage === "function" && loadValueSetsPage();
-        typeof applySidebarPermissions === "function" && applySidebarPermissions();
-        return;
-    }
-
-    if (page === "own-accounts") {
-        ownAccountsPage?.classList.remove("hidden");
-        ownAccountsBtn?.classList.add("active");
-        loadOwnAccounts();
-        typeof applySidebarPermissions === "function" && applySidebarPermissions();
-        return;
-    }
-
-    if (page === "admin-users") {
-        adminPage?.classList.remove("hidden");
-        adminBtn?.classList.add("active");
-        loadAdminUsers();
-        typeof applySidebarPermissions === "function" && applySidebarPermissions();
-        return;
-    }
-
-    if (page === "admin-functions") {
-        adminFunctionsPage?.classList.remove("hidden");
-        adminFunctionsBtn?.classList.add("active");
-        loadAdminFunctions();
-        typeof applySidebarPermissions === "function" && applySidebarPermissions();
-        return;
-    }
-
-    if (page === "admin-permissions") {
-        adminPermissionsPage?.classList.remove("hidden");
-        adminPermissionsBtn?.classList.add("active");
-        loadAdminPermissions();
-        typeof applySidebarPermissions === "function" && applySidebarPermissions();
-        return;
-    }
-}
-
-
-document.getElementById("showTransactionsBtn").addEventListener("click", () => {
-    showPage("transactions");
-});
-
-document.getElementById("showSharedExpensesBtn").addEventListener("click", () => {
-    showPage("shared");
-});
-document.getElementById("showBankImportBtn").addEventListener("click", () => {
-    showPage("bank-import");
-});
 // =========================
 // BANK IMPORT (CSV)
 // =========================
 let bankImportItems = [];
 let filteredBankItems = [];
-
 let bankImportSelectedFile = null;
 let bankImportBatchId = "";
-
-
 const bankPickBtn = document.getElementById("bankImportPickFileBtn");
 const bankUploadBtn = document.getElementById("bankImportUploadBtn");
 const bankFileInput = document.getElementById("bankImportFileInput");
 const bankStatus = document.getElementById("bankImportStatus");
-
 const bankHeadRow = document.getElementById("bankImportPreviewHead");
 const bankBody = document.getElementById("bankImportPreviewBody");
-
 const setBankStatus = (msg) => { if (bankStatus) bankStatus.textContent = msg || ""; };
-
 function closeBankItemModal() {
     const modal = document.getElementById("bankItemModal");
     const overlay = document.getElementById("bankItemOverlay");
     if (modal) modal.classList.remove("open");
     if (overlay) overlay.classList.remove("open");
 }
-
 function openBankItemModal(item) {
     const modal = document.getElementById("bankItemModal");
     const overlay = document.getElementById("bankItemOverlay");
     const details = document.getElementById("bankItemDetails");
     const closeBtn = document.getElementById("bankItemCloseBtn");
-
     if (!modal || !overlay || !details) return;
-
     const fields = [
         ["id", "ID"],
         ["matched_transaction_ids", "TR ID"],
@@ -2852,7 +1431,6 @@ function openBankItemModal(item) {
         ["created_by", "Rögzítő"],
         ["created_at", "Rögz. ideje"]
     ];
-
     const html = fields.map(([k, label]) => {
         const v = (item && item[k] != null) ? item[k] : "";
         const val = (String(v).trim() === "") ? "—" : escapeHtml(String(v));
@@ -2863,9 +1441,7 @@ function openBankItemModal(item) {
             </div>
         `;
     }).join("");
-
     details.innerHTML = `<div class="bank-item-grid">${html}</div>`;
-
     if (closeBtn && !closeBtn.__bankBound) {
         closeBtn.addEventListener("click", closeBankItemModal);
         closeBtn.__bankBound = true;
@@ -2874,17 +1450,14 @@ function openBankItemModal(item) {
         overlay.addEventListener("click", closeBankItemModal);
         overlay.__bankBound = true;
     }
-
     modal.classList.add("open");
     overlay.classList.add("open");
 }
-
 const toMonthYYYYMM = (isoDate) => {
     // isoDate: YYYY-MM-DD
     if (!isoDate || isoDate.length < 7) return "";
     return isoDate.slice(0, 4) + isoDate.slice(5, 7);
 };
-
 const normalizeAmount = (v) => {
     // CSV-ből jöhet string "1 234,56", stb.
     if (v == null) return "";
@@ -2902,20 +1475,16 @@ const renderBankPreview = (items) => {
     // ===== BANK – KÉPERNYŐ SZŰRÉS + RENDEZÉS =====
     const filterTextEl = document.getElementById("bankFilterText");
     const filterUnmatchedEl = document.getElementById("bankFilterUnmatchedOnly");
-
     const q = String(filterTextEl?.value ?? "").trim().toLowerCase();
     const unmatchedOnly = (filterUnmatchedEl?.checked === true);
-
     // 1) szűrés
     let workingItems = safeItems.filter(it => {
         if (unmatchedOnly && String(it?.matched_transaction_ids ?? "").trim() !== "") return false;
         if (!q) return true;
-
         // teljes sorban keresünk (összes mező)
         // teljes sorban keresünk (összes mező) + összeg normalizált egyezés
         const rowMatch = Object.values(it || {}).some(v => String(v ?? "").toLowerCase().includes(q));
         if (rowMatch) return true;
-
         // Összeg egyezés normalizeAmount alapján (pl. "1234,56" ~= "1 234,56")
         const qNum = q.replace(/\s+/g, "").replace(",", ".");
         const amt = normalizeAmount(it?.amount);
@@ -2923,7 +1492,6 @@ const renderBankPreview = (items) => {
             const amtStr = String(amt);           // pl. "1234.56"
             if (amtStr.includes(qNum)) return true;
         }
-
         return false;
     });
     const hideInternalTransfers =
@@ -2933,27 +1501,22 @@ const renderBankPreview = (items) => {
     // csak akkor tekintjük belső utalásnak, ha
     // - van Bejövő + Kimenő ugyanazzal az abs(amount)-tal, ÉS
     // - a tétel account_number / partner_account mezői közül legalább az egyik a Saját számlák listában van
-
     if (hideInternalTransfers) {
         // Saját számlák cache: a Saját számlák oldalon a loadOwnAccounts() már betölti,
         // itt csak felhasználjuk, ha elérhető.
         const ownList = (typeof window !== "undefined" && Array.isArray(window.__ownAccountsCache))
             ? window.__ownAccountsCache
             : [];
-
         const normAcc = (s) => String(s ?? "").replace(/\s+/g, "").trim().toLowerCase();
         const ownSet = new Set(ownList.map(normAcc).filter(Boolean));
         const classifyDir = (dirRaw, amt) => {
             const d = String(dirRaw ?? "").trim().toLowerCase();
-
             // Magyar
             if (d === "bejövő" || d === "bejövo") return "in";
             if (d === "kimenő" || d === "kimeno") return "out";
-
             // Nemzetközi / bank exportok
             if (d === "credit" || d === "cr" || d === "c") return "in";
             if (d === "debit" || d === "dr" || d === "d") return "out";
-
             // Ha nincs jól kitöltött irány, próbáljuk az előjelből
             if (typeof amt === "number") {
                 if (amt < 0) return "out";
@@ -2962,28 +1525,21 @@ const renderBankPreview = (items) => {
             return "";
         };
         const flagsByAbsAmount = new Map(); // absAmount -> { in: bool, out: bool }
-
         for (const it of workingItems) {
             const amt = normalizeAmount(it?.amount);
             if (typeof amt !== "number") continue;
-
             const dirClass = classifyDir(it?.direction, amt);
             const absAmt = Math.abs(amt);
-
             const acc1 = normAcc(it?.account_number);
             const acc2 = normAcc(it?.partner_account);
-
             // csak akkor vesszük figyelembe “belső” jelöltnek, ha saját számlaszám érintett
             const touchesOwn = ownSet.has(acc1) || ownSet.has(acc2);
             if (!touchesOwn) continue;
-
             if (!flagsByAbsAmount.has(absAmt)) flagsByAbsAmount.set(absAmt, { in: false, out: false });
             const rec = flagsByAbsAmount.get(absAmt);
-
             if (dirClass === "in") rec.in = true;
             else if (dirClass === "out") rec.out = true;
         }
-
         const internalAbsAmounts = new Set(
             Array.from(flagsByAbsAmount.entries())
                 .filter(([_, v]) => v.in && v.out)
@@ -2993,16 +1549,12 @@ const renderBankPreview = (items) => {
         workingItems = workingItems.filter(it => {
             const amt = normalizeAmount(it?.amount);
             if (typeof amt !== "number") return true;
-
             const acc1 = normAcc(it?.account_number);
             const acc2 = normAcc(it?.partner_account);
             const touchesOwn = ownSet.has(acc1) || ownSet.has(acc2);
-
             if (!touchesOwn) return true;
-
             const isInternal = internalAbsAmounts.has(Math.abs(amt));
             if (isInternal) hiddenInternalCount++;
-
             return !isInternal;
         });
     }
@@ -3014,7 +1566,6 @@ const renderBankPreview = (items) => {
             hideInternalTransfers && hiddenInternalCount > 0
                 ? ` ${baseText} (${hiddenInternalCount} elrejtve)`
                 : ` ${baseText}`;
-
         // Töröljük a label összes szöveg node-ját (a behúzások/újsorok is text node-ok),
         // majd visszaírunk egyetlen, egységes feliratot.
         Array.from(hideInternalLabel.childNodes).forEach(n => {
@@ -3037,35 +1588,28 @@ const renderBankPreview = (items) => {
         }
         return String(val).toLowerCase();
     };
-
     const dirMul = (bankSortDirection === "asc") ? 1 : -1;
     workingItems = workingItems.slice().sort((a, b) => {
         const av = toComparable(a?.[bankSortField], bankSortField);
         const bv = toComparable(b?.[bankSortField], bankSortField);
-
         if (typeof av === "number" && typeof bv === "number") {
             return (av - bv) * dirMul;
         }
         return String(av).localeCompare(String(bv), "hu") * dirMul;
     });
     const perPageEl = document.getElementById("bankItemsPerPage");
-
     const perPageValue = perPageEl ? perPageEl.value : "all";
     const paginationBox = document.getElementById("bankImportPagination");
-
     if (typeof bankCurrentPage === "undefined") {
         window.bankCurrentPage = 1;
     }
-
     const pageSize2 = readPageSize("bankItemsPerPage", workingItems.length, 100);
     const meta = getPaginationMeta(workingItems.length, pageSize2, bankCurrentPage);
     bankCurrentPage = meta.page;
-
     let pageItems = workingItems;
     if (perPageValue !== "all") {
         if (paginationBox) paginationBox.style.display = "flex";
         pageItems = workingItems.slice(meta.start, meta.end);
-
         updatePaginationUI(
             {
                 pageInfoId: "bankPageInfo",
@@ -3084,12 +1628,9 @@ const renderBankPreview = (items) => {
     } else {
         bankCurrentPage = 1;
         if (paginationBox) paginationBox.style.display = "none";
-
         const resultCountEl = document.getElementById("bankImportResultCount");
         if (resultCountEl) resultCountEl.textContent = `Találatok: ${workingItems.length} / ${safeItems.length} db`;
     }
-
-
     // a sheet (backend) 18 mezős struktúrája
     const cols = [
         "id",
@@ -3115,7 +1656,6 @@ const renderBankPreview = (items) => {
     // A "Típus" oszloptól kezdve mindent elrejtünk (type és utána)
     const typeIdx = cols.indexOf("type");
     const visibleCols = (typeIdx > -1) ? cols.slice(0, typeIdx) : cols;
-
     const labels = {
         id: "ID",
         matched_transaction_ids: "TR ID",
@@ -3137,19 +1677,15 @@ const renderBankPreview = (items) => {
         created_by: "Rögzítő",
         created_at: "Rögz. ideje"
     };
-
     // fejléc
     bankHeadRow.innerHTML = "";
     visibleCols.forEach((c) => {
         const th = document.createElement("th");
-
         const isActive = (c === bankSortField);
         const arrow = isActive ? (bankSortDirection === "asc" ? " ▲" : " ▼") : "";
         th.textContent = (labels[c] || c) + arrow;
-
         th.dataset.sort = c;
         th.style.cursor = "pointer";
-
         th.addEventListener("click", () => {
             if (bankSortField === c) {
                 bankSortDirection = (bankSortDirection === "asc") ? "desc" : "asc";
@@ -3165,14 +1701,11 @@ const renderBankPreview = (items) => {
             bankCurrentPage = 1;
             renderBankPreview(bankImportItems);
         });
-
         bankHeadRow.appendChild(th);
     });
-
     // body (max 200 sor preview)
     bankBody.innerHTML = "";
     pageItems.forEach((it) => {
-
         const tr = document.createElement("tr");
         tr.style.cursor = "pointer";
         tr.addEventListener("click", (ev) => {
@@ -3181,25 +1714,19 @@ const renderBankPreview = (items) => {
         });
         visibleCols.forEach((c) => {
             const td = document.createElement("td");
-
             if (c === "matched_transaction_ids") {
                 const bankId = String(it?.id ?? "").trim();
                 const txIds = bankToTxMap.get(bankId) || [];
-
                 td.textContent = txIds.join(", ");
                 tr.appendChild(td);
                 return;
             }
-
-
             const v = (it && it[c] != null) ? it[c] : "";
             td.textContent = String(v);
             tr.appendChild(td);
         });
         bankBody.appendChild(tr);
     });
-
-
     // Megjelenített / összes tétel
     // Megjelenített / összes (szűrt) tétel
     const resultCountEl = document.getElementById("bankImportResultCount");
@@ -3207,23 +1734,18 @@ const renderBankPreview = (items) => {
         // workingItems: a szűrés + rendezés utáni lista (erre kell a nevező)
         resultCountEl.textContent = `Találatok: ${pageItems.length} / ${workingItems.length} db`;
     }
-
     // Gombok tiltása (eleje/vége + előző/következő)
     const firstBtn = document.getElementById("bankFirstPageBtn");
     const prevBtn = document.getElementById("bankPrevPageBtn");
     const nextBtn = document.getElementById("bankNextPageBtn");
     const lastBtn = document.getElementById("bankLastPageBtn");
-
     const atFirst = (bankCurrentPage <= 1);
     const atLast = (bankCurrentPage >= meta.totalPages);
-
-
     if (firstBtn) firstBtn.disabled = atFirst;
     if (prevBtn) prevBtn.disabled = atFirst;
     if (nextBtn) nextBtn.disabled = atLast;
     if (lastBtn) lastBtn.disabled = atLast;
 };
-
 async function loadBankTransactions() {
     try {
         await ensureOwnAccountsCache();
@@ -3233,67 +1755,51 @@ async function loadBankTransactions() {
         }
         setBankStatus("Banki adatok betöltése…");
         const res = await api.getBankTransactions();
-
         if (!res || !res.success) {
             console.error("Nem sikerült betölteni a banki tranzakciókat.", res);
             setBankStatus("Nem sikerült betölteni a banki adatokat (API).");
             return;
         }
-
         bankImportItems = Array.isArray(res.data) ? res.data : [];
         renderBankPreview(bankImportItems);
         setBankStatus(`Betöltve: ${bankImportItems.length} sor.`);
-
-
     } catch (err) {
         console.error(err);
         setBankStatus("Hiba a banki adatok betöltése során.");
     }
 }
-
-
 const parseBankImportFile = async (file) => {
-
     const buf = await file.arrayBuffer();
-
     const decode = (enc) => {
         const dec = new TextDecoder(enc, { fatal: false });
         let txt = dec.decode(buf);
         if (txt && txt.charCodeAt(0) === 0xFEFF) txt = txt.slice(1); // BOM
         return txt;
     };
-
     const looksBad = (s) => ((s.match(/\uFFFD/g) || []).length >= 2);
-
     let text = decode("utf-8");
     if (looksBad(text)) {
         try { text = decode("windows-1250"); } catch (e) { }
     }
-
     const linesRaw = text
         .replace(/\r\n/g, "\n")
         .replace(/\r/g, "\n")
         .split("\n")
         .map(l => l.trim())
         .filter(l => l.length > 0);
-
     if (!linesRaw || linesRaw.length < 2) return [];
-
     const detectDelimiterLocal = (line) => {
         if (line.indexOf("\t") >= 0) return "\t";
         const commas = (line.match(/,/g) || []).length;
         const semis = (line.match(/;/g) || []).length;
         return semis > commas ? ";" : ",";
     };
-
     const parseCsvLineLocal = (line, delimiter) => {
         const out = [];
         let cur = "";
         let inQuotes = false;
-
         for (let i = 0; i < line.length; i++) {
             const ch = line[i];
-
             if (ch === '"') {
                 if (inQuotes && line[i + 1] === '"') {
                     cur += '"';
@@ -3303,24 +1809,19 @@ const parseBankImportFile = async (file) => {
                 }
                 continue;
             }
-
             if (!inQuotes && ch === delimiter) {
                 out.push(cur);
                 cur = "";
                 continue;
             }
-
             cur += ch;
         }
         out.push(cur);
         return out.map(s => s.trim());
     };
-
     const delimiter = detectDelimiterLocal(linesRaw[0]);
     const rows = linesRaw.map(line => parseCsvLineLocal(line, delimiter));
-
     const H = (rows[0] || []).map(h => String(h || "").trim().toLowerCase());
-
     const idx = (...names) => {
         const wanted = names.map(n => String(n).trim().toLowerCase());
         for (let i = 0; i < H.length; i++) {
@@ -3335,12 +1836,10 @@ const parseBankImportFile = async (file) => {
         }
         return -1;
     };
-
     const iTxDate = idx("transaction_date", "tranzakció dátum", "tranzakcio datum", "dátum", "datum", "value date", "transaction date");
     const iPost = idx("posting_date", "könyvelés dátum", "konyveles datum", "posting date", "book date");
     const iAmt = idx("amount", "összeg", "osszeg", "sum", "érték", "amount (huf)");
     const iMemo = idx("memo", "közlemény", "kozlemeny", "megjegyzés", "megjegyzes", "comment", "note");
-
     // + további mezők a te 18 oszlopos sémádhoz
     const iType = idx("type", "típus", "tipus", "trn type", "transaction type");
     const iDirection = idx("direction", "irány", "irany", "debit/credit", "credit/debit", "dr/cr");
@@ -3350,205 +1849,140 @@ const parseBankImportFile = async (file) => {
     const iAccName = idx("account_name", "számla neve", "szamla neve", "account name");
     const iAccNumber = idx("account_number", "számlaszám", "szamlaszam", "account number");
     const iCurrency = idx("currency", "deviza", "pénznem", "penznem", "ccy");
-
     const getCell = (row, i) => (i >= 0 ? String(row[i] ?? "").trim() : "");
-
     const items = [];
-
     for (let r = 1; r < rows.length; r++) {
         const row = rows[r] || [];
-
         const rawTxDate = (iTxDate >= 0 ? row[iTxDate] : row[0]) ?? "";
         const rawAmt = (iAmt >= 0 ? row[iAmt] : row[row.length - 1]) ?? "";
-
         const txDateIso = toIsoDate(rawTxDate);
         const amt = normalizeAmount(rawAmt);
-
         if (!txDateIso || amt === "" || amt == null) continue;
-
         const postingIso = (iPost >= 0) ? toIsoDate(row[iPost]) : "";
-
         const currency = getCell(row, iCurrency) || "HUF";
-
         items.push({
             // id-t a backend generálja
             id: "",
-
             month: toMonthYYYYMM(txDateIso),
             transaction_date: txDateIso,
             posting_date: postingIso,
-
             type: getCell(row, iType),
             direction: getCell(row, iDirection),
             partner_name: getCell(row, iPartnerName),
             partner_account: getCell(row, iPartnerAcc),
             spend_category: getCell(row, iSpendCategory),
-
             memo: (iMemo >= 0 ? String(row[iMemo] ?? "").trim() : ""),
-
             account_name: getCell(row, iAccName),
             account_number: getCell(row, iAccNumber),
-
             amount: amt,
             currency,
-
             source_file: (file && file.name) ? file.name : "",
             import_batch_id: "",
-
             created_by: "",
             created_at: ""
         });
     }
-
-
     return items;
 };
-
-
-
 bankPickBtn?.addEventListener("click", () => bankFileInput?.click());
-
 bankFileInput?.addEventListener("change", async (e) => {
     bankImportItems = [];
     bankImportSelectedFile = null;
-
     if (bankUploadBtn) bankUploadBtn.disabled = true;
     setBankStatus("");
-
     const file = e.target.files?.[0];
     if (!file) return;
-
     bankImportSelectedFile = file;
-
     // NE töröld le a táblát! A képernyőn maradjon a sheetből betöltött lista.
     setBankStatus(`Kiválasztva: ${file.name}`);
     setBankStatus("Feldolgozás…");
-
     const items = await parseBankImportFile(file);
-
     // import batch azonosító generálása betöltéskor (1 fájl = 1 batch)
     bankImportBatchId = `BIMP-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-
     // bankImportItems: ez megy majd mentésre, de NEM rendereljük ki preview-ként
     bankImportItems = (items || []).map(it => ({
         ...it,
         source_file: (file && file.name) ? file.name : (it?.source_file || ""),
         import_batch_id: bankImportBatchId
     }));
-
     if (!bankImportItems || bankImportItems.length === 0) {
         if (bankUploadBtn) bankUploadBtn.disabled = true;
         setBankStatus("Nincs importálható adat (üres vagy hibás struktúra).");
         return;
     }
-
     if (bankUploadBtn) bankUploadBtn.disabled = false;
     setBankStatus(`Beolvasva: ${bankImportItems.length} sor. Mentéshez kattints az Import gombra.`);
-
 });
-
-
 bankUploadBtn?.addEventListener("click", async () => {
     try {
-
-
         if (!bankImportSelectedFile) {
             setBankStatus("Nincs kiválasztott fájl.");
             return;
         }
-
         if (!bankImportBatchId) {
             setBankStatus("Hiányzik az import batch azonosító (import_batch_id). Válaszd ki újra a fájlt.");
             return;
         }
-
         if (!bankImportItems || bankImportItems.length === 0) {
             setBankStatus("Nincs importálható sor.");
             return;
         }
-
-
         if (!api?.addBankTransactions) {
             setBankStatus("Hiba: api.addBankTransactions nincs definiálva (api.js).");
             return;
         }
-
         setBankStatus("Mentés folyamatban…");
         bankUploadBtn.disabled = true;
-
         let ok = 0;
         let fail = 0;
         let matched = 0;
         let unmatched = 0;
-
         const BANK_BATCH_SIZE = 50;
-
         async function sendBatchWithSplit(payloads) {
             if (!payloads || payloads.length === 0) return;
-
             try {
                 const resp = await api.addBankTransactions(payloads);
-
                 // backend itt tipikusan {success:true, ok:X, fail:Y, matched:Z, ...}
                 if (!resp || !resp.success) {
                     fail += payloads.length;
                     return;
                 }
-
                 ok += Number(resp.ok ?? 0);
                 fail += Number(resp.fail ?? 0);
                 matched += Number(resp.matched ?? 0);
                 unmatched += Number(resp.unmatched ?? 0);
                 return;
-
             } catch (err) {
                 const msg = (err && err.message) ? err.message : String(err || "Ismeretlen hiba");
                 const isJsonp = String(msg).toLowerCase().includes("jsonp");
-
                 // ha nem JSONP hiba vagy már 1 elem is hibázik, akkor mind fail
                 if (!isJsonp || payloads.length <= 1) {
                     fail += payloads.length;
                     return;
                 }
-
                 // felezés és újrapróba
                 const mid = Math.ceil(payloads.length / 2);
                 await sendBatchWithSplit(payloads.slice(0, mid));
                 await sendBatchWithSplit(payloads.slice(mid));
             }
         }
-
         for (let i = 0; i < bankImportItems.length; i += BANK_BATCH_SIZE) {
             const batch = bankImportItems.slice(i, i + BANK_BATCH_SIZE);
             await sendBatchWithSplit(batch);
             setBankStatus(`Mentés fut… OK: ${ok}, Hiba: ${fail} (batch: ${Math.min(i + BANK_BATCH_SIZE, bankImportItems.length)}/${bankImportItems.length})`);
         }
-
         setBankStatus(`Mentve. OK: ${ok}, Hiba: ${fail}, Párosítva: ${matched}, Nem párosítható: ${unmatched}`);
         await loadBankTransactions();
-
-
     } catch (err) {
         console.error(err);
         setBankStatus("Hiba a mentés során.");
         bankUploadBtn.disabled = false;
     }
 });
-document.getElementById("showAdminUsersBtn").addEventListener("click", () => {
-    showPage("admin-users");
-});
-document.getElementById("showAdminFunctionsBtn").addEventListener("click", () => {
-    showPage("admin-functions");
-});
-document.getElementById("showAdminPermissionsBtn").addEventListener("click", () => {
-    showPage("admin-permissions");
-});
-
 // =========================
 // Saját számlák (value_sets: own_account) – UI nélkül
 // =========================
 const OWN_ACCOUNTS_SET = "Own_account";
-
 async function ensureOwnAccountsCache() {
     try {
         const res = await api.getValueSets();
@@ -3566,64 +2000,51 @@ async function ensureOwnAccountsCache() {
 }
 let valueSetsSort = { field: "value", dir: "asc" };
 let valueSetsPage = 1;
-
 function renderValueSetsTable(list) {
     const tbody = document.querySelector("#valueSetsTable tbody");
     const filterInput = document.getElementById("valueSetFilterText");
     const itemsPerPageSelect = document.getElementById("valueSetItemsPerPage");
     const pagination = document.getElementById("valueSetsPagination");
-
     if (!tbody) return;
-
     let items = Array.isArray(list) ? list : [];
-
     // SZŰRÉS
     const filter = (filterInput?.value || "").toLowerCase().trim();
     if (filter) {
         items = items.filter(v => String(v ?? "").toLowerCase().includes(filter));
     }
-
     // RENDEZÉS
     items.sort((a, b) => {
         const av = String(a ?? "").toLowerCase();
         const bv = String(b ?? "").toLowerCase();
-
         if (av < bv) return valueSetsSort.dir === "asc" ? -1 : 1;
         if (av > bv) return valueSetsSort.dir === "asc" ? 1 : -1;
         return 0;
     });
-
     // LAPOZÁS
     const itemsPerPage = Math.max(1, Number(itemsPerPageSelect?.value || 20));
     const totalPages = Math.max(1, Math.ceil(items.length / itemsPerPage));
     if (valueSetsPage > totalPages) valueSetsPage = totalPages;
-
     const start = (valueSetsPage - 1) * itemsPerPage;
     const pagedItems = items.slice(start, start + itemsPerPage);
-
     tbody.innerHTML = pagedItems
         .map(v => `<tr><td>${escapeHtml(String(v ?? "").trim())}</td></tr>`)
         .join("");
-
     const resultCount = document.getElementById("valueSetResultCount");
     if (resultCount) {
         resultCount.textContent = `${items.length} érték • ${valueSetsPage}/${totalPages} oldal`;
     }
-
     if (pagination) {
         pagination.innerHTML = `
             <button type="button" ${valueSetsPage <= 1 ? "disabled" : ""} data-page="prev">Előző</button>
             <span>${valueSetsPage} / ${totalPages}</span>
             <button type="button" ${valueSetsPage >= totalPages ? "disabled" : ""} data-page="next">Következő</button>
         `;
-
         pagination.querySelector('[data-page="prev"]')?.addEventListener("click", () => {
             if (valueSetsPage > 1) {
                 valueSetsPage--;
                 renderValueSetsTable(list);
             }
         });
-
         pagination.querySelector('[data-page="next"]')?.addEventListener("click", () => {
             if (valueSetsPage < totalPages) {
                 valueSetsPage++;
@@ -3632,81 +2053,70 @@ function renderValueSetsTable(list) {
         });
     }
 }
-
 async function loadValueSetsPage() {
     const categorySelect = document.getElementById("valueSetCategorySelect");
     const resultCount = document.getElementById("valueSetResultCount");
     if (!categorySelect) return;
-
     const res = await api.getValueSetsDetailed();
     if (!res || !res.success) {
         if (resultCount) resultCount.textContent = "Nem sikerült betölteni az értékkészleteket.";
         return;
     }
-
     const categories = Array.isArray(res.categories) ? res.categories : [];
     const itemsByCategory = res.itemsByCategory || {};
-
     if (!categorySelect.dataset.initialized) {
         categorySelect.innerHTML = categories
             .map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
             .join("");
-const filterInput = document.getElementById("valueSetFilterText");
-if (filterInput && !filterInput.dataset.initialized) {
-    filterInput.addEventListener("input", () => {
-        valueSetsPage = 1;
-        const selected = categorySelect.value;
-        const list = Array.isArray(itemsByCategory[selected]) ? itemsByCategory[selected] : [];
-        renderValueSetsTable(list);
-    });
-    filterInput.dataset.initialized = "1";
-}
-const itemsPerPageSelect = document.getElementById("valueSetItemsPerPage");
-if (itemsPerPageSelect && !itemsPerPageSelect.dataset.initialized) {
-    itemsPerPageSelect.addEventListener("change", () => {
-        valueSetsPage = 1;
-        const selected = categorySelect.value;
-        const list = Array.isArray(itemsByCategory[selected]) ? itemsByCategory[selected] : [];
-        renderValueSetsTable(list);
-    });
-    itemsPerPageSelect.dataset.initialized = "1";
-}
-categorySelect.addEventListener("change", () => {
-    valueSetsPage = 1;
-    const selected = categorySelect.value;
-    const list = Array.isArray(itemsByCategory[selected]) ? itemsByCategory[selected] : [];
-    renderValueSetsTable(list);
-});
-
+        const filterInput = document.getElementById("valueSetFilterText");
+        if (filterInput && !filterInput.dataset.initialized) {
+            filterInput.addEventListener("input", () => {
+                valueSetsPage = 1;
+                const selected = categorySelect.value;
+                const list = Array.isArray(itemsByCategory[selected]) ? itemsByCategory[selected] : [];
+                renderValueSetsTable(list);
+            });
+            filterInput.dataset.initialized = "1";
+        }
+        const itemsPerPageSelect = document.getElementById("valueSetItemsPerPage");
+        if (itemsPerPageSelect && !itemsPerPageSelect.dataset.initialized) {
+            itemsPerPageSelect.addEventListener("change", () => {
+                valueSetsPage = 1;
+                const selected = categorySelect.value;
+                const list = Array.isArray(itemsByCategory[selected]) ? itemsByCategory[selected] : [];
+                renderValueSetsTable(list);
+            });
+            itemsPerPageSelect.dataset.initialized = "1";
+        }
+        categorySelect.addEventListener("change", () => {
+            valueSetsPage = 1;
+            const selected = categorySelect.value;
+            const list = Array.isArray(itemsByCategory[selected]) ? itemsByCategory[selected] : [];
+            renderValueSetsTable(list);
+        });
         categorySelect.dataset.initialized = "1";
     }
-
     const selected = categorySelect.value || categories[0] || "";
     if (selected && !categorySelect.value) {
         categorySelect.value = selected;
     }
-
     const list = Array.isArray(itemsByCategory[selected]) ? itemsByCategory[selected] : [];
     renderValueSetsTable(list);
     const th = document.querySelector("#valueSetsTable thead th[data-sort]");
-if (th && !th.dataset.initialized) {
-    th.addEventListener("click", () => {
-        valueSetsSort.dir = valueSetsSort.dir === "asc" ? "desc" : "asc";
-
-        const categorySelect = document.getElementById("valueSetCategorySelect");
-        const selected = categorySelect?.value;
-        const list = Array.isArray(itemsByCategory[selected]) ? itemsByCategory[selected] : [];
-
-        renderValueSetsTable(list);
-    });
-
-    th.dataset.initialized = "1";
-}
+    if (th && !th.dataset.initialized) {
+        th.addEventListener("click", () => {
+            valueSetsSort.dir = valueSetsSort.dir === "asc" ? "desc" : "asc";
+            const categorySelect = document.getElementById("valueSetCategorySelect");
+            const selected = categorySelect?.value;
+            const list = Array.isArray(itemsByCategory[selected]) ? itemsByCategory[selected] : [];
+            renderValueSetsTable(list);
+        });
+        th.dataset.initialized = "1";
+    }
 }
 function renderOwnAccounts(list) {
     const tbody = document.getElementById("ownAccountsBody");
     if (!tbody) return;
-
     const items = Array.isArray(list) ? list : [];
     tbody.innerHTML = items
         .map(v => {
@@ -3722,7 +2132,6 @@ function renderOwnAccounts(list) {
         })
         .join("");
 }
-
 async function loadOwnAccounts() {
     setOwnAccountsMsg("");
     const res = await api.getValueSets();
@@ -3735,31 +2144,21 @@ async function loadOwnAccounts() {
     window.__ownAccountsCache = Array.isArray(list) ? list : [];
     renderOwnAccounts(window.__ownAccountsCache);
 }
-
 document.getElementById("ownAccountsForm")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     setOwnAccountsMsg("");
-
     const input = document.getElementById("ownAccountIban");
     const raw = String(input?.value ?? "").trim();
     if (!raw) return;
-
     const value = raw.replace(/\s+/g, ""); // szóközök nélkül tároljuk
     const r = await api.addValueToSet(OWN_ACCOUNTS_SET, value);
     if (!r || !r.success) {
         setOwnAccountsMsg(`Nem sikerült hozzáadni: ${r?.error || "ismeretlen hiba"}`, true);
         return;
     }
-
     if (input) input.value = "";
     await loadOwnAccounts();
     setOwnAccountsMsg("Hozzáadva.");
-});
-document.getElementById("showValueSetsBtn")?.addEventListener("click", () => {
-    showPage("value-sets");
-});
-document.getElementById("showOwnAccountsBtn")?.addEventListener("click", () => {
-    showPage("own-accounts");
 });
 async function loadSharedExpenses() {
     try {
@@ -3788,26 +2187,21 @@ async function loadSharedExpenses() {
         // 1) Rendezés: legrégebbi → legújabb
         // ===== RENDEZÉS (fejlécre kattintás alapján) =====
         const seDir = (seSortDirection === "asc") ? 1 : -1;
-
         const seToNum = (v) => {
             const n = Number(String(v ?? "").replace(/\s+/g, "").replace(",", "."));
             return isNaN(n) ? null : n;
         };
-
         const seToTime = (v) => {
             const t = new Date(v).getTime();
             return isNaN(t) ? null : t;
         };
-
         (result.data || []).sort((a, b) => {
             const va = a?.[seSortField];
             const vb = b?.[seSortField];
-
             // null/undefined a végére
             if (va == null && vb == null) return 0;
             if (va == null) return 1;
             if (vb == null) return -1;
-
             // szám mezők
             const numFields = new Set([
                 "amount",
@@ -3818,7 +2212,6 @@ async function loadSharedExpenses() {
                 "Dori_balance",
                 "balance_impact"
             ]);
-
             if (numFields.has(seSortField)) {
                 const na = seToNum(va);
                 const nb = seToNum(vb);
@@ -3827,7 +2220,6 @@ async function loadSharedExpenses() {
                 if (nb == null) return -1;
                 return (na - nb) * seDir;
             }
-
             // dátum mező
             if (seSortField === "date") {
                 const ta = seToTime(va);
@@ -3837,13 +2229,11 @@ async function loadSharedExpenses() {
                 if (tb == null) return -1;
                 return (ta - tb) * seDir;
             }
-
             // minden más: szöveg
             const sa = String(va).toLowerCase();
             const sb = String(vb).toLowerCase();
             return sa.localeCompare(sb, "hu") * seDir;
         });
-
         // ====== EGYENLEG SZÁMÍTÁSA (PIROS - KÉK + LILA) ======
         let blueTotal = 0;    // kék: Zsolti tartozása (paid_by = Dóri)
         let redTotal = 0;    // piros: Dóri tartozása  (paid_by = Zsolti)
@@ -3869,21 +2259,15 @@ async function loadSharedExpenses() {
         // ====== EGYENLEG KIÍRÁSA A FEJLÉC ALATTI DOBOZBA ======
         const box = document.getElementById("sharedBalanceValue");
         const label = document.getElementById("sharedBalanceLabel");
-
         // ====== RÉSZÖSSZEGEK KIÍRÁSA (KÉK / PIROS / TÖRLESZTÉS) ======
         const blueEl = document.getElementById("sharedBlueTotal");
         const redEl = document.getElementById("sharedRedTotal");
         const purpleEl = document.getElementById("sharedPurpleTotal");
-
         if (blueEl) blueEl.textContent = formatAmount(blueTotal);
         if (redEl) redEl.textContent = formatAmount(redTotal);
         if (purpleEl) purpleEl.textContent = formatAmount(purpleTotal);
-
-
         // A HTML-ben ezek az ID-k léteznek:contentReference[oaicite:2]{index=2}
         if (box) box.textContent = `${formatSignedAmount(headerNet)} Ft`;
-
-
         if (label) {
             if (headerNet > 0) {
                 label.textContent = " — Dóri tartozása";
@@ -3896,14 +2280,11 @@ async function loadSharedExpenses() {
                 label.className = "";
             }
         }
-
         result.data.forEach(row => {
             const tr = document.createElement("tr");
             seRowsById.set(String(row.id), row);
             tr.setAttribute("data-id", row.id);
-
             const isSettlement = String(row.title || "").trim().toLowerCase().includes("törleszt");
-
             if (isSettlement) {
                 tr.classList.add("settlement-row");
                 tr.innerHTML = `
@@ -3912,26 +2293,21 @@ async function loadSharedExpenses() {
                 <td>${row.title || "Törlesztés"}</td>
                 <td class="se-amount">${formatAmount(row.amount)}</td>
                 <td>${row.paid_by || ""}</td>
-
                 <!-- Megosztott mezők elrejtése -->
                 <td class="settlement-hidden-cell"></td>
                 <td class="settlement-hidden-cell"></td>
                 <td class="settlement-hidden-cell"></td>
                 <td class="settlement-hidden-cell"></td>
                 <td class="settlement-hidden-cell"></td>
-
                 <!-- Egyenleg lila -->
                 <td class="balance-settlement">${formatAmount(row.amount)}</td>
-
                 <td>
                     ${row.notes || ""}
                 </td>
-
             `;
                 tbody.appendChild(tr);
                 return;
             }
-
             // ----- Nem törlesztés: marad a meglévő (megosztott) render -----
             tr.innerHTML = `
             <td>${row.month || ""}</td>
@@ -3939,34 +2315,25 @@ async function loadSharedExpenses() {
             <td>${row.title || ""}</td>
             <td class="text-right">${formatAmount(row.amount)}</td>
             <td>${row.paid_by || ""}</td>
-
 <td class="text-right">
     ${(() => {
                     const v = Number(row.Zsolti_amount);
                     return (!v || v === 0) ? "" : formatAmount(Math.abs(v));
                 })()}
 </td>
-
 <td class="text-right">
     ${(() => {
                     const v = Number(row.Dori_amount);
                     return (!v || v === 0) ? "" : formatAmount(Math.abs(v));
                 })()}
 </td>
-
-
-
             <td class="text-right se-remaining">${formatAmount(row.remaining_amount)}</td>
-
-
             ${(() => {
                     const paidBy = String(row.paid_by || "").trim().toLowerCase();
                     const paidByDori = paidBy.includes("dóri") || paidBy === "dori";
                     const paidByZsolti = paidBy.includes("zsolti");
-
                     let zClass = "";
                     let dClass = "";
-
                     if (paidByDori) {
                         zClass = "balance-debit";
                         dClass = "balance-credit";
@@ -3974,21 +2341,17 @@ async function loadSharedExpenses() {
                         zClass = "balance-credit";
                         dClass = "balance-debit";
                     }
-
                     return `
                     <td class="text-right se-zsolti-balance">${formatAmount(row.Zsolti_balance)}</td>
                     <td class="text-right se-dori-balance">${formatAmount(row.Dori_balance)}</td>
                 `;
                 })()}
-
             ${(() => {
                     const paidBy = String(row.paid_by || "").trim().toLowerCase();
                     const paidByDori = paidBy.includes("dóri") || paidBy === "dori";
                     const paidByZsolti = paidBy.includes("zsolti");
-
                     let value = "";
                     let cls = "";
-
                     if (paidByDori) {
                         value = row.Zsolti_balance;
                         cls = "balance-zsolti";

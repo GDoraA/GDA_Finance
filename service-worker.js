@@ -1,4 +1,4 @@
-const CACHE_NAME = "gda-finance-cache-v10";
+const CACHE_NAME = "gda-finance-cache-v11";
 const ASSETS = [
   "./",
   "./index.html",
@@ -6,10 +6,11 @@ const ASSETS = [
   "./app.js",
   "./scripts/api.js",
   "./utils/helpers.js",
+  "./ui/sidebar.js",
+  "./ui/modals.js",
+  "./features/transactions.js",
   "./manifest.json"
 ];
-
-
 self.addEventListener("install", (event) => {
   self.skipWaiting();
   event.waitUntil(

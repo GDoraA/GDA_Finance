@@ -1,38 +1,24 @@
 // ----------- API KONFIG -------------
-
 const API_URL = "https://script.google.com/macros/s/AKfycbxlK5KQ-2M_ORyYXMKRBcLbOzLgUO7RA73F7VMbLBy_Oy7Sr9jFNUSc8-9XNhUrynY/exec";
-
-
 // ----------- JSONP HÍVÓ FUNKCIÓ -------------
-
 function jsonp(action, params = {}) {
     return new Promise((resolve, reject) => {
-
         const callbackName = "cb_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
-
         window[callbackName] = function (response) {
             delete window[callbackName];
             script.remove();
             resolve(response);
         };
-
         const token = localStorage.getItem("gda_auth_token") || "";
         const urlParams = new URLSearchParams({ action, callback: callbackName, token, _: Date.now() });
-
         Object.entries(params).forEach(([k, v]) => urlParams.set(k, v));
-
         const script = document.createElement("script");
         script.src = `${API_URL}?${urlParams.toString()}`;
         script.onerror = () => reject(new Error("JSONP hiba (script betöltés sikertelen)"));
-
-
         document.body.appendChild(script);
     });
 }
-
-
 // ----------- API METÓDUSOK -------------
-
 const api = {
     login(email, password) {
         return jsonp("login", { email, password });
@@ -56,14 +42,12 @@ const api = {
     addBankTransactions(items) {
         return jsonp("addBankTransactions", { items: JSON.stringify(items || []) });
     },
-
     getTransactions() {
         return jsonp("getTransactions");
     },
     getBankTransactions() {
         return jsonp("getBankTransactions");
     },
-
     updateTransaction(data) {
         return jsonp("updateTransaction", data);
     },
@@ -76,7 +60,6 @@ const api = {
     deleteSharedExpense(id) {
         return jsonp("deleteSharedExpense", { id });
     },
-
     getValueSets() {
         return jsonp("getValueSets");
     },
@@ -114,8 +97,4 @@ const api = {
     addUser(name, email) {
         return jsonp("addUser", { name, email });
     },
-
-
-
 };
-

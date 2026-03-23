@@ -9,6 +9,8 @@ const ASSETS = [
   "./ui/sidebar.js",
   "./ui/modals.js",
   "./features/transactions.js",
+  "./features/bank-import.js",
+  "./features/auth.js",
   "./manifest.json"
 ];
 self.addEventListener("install", (event) => {

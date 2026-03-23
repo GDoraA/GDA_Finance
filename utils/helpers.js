@@ -36,6 +36,26 @@ function toInputDateLocal(value) {
     const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
     return local.toISOString().slice(0, 10);
 }
+function formatDateForList(dateStr) {
+    if (!dateStr) return "";
+
+    // Ha már magyar formátumban van (YYYY.MM.DD.), akkor hagyjuk
+    if (/^\d{4}\.\d{2}\.\d{2}\.$/.test(dateStr)) {
+        return dateStr;
+    }
+    // Ha YYYY.MM.DD (pont nélkül)
+    if (/^\d{4}\.\d{2}\.\d{2}$/.test(dateStr)) {
+        return dateStr + ".";
+    }
+    const dt = new Date(dateStr);
+    if (isNaN(dt.getTime())) return dateStr;
+
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, "0");
+    const d = String(dt.getDate()).padStart(2, "0");
+
+    return `${y}.${m}.${d}.`;
+}
 // ===============================
 // Pagination helpers (shared)
 // ===============================
@@ -87,4 +107,12 @@ function updatePaginationUI(cfg, page, totalPages, visibleCount, totalCount) {
     if (prevBtn)  prevBtn.disabled  = atFirst;
     if (nextBtn)  nextBtn.disabled  = atLast;
     if (lastBtn)  lastBtn.disabled  = atLast;
+}
+function parseStatementItemIds(v) {
+    // támogatott szeparátorok: vessző, middle dot (·), pontosvessző
+    // trim + üresek eldobása
+    return String(v ?? "")
+        .split(/[,\u00B7;]+/g)
+        .map(s => s.trim())
+        .filter(Boolean);
 }

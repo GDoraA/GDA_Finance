@@ -62,13 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
         importErrorsBox.style.display = "block";
     };
-    // egyszerű HTML escape (biztonság + stabil render)
-    const escapeHtml = (s) => String(s ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+
     cancelImportBtn?.addEventListener("click", () => {
         csvImportCancelled = true;
         setImportStatus("Import leállítva felhasználó által.");
@@ -120,37 +114,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return out.map(s => s.trim());
     };
 
-    // Normalizálás: "1 234,56" -> 1234.56
-    const parseNumberHu = (raw) => {
-        const s = String(raw ?? "")
-            .trim()
-            .replace(/\s+/g, "")
-            .replace(/ft/ig, "")
-            .replace(",", ".");
-        const n = Number(s);
-        return isNaN(n) ? null : n;
-    };
-
-    // Dátum parse: támogatott tipikus formák: YYYY-MM-DD, YYYY.MM.DD, YYYY.MM.DD.
-    const normalizeDateToIso = (raw) => {
-        const s = String(raw ?? "").trim();
-        if (!s) return "";
-
-        // már ISO
-        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-
-        // YYYY.MM.DD vagy YYYY.MM.DD.
-        const m = s.match(/^(\d{4})\.(\d{2})\.(\d{2})\.?$/);
-        if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-
-        // fallback: Date konstruktor (ha mégis felismeri)
-        const d = new Date(s);
-        if (isNaN(d.getTime())) return "";
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, "0");
-        const dd = String(d.getDate()).padStart(2, "0");
-        return `${yyyy}-${mm}-${dd}`;
-    };
     const normalizeMonth = (raw, fallbackDateIso) => {
         const s = String(raw ?? "").trim();
 
@@ -839,12 +802,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-
-
-
-
-
-
 });
 
 // ======================================================
@@ -1487,16 +1444,6 @@ async function loadAdminPermissions() {
 
         tbody.appendChild(tr);
     }
-}
-
-// egyszerű HTML escape (ha nincs már ilyen helpered máshol)
-function escapeHtml(s) {
-    return String(s ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll("\"", "&quot;")
-        .replaceAll("'", "&#039;");
 }
 
 document.getElementById("adminUserForm")?.addEventListener("submit", async (e) => {

@@ -1,25 +1,30 @@
 document.addEventListener("DOMContentLoaded", () => {
-    document.addEventListener("page:shared", () => {
-        loadSharedExpenses();
-    });
-    document.addEventListener("page:bank-import", () => {
-        loadBankTransactions();
-    });
-    document.addEventListener("page:value-sets", () => {
-        typeof loadValueSetsPage === "function" && loadValueSetsPage();
-    });
-    document.addEventListener("page:own-accounts", () => {
-        typeof loadOwnAccounts === "function" && loadOwnAccounts();
-    });
-    document.addEventListener("page:admin-users", () => {
-        typeof loadAdminUsers === "function" && loadAdminUsers();
-    });
-    document.addEventListener("page:admin-functions", () => {
-        typeof loadAdminFunctions === "function" && loadAdminFunctions();
-    });
-    document.addEventListener("page:admin-permissions", () => {
-        typeof loadAdminPermissions === "function" && loadAdminPermissions();
-    });
+    if (typeof initPageBootstrapping === "function") {
+        initPageBootstrapping();
+    } else {
+        // Fallback a részleges frissülés idejére
+        document.addEventListener("page:shared", () => {
+            loadSharedExpenses();
+        });
+        document.addEventListener("page:bank-import", () => {
+            loadBankTransactions();
+        });
+        document.addEventListener("page:value-sets", () => {
+            typeof loadValueSetsPage === "function" && loadValueSetsPage();
+        });
+        document.addEventListener("page:own-accounts", () => {
+            typeof loadOwnAccounts === "function" && loadOwnAccounts();
+        });
+        document.addEventListener("page:admin-users", () => {
+            typeof loadAdminUsers === "function" && loadAdminUsers();
+        });
+        document.addEventListener("page:admin-functions", () => {
+            typeof loadAdminFunctions === "function" && loadAdminFunctions();
+        });
+        document.addEventListener("page:admin-permissions", () => {
+            typeof loadAdminPermissions === "function" && loadAdminPermissions();
+        });
+    }
     // =========================
     // CSV IMPORT (Transactions)
     // =========================

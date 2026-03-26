@@ -56,58 +56,7 @@ function formatDateForList(dateStr) {
 
     return `${y}.${m}.${d}.`;
 }
-// ===============================
-// Pagination helpers (shared)
-// ===============================
-/**
- * Olvassa a per-page select értékét.
- * - Ha "all", akkor pageSize = itemsLength (min. 1)
- * - Ha szám, akkor pageSize = Number(value) (fallback: defaultNumber)
- */
-function readPageSize(selectId, itemsLength, defaultNumber = 100) {
-    const el = document.getElementById(selectId);
-    const raw = el ? String(el.value) : String(defaultNumber);
-    if (raw === "all") {
-        return Math.max(1, Number(itemsLength) || 0);
-    }
-    const n = Number(raw);
-    return Number.isFinite(n) && n > 0 ? n : defaultNumber;
-}
-/**
- * Kiszámolja a lapozási paramétereket és visszaadja a clamped currentPage-et.
- */
-function getPaginationMeta(totalItems, pageSize, currentPage) {
-    const total = Math.max(0, Number(totalItems) || 0);
-    const size = Math.max(1, Number(pageSize) || 1);
-    const totalPages = Math.max(1, Math.ceil(total / size));
-    const page = Math.min(Math.max(Number(currentPage) || 1, 1), totalPages);
-    const start = (page - 1) * size;
-    const end = start + size;
-    return { totalPages, page, start, end };
-}
-/**
- * UI frissítés: Oldal: X / Y + Találatok: visible / total + gombok tiltása
- */
-function updatePaginationUI(cfg, page, totalPages, visibleCount, totalCount) {
-    const pageInfoEl = document.getElementById(cfg.pageInfoId);
-    if (pageInfoEl) {
-        pageInfoEl.textContent = `Oldal: ${page} / ${totalPages}`;
-    }
-    if (cfg.resultCountId) {
-        const rc = document.getElementById(cfg.resultCountId);
-        if (rc) rc.textContent = `Találatok: ${visibleCount} / ${totalCount} db`;
-    }
-    const firstBtn = cfg.firstBtnId ? document.getElementById(cfg.firstBtnId) : null;
-    const prevBtn  = cfg.prevBtnId  ? document.getElementById(cfg.prevBtnId)  : null;
-    const nextBtn  = cfg.nextBtnId  ? document.getElementById(cfg.nextBtnId)  : null;
-    const lastBtn  = cfg.lastBtnId  ? document.getElementById(cfg.lastBtnId)  : null;
-    const atFirst = (page <= 1);
-    const atLast  = (page >= totalPages);
-    if (firstBtn) firstBtn.disabled = atFirst;
-    if (prevBtn)  prevBtn.disabled  = atFirst;
-    if (nextBtn)  nextBtn.disabled  = atLast;
-    if (lastBtn)  lastBtn.disabled  = atLast;
-}
+
 function parseStatementItemIds(v) {
     // támogatott szeparátorok: vessző, middle dot (·), pontosvessző
     // trim + üresek eldobása
@@ -128,6 +77,31 @@ function escapeHtml(s) {
         .replace(/'/g, "&#039;");
 }
 
+function formatHuInteger(v) {
+    const n = Math.abs(Number(v) || 0);
+    return n.toLocaleString("hu-HU"); // pl. 2000 -> "2 000"
+}
+// ======================================================
+// FORMÁZÓ FÜGGVÉNYEK – DÁTUM, ÖSSZEG
+// ======================================================
+function formatAmount(amount) {
+    if (amount === null || amount === undefined) return "";
+    // szóközök eltávolítása, majd számmá alakítás
+    const num = Number(String(amount).replace(/\s/g, ""));
+    if (isNaN(num)) {
+        // ha nem értelmezhető számként, akkor eredeti értéket adjuk vissza
+        return String(amount);
+    }
+    // ez teszi bele a szóközöket ezres csoportosítással
+    return Math.abs(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+function formatSignedAmount(amount) {
+    if (amount === null || amount === undefined) return "";
+    const num = Number(String(amount).replace(/\s/g, ""));
+    if (isNaN(num)) return String(amount);
+    const sign = num < 0 ? "-" : "";
+    return sign + formatAmount(Math.abs(num));
+}
 /**
  * Magyar számformátum normalizálása:
  * "1 234,56" -> 1234.56
@@ -141,6 +115,24 @@ function parseNumberHu(raw) {
     const n = Number(s);
     return isNaN(n) ? null : n;
 }
+function parseHuNumber(v) {
+    const s = String(v ?? "")
+        .trim()
+        .replace(/\s+/g, "")     // hármas tagolás szóközei
+        .replace(/ft/ig, "")     // ha esetleg belekerülne
+        .replace(",", ".");      // tizedes vessző támogatás
+    return Number(s);
+}
+const toIsoDate = (v) => {
+    const s = String(v ?? "").trim();
+    if (!s) return "";
+    const m1 = s.match(/^(\d{4})\.(\d{2})\.(\d{2})/);
+    if (m1) return `${m1[1]}-${m1[2]}-${m1[3]}`;
+    const m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m2) return `${m2[1]}-${m2[2]}-${m2[3]}`;
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+};
 
 /**
  * Tipikus dátumformák normalizálása ISO-ra:
@@ -164,4 +156,14 @@ function normalizeDateToIso(raw) {
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     const dd = String(d.getDate()).padStart(2, "0");
     return `${yyyy}-${mm}-${dd}`;
+}
+function fillDatalist(listId, values) {
+    const dl = document.getElementById(listId);
+    if (!dl) return;
+    dl.innerHTML = "";
+    values.forEach(v => {
+        const opt = document.createElement("option");
+        opt.value = v;
+        dl.appendChild(opt);
+    });
 }

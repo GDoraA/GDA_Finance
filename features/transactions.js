@@ -1,7 +1,4 @@
-document.addEventListener("page:transactions", () => {
-    txCurrentPage = 1;
-    loadTransactions();
-});
+
 let bankTxCache = null;
 let bankTxCachePromise = null;
 let bankToTxMap = new Map();

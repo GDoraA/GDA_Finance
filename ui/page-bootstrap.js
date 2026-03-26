@@ -12,7 +12,10 @@
     function initPageBootstrapping() {
         if (pageBootstrappingInitialized) return;
         pageBootstrappingInitialized = true;
-
+        registerPageEvent("page:transactions", () => {
+            txCurrentPage = 1;
+            typeof loadTransactions === "function" && loadTransactions();
+        });
         registerPageEvent("page:shared", () => {
             typeof loadSharedExpenses === "function" && loadSharedExpenses();
         });
@@ -23,10 +26,6 @@
 
         registerPageEvent("page:value-sets", () => {
             typeof loadValueSetsPage === "function" && loadValueSetsPage();
-        });
-
-        registerPageEvent("page:own-accounts", () => {
-            typeof loadOwnAccounts === "function" && loadOwnAccounts();
         });
 
         registerPageEvent("page:admin-users", () => {

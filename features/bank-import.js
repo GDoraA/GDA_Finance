@@ -594,3 +594,71 @@ bankUploadBtn?.addEventListener("click", async () => {
         bankUploadBtn.disabled = false;
     }
 });
+// =========================
+// Saját számlák (value_sets: own_account) – UI nélkül
+// =========================
+const OWN_ACCOUNTS_SET = "Own_account";
+async function ensureOwnAccountsCache() {
+    try {
+        const res = await api.getValueSets();
+        if (!res || !res.success) {
+            window.__ownAccountsCache = [];
+            return;
+        }
+        const sets = res.sets || {};
+        const list = sets[OWN_ACCOUNTS_SET] || [];
+        window.__ownAccountsCache = Array.isArray(list) ? list : [];
+    } catch (e) {
+        console.error("Saját számlák cache betöltés hiba:", e);
+        window.__ownAccountsCache = [];
+    }
+}
+
+function renderOwnAccounts(list) {
+    const tbody = document.getElementById("ownAccountsBody");
+    if (!tbody) return;
+    const items = Array.isArray(list) ? list : [];
+    tbody.innerHTML = items
+        .map(v => {
+            const safe = escapeHtml(String(v ?? "").trim());
+            return `
+                <tr>
+                    <td>${safe}</td>
+                    <td class="text-right">
+                        <button type="button" class="secondary" disabled title="Törlés később">Törlés</button>
+                    </td>
+                </tr>
+            `;
+        })
+        .join("");
+}
+async function loadOwnAccounts() {
+    setOwnAccountsMsg("");
+    const res = await api.getValueSets();
+    if (!res || !res.success) {
+        setOwnAccountsMsg("Nem sikerült betölteni a saját számlákat (getValueSets).", true);
+        return;
+    }
+    const sets = res.sets || {};
+    const list = sets[OWN_ACCOUNTS_SET] || [];
+    window.__ownAccountsCache = Array.isArray(list) ? list : [];
+    renderOwnAccounts(window.__ownAccountsCache);
+}
+document.getElementById("ownAccountsForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    setOwnAccountsMsg("");
+    const input = document.getElementById("ownAccountIban");
+    const raw = String(input?.value ?? "").trim();
+    if (!raw) return;
+    const value = raw.replace(/\s+/g, ""); // szóközök nélkül tároljuk
+    const r = await api.addValueToSet(OWN_ACCOUNTS_SET, value);
+    if (!r || !r.success) {
+        setOwnAccountsMsg(`Nem sikerült hozzáadni: ${r?.error || "ismeretlen hiba"}`, true);
+        return;
+    }
+    if (input) input.value = "";
+    await loadOwnAccounts();
+    setOwnAccountsMsg("Hozzáadva.");
+});
+window.ensureOwnAccountsCache = ensureOwnAccountsCache;
+window.loadOwnAccounts = loadOwnAccounts;

@@ -1,4 +1,4 @@
-const CACHE_NAME = "gda-finance-cache-v11";
+const CACHE_NAME = "gda-finance-cache-v12";
 const ASSETS = [
   "./",
   "./index.html",
@@ -8,9 +8,12 @@ const ASSETS = [
   "./utils/helpers.js",
   "./ui/sidebar.js",
   "./ui/modals.js",
+  "./ui/page-bootstrap.js",
   "./features/transactions.js",
   "./features/bank-import.js",
   "./features/auth.js",
+  "./features/value-sets.js",
+  "./features/sharedExp.js",
   "./manifest.json"
 ];
 self.addEventListener("install", (event) => {

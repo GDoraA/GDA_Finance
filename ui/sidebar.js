@@ -69,10 +69,10 @@ function showPage(page) {
     const adminFunctionsBtn = document.getElementById("showAdminFunctionsBtn");
     const adminPermissionsBtn = document.getElementById("showAdminPermissionsBtn");
     // mindent elrejt + active reset (minden ismert oldalra/gombra)
-[txPage, sharedPage, bankImportPage, valueSetsPage, adminPage, adminFunctionsPage, adminPermissionsPage]
-    .forEach(p => p && p.classList.add("hidden"));
-[txBtn, sharedBtn, bankImportBtn, valueSetsBtn, adminBtn, adminFunctionsBtn, adminPermissionsBtn]
-    .forEach(b => b && b.classList.remove("active"));
+    [txPage, sharedPage, bankImportPage, valueSetsPage, adminPage, adminFunctionsPage, adminPermissionsPage]
+        .forEach(p => p && p.classList.add("hidden"));
+    [txBtn, sharedBtn, bankImportBtn, valueSetsBtn, adminBtn, adminFunctionsBtn, adminPermissionsBtn]
+        .forEach(b => b && b.classList.remove("active"));
     if (page === "transactions") {
         txPage?.classList.remove("hidden");
         txBtn?.classList.add("active");
@@ -96,11 +96,10 @@ function showPage(page) {
     if (page === "value-sets") {
         valueSetsPage?.classList.remove("hidden");
         valueSetsBtn?.classList.add("active");
-        typeof loadValueSetsPage === "function" && document.dispatchEvent(new CustomEvent("page:value-sets"));
+        document.dispatchEvent(new CustomEvent("page:value-sets"));
         typeof applySidebarPermissions === "function" && applySidebarPermissions();
         return;
     }
-
     if (page === "admin-users") {
         adminPage?.classList.remove("hidden");
         adminBtn?.classList.add("active");
@@ -144,7 +143,6 @@ document.getElementById("showAdminPermissionsBtn").addEventListener("click", () 
 document.getElementById("showValueSetsBtn")?.addEventListener("click", () => {
     showPage("value-sets");
 });
-
 function applySidebarPermissions() {
     const txBtn = document.getElementById("showTransactionsBtn");
     const seBtn = document.getElementById("showSharedExpensesBtn");

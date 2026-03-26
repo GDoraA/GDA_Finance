@@ -215,3 +215,227 @@ async function loadSharedExpenses() {
     }
 }
 window.loadSharedExpenses = loadSharedExpenses;
+    // ===== SHARED EXPENSES – FEJLÉCRE KATTINTVA RENDEZÉS (CSAK STATE) =====
+    document.querySelectorAll("#sharedExpensesTable thead th[data-sort]").forEach(th => {
+        th.style.cursor = "pointer";
+        th.addEventListener("click", () => {
+            const field = th.getAttribute("data-sort");
+            if (!field) return;
+            if (seSortField === field) {
+                seSortDirection = (seSortDirection === "asc") ? "desc" : "asc";
+            } else {
+                seSortField = field;
+                seSortDirection = "asc";
+            }
+        });
+    });
+    document.getElementById("bankFirstPageBtn")?.addEventListener("click", () => {
+        bankCurrentPage = 1;
+        renderBankPreview(bankImportItems);
+    });
+    document.getElementById("bankPrevPageBtn")?.addEventListener("click", () => {
+        bankCurrentPage = Math.max(1, bankCurrentPage - 1);
+        renderBankPreview(bankImportItems);
+    });
+    document.getElementById("bankNextPageBtn")?.addEventListener("click", () => {
+        // totalPages számítás: a szűrt találatok alapján
+        const filterTextEl = document.getElementById("bankFilterText");
+        const filterUnmatchedEl = document.getElementById("bankFilterUnmatchedOnly");
+        const q = String(filterTextEl?.value ?? "").trim().toLowerCase();
+        const unmatchedOnly = (filterUnmatchedEl?.checked === true);
+        const filteredCount = (Array.isArray(bankImportItems) ? bankImportItems : []).filter(it => {
+            if (unmatchedOnly && String(it?.matched_transaction_ids ?? "").trim() !== "") return false;
+            if (!q) return true;
+            return Object.values(it || {}).some(v => String(v ?? "").toLowerCase().includes(q));
+        }).length;
+        const perPageEl = document.getElementById("bankItemsPerPage");
+        const perPageRaw = perPageEl ? perPageEl.value : "100";
+        const pageSize =
+            perPageRaw === "all"
+                ? Math.max(1, filteredCount)
+                : (Number(perPageRaw) || 100);
+
+        const totalPages = Math.max(1, Math.ceil(filteredCount / pageSize));
+        bankCurrentPage = Math.min(totalPages, bankCurrentPage + 1);
+        renderBankPreview(bankImportItems);
+    });
+    document.getElementById("bankLastPageBtn")?.addEventListener("click", () => {
+        // totalPages számítás: a szűrt találatok alapján
+        const filterTextEl = document.getElementById("bankFilterText");
+        const filterUnmatchedEl = document.getElementById("bankFilterUnmatchedOnly");
+        const q = String(filterTextEl?.value ?? "").trim().toLowerCase();
+        const unmatchedOnly = (filterUnmatchedEl?.checked === true);
+        const filteredCount = (Array.isArray(bankImportItems) ? bankImportItems : []).filter(it => {
+            if (unmatchedOnly && String(it?.matched_transaction_ids ?? "").trim() !== "") return false;
+            if (!q) return true;
+            return Object.values(it || {}).some(v => String(v ?? "").toLowerCase().includes(q));
+        }).length;
+        const perPageEl = document.getElementById("bankItemsPerPage");
+        const perPageRaw = perPageEl ? perPageEl.value : "100";
+        const pageSize =
+            perPageRaw === "all"
+                ? Math.max(1, filteredCount)
+                : (Number(perPageRaw) || 100);
+        const totalPages = Math.max(1, Math.ceil(filteredCount / pageSize));
+        bankCurrentPage = totalPages;
+        renderBankPreview(bankImportItems);
+    });
+    document.getElementById("bankItemsPerPage")?.addEventListener("change", () => {
+        bankCurrentPage = 1;
+        renderBankPreview(bankImportItems);
+    });
+    // Banki szűrők változására: vissza 1. oldalra + újrarender
+    document.getElementById("bankFilterText")?.addEventListener("input", () => {
+        bankCurrentPage = 1;
+        clearTimeout(bankFilterTextDebounce);
+        bankFilterTextDebounce = setTimeout(() => {
+            renderBankPreview(bankImportItems);
+        }, 180);
+    });
+    document.getElementById("bankFilterUnmatchedOnly")?.addEventListener("change", () => {
+        bankCurrentPage = 1;
+        renderBankPreview(bankImportItems);
+    });
+    document.getElementById("bankFilterHideInternalTransfers")?.addEventListener("change", () => {
+        bankCurrentPage = 1;
+        renderBankPreview(bankImportItems);
+    });
+    // ================================
+    // Shared Expenses – Modal open/close (NEW only)
+    // ================================
+    function hideSeModalMessages() {
+        const ok = document.getElementById("seSuccessMsg");
+        const er = document.getElementById("seErrorMsg");
+        if (ok) ok.style.display = "none";
+        if (er) er.style.display = "none";
+    }
+    let seModalIsSettlement = false;
+    function openSeModal(isSettlement) {
+        seModalIsSettlement = !!isSettlement;
+        const modal = document.getElementById("seModal");
+        const overlay = document.getElementById("seModalOverlay");
+        if (!modal || !overlay) return;
+        // form reset
+        const form = document.getElementById("seForm");
+        if (form) {
+            form.reset();
+            form.removeAttribute("data-edit-id"); // <-- ÚJ: ne maradjon bent régi edit mód
+        }
+        // ÚJ: alapból ne lehessen törölni (csak szerkesztésnél, feltételesen)
+        document.getElementById("seDeleteBtn")?.style.setProperty("display", "none");
+        hideSeModalMessages();
+        // cím + törlesztésnél bontás elrejtése
+        const titleEl = document.getElementById("seModalTitle");
+        const splitBlock = document.getElementById("seSplitBlock");
+        if (titleEl) titleEl.textContent = isSettlement ? "Új törlesztés" : "Új megosztott tétel";
+        if (splitBlock) splitBlock.style.display = isSettlement ? "none" : "block";
+        // alapértékek (csak UX)
+        const paidBy = document.getElementById("sePaidBy");
+        if (paidBy && !paidBy.value) paidBy.value = "Zsolti";
+        const name = document.getElementById("seTitle");
+        if (name && isSettlement) name.value = "Törlesztés";
+        modal.classList.add("open");
+        overlay.classList.add("open");
+    }
+    window.openSeModal = openSeModal;
+    function closeSeModal() {
+        document.getElementById("seModal")?.classList.remove("open");
+        document.getElementById("seModalOverlay")?.classList.remove("open");
+    }
+    document.getElementById("addSharedExpenseBtn").addEventListener("click", () => openSeModal(false));
+    document.getElementById("addSettlementInlineBtn")
+        .addEventListener("click", () => openSeModal(true));
+    document.getElementById("seCloseBtn")?.addEventListener("click", closeSeModal);
+    // Megosztott / törlesztés tétel törlése modalból (csak törlesztés vagy paid_by=Zsolti)
+    document.getElementById("seDeleteBtn")?.addEventListener("click", async () => {
+        const form = document.getElementById("seForm");
+        const seId = form?.getAttribute("data-edit-id");
+        if (!seId) return;
+        // Frontend védelem: csak törlesztés vagy paid_by=Zsolti törölhető
+        const row = seRowsById?.get(String(seId));
+        const title = String(row?.title || "").trim().toLowerCase();
+        const paidBy = String(row?.paid_by || "").trim().toLowerCase();
+        const isSettlement = title.includes("törleszt");
+        const isPaidByZsolti = (paidBy === "zsolti");
+        const canDelete = isSettlement || isPaidByZsolti;
+        if (!canDelete) {
+            alert("Ez a tétel nem törölhető. Csak törlesztés vagy paid_by = Zsolti tétel törölhető.");
+            return;
+        }
+        const ok = confirm("Biztosan törlöd ezt a tételt?");
+        if (!ok) return;
+        try {
+            const resp = await api.deleteSharedExpense(seId);
+            if (!resp || !resp.success) {
+                alert(resp?.error || resp?.message || "A törlés nem sikerült.");
+                return;
+            }
+            document.getElementById("seModal")?.classList.remove("open");
+            document.getElementById("seModalOverlay")?.classList.remove("open");
+        } catch (err) {
+            console.error("deleteSharedExpense error:", err);
+            alert("Váratlan hiba történt a törlés során.");
+        }
+    });
+    // Modal – dátum → hónap automatikus kitöltés
+    document.getElementById("seDate")?.addEventListener("input", (e) => {
+        const dateVal = e.target.value;
+        const monthInput = document.getElementById("seMonth");
+        if (!monthInput) return;
+        monthInput.value = dateVal ? deriveMonth(dateVal) : "";
+    });
+    // Modal – Mentés (ÚJ tétel / ÚJ törlesztés)
+    document.getElementById("seForm")?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const editingRowId = document.getElementById("seModal").getAttribute("data-edit-id") || "";
+        hideSeModalMessages();
+        const date = (document.getElementById("seDate")?.value || "").trim();
+        const title = (document.getElementById("seTitle")?.value || "").trim();
+        const paidBy = (document.getElementById("sePaidBy")?.value || "").trim();
+        const notes = (document.getElementById("seNotes")?.value || "").trim();
+        // Fontos: parseHuNumber kezeli a "2 000" és "2,5" formátumot is
+        const amount = Math.abs(parseHuNumber(document.getElementById("seAmount")?.value));
+        const zRaw = document.getElementById("seZsoltiAmount")?.value;
+        const dRaw = document.getElementById("seDoriAmount")?.value;
+        const zsoltiAmount = seModalIsSettlement ? 0 : Math.abs(parseHuNumber(zRaw || 0) || 0);
+        const doriAmount = seModalIsSettlement ? 0 : Math.abs(parseHuNumber(dRaw || 0) || 0);
+        if (!date || !title || !paidBy || isNaN(amount)) {
+            document.getElementById("seErrorMsg").style.display = "block";
+            alert("Dátum, megnevezés, fizette és összeg kötelező (összeg szám legyen).");
+            return;
+        }
+        const month = deriveMonth(date);
+        try {
+            const payload = {
+                month,
+                date,
+                title,
+                amount,
+                paid_by: paidBy,
+                Zsolti_amount: zsoltiAmount,
+                Dori_amount: doriAmount,
+                notes
+            };
+            if (seModalIsSettlement) payload.settlement = "x";
+            const editId = document.getElementById("seForm")?.getAttribute("data-edit-id");
+            let response;
+            if (editId) {
+                response = await api.updateSharedExpenseRow({ ...payload, id: editId });
+            } else {
+                response = await api.addSharedExpense(payload);
+            }
+            if (!response || !response.success) {
+                console.error("addSharedExpense FAILED:", response);
+                document.getElementById("seErrorMsg").style.display = "block";
+                alert(response?.error || response?.message || "Hiba történt a mentéskor.");
+                return;
+            }
+            document.getElementById("seSuccessMsg").style.display = "block";
+            closeSeModal();
+            await loadSharedExpenses();
+        } catch (err) {
+            console.error("Shared Expense modal save error:", err);
+            document.getElementById("seErrorMsg").style.display = "block";
+            alert("Váratlan hiba történt a mentés során.");
+        }
+    });

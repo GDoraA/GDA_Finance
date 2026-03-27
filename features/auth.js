@@ -43,13 +43,18 @@
         showLogin("");
     });
 
-    const ensureAuth = async () => {
-        const token = localStorage.getItem("gda_auth_token") || "";
-        if (!token) return false;
+const ensureAuth = async () => {
+    const token = localStorage.getItem("gda_auth_token") || "";
+    if (!token) return false;
 
+    try {
         const resp = await api.whoami();
         return !!(resp && resp.success);
-    };
+    } catch (err) {
+        console.error("whoami ellenőrzés sikertelen:", err);
+        return false;
+    }
+};
 
 
 

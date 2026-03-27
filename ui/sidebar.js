@@ -176,10 +176,15 @@ function applySidebarPermissions() {
     // Oldal-gombok: ha nincs jog, ne jelenjenek meg
     // Fontos: az oldal akkor is legyen elérhető/látható, ha bármely tx_* / se_* funkcióhoz van jog,
     // nem csak akkor, ha konkrétan tx_read / se_read van kiosztva.
-    const hasAny = (prefix) =>
-        Object.keys(myPermissions || {}).some((k) => k.startsWith(prefix) && hasAccess(k));
-    const canSeeTxPage = hasAny("tx_");
-    const canSeeSePage = hasAny("se_");
+const hasAny = (prefix) =>
+    Object.keys(myPermissions || {}).some((k) => k.startsWith(prefix) && hasAccess(k));
+
+// Transactions oldal: a backend getTransactions hívása tx_read jogosultságot vár,
+// ezért az oldalmenü láthatóságát is ehhez igazítjuk.
+const canSeeTxPage = hasAccess("tx_read");
+
+// Shared Expenses oldal marad prefix-alapú ennél a lépésnél.
+const canSeeSePage = hasAny("se_");
     // Oldalmenü – oldal szintű jogosultságok
     if (!canSeeTxPage && txBtn) txBtn.style.display = "none";
     if (!canSeeSePage && seBtn) seBtn.style.display = "none";

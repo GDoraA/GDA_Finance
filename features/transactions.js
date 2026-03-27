@@ -6,9 +6,22 @@ let filteredTransactions = [];
 let transactionsCache = null;
 async function ensureTransactionsCache(forceRefresh = false) {
     if (!forceRefresh && Array.isArray(transactionsCache)) return transactionsCache;
+
     try {
         const r = await api.getTransactions();
-        transactionsCache = (r && r.success && Array.isArray(r.data)) ? r.data : [];
+
+        if (!r || r.success !== true) {
+            const errorMessage =
+                (r && (r.error || r.message)) ||
+                "Ismeretlen API hiba a tranzakciók lekérésekor.";
+            throw new Error(errorMessage);
+        }
+
+        if (!Array.isArray(r.data)) {
+            throw new Error("A tranzakciók válaszformátuma hibás: a data nem tömb.");
+        }
+
+        transactionsCache = r.data;
         bankToTxMap.clear();
 
         transactionsCache.forEach(t => {
@@ -16,27 +29,50 @@ async function ensureTransactionsCache(forceRefresh = false) {
                 .split(",")
                 .map(s => s.trim())
                 .filter(Boolean);
+
             bankIds.forEach(id => {
                 if (!bankToTxMap.has(id)) bankToTxMap.set(id, []);
                 bankToTxMap.get(id).push(t.id);
             });
         });
-    } catch (_) {
-        transactionsCache = [];
+
+        return transactionsCache;
+    } catch (err) {
+        transactionsCache = null;
+        bankToTxMap.clear();
+
+        return {
+            success: false,
+            error: (err && err.message) ? err.message : "Ismeretlen hiba a tranzakciók betöltésekor."
+        };
     }
-    return transactionsCache;
 }
-async function ensureBankTxCache() {
-    if (bankTxCache) return bankTxCache;
+async function ensureBankTxCache(forceRefresh = false) {
+    if (!forceRefresh && Array.isArray(bankTxCache)) return bankTxCache;
     if (bankTxCachePromise) return bankTxCachePromise;
 
     bankTxCachePromise = (async () => {
-        const resp = await api.getBankTransactions();
-        const items = (resp && resp.success && Array.isArray(resp.data)) ? resp.data : [];
-        bankTxCache = items;
-        bankTxCachePromise = null;
-        return bankTxCache;
+        try {
+            const resp = await api.getBankTransactions();
+
+            if (!resp || resp.success !== true) {
+                throw new Error(
+                    (resp && (resp.error || resp.message)) ||
+                    "Nem sikerült betölteni a banki tranzakciókat."
+                );
+            }
+
+            if (!Array.isArray(resp.data)) {
+                throw new Error("A banki tranzakciók válaszformátuma hibás: a data nem tömb.");
+            }
+
+            bankTxCache = resp.data;
+            return bankTxCache;
+        } finally {
+            bankTxCachePromise = null;
+        }
     })();
+
     return bankTxCachePromise;
 }
 function getMatchingBankItems(tx, bankItems) {
@@ -61,16 +97,24 @@ async function loadTransactions(forceRefresh = false) {
             th.classList.add(txSortDirection === "asc" ? "sort-asc" : "sort-desc");
         }
     });
-    const tbody = document.getElementById("transactionsBody");
-    const data = await ensureTransactionsCache(forceRefresh);
-    if (!Array.isArray(data)) {
-        console.error("Nem sikerült betölteni a tranzakciókat.");
-        if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="9">Nincs jogosultság vagy hiba: ismeretlen</td></tr>`;
-        }
-        return;
+const tbody = document.getElementById("transactionsBody");
+const data = await ensureTransactionsCache(forceRefresh);
+
+if (!Array.isArray(data)) {
+    const errorMessage =
+        data && data.error
+            ? data.error
+            : "Ismeretlen hiba a tranzakciók betöltésekor.";
+
+    console.error("Nem sikerült betölteni a tranzakciókat:", errorMessage);
+
+    if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="9">Hiba a tranzakciók betöltésekor: ${escapeHtml(errorMessage)}</td></tr>`;
     }
-    transactionsCache = Array.isArray(data) ? data : [];
+    return;
+}
+
+transactionsCache = data;
     // --- Szűrőmezők ---
     const fMonth = document.getElementById("filterMonth").value.trim();
     const fDate = document.getElementById("filterDate").value.trim();

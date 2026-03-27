@@ -4,17 +4,56 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxlK5KQ-2M_ORyYXMKRBcLb
 function jsonp(action, params = {}) {
     return new Promise((resolve, reject) => {
         const callbackName = "cb_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
-        window[callbackName] = function (response) {
-            delete window[callbackName];
-            script.remove();
-            resolve(response);
-        };
         const token = localStorage.getItem("gda_auth_token") || "";
         const urlParams = new URLSearchParams({ action, callback: callbackName, token, _: Date.now() });
+
         Object.entries(params).forEach(([k, v]) => urlParams.set(k, v));
+
         const script = document.createElement("script");
         script.src = `${API_URL}?${urlParams.toString()}`;
-        script.onerror = () => reject(new Error("JSONP hiba (script betöltés sikertelen)"));
+
+let settled = false;
+
+const cleanup = ({ keepNoopCallback = false } = {}) => {
+    if (timeoutId) clearTimeout(timeoutId);
+    try { script.remove(); } catch (_) {}
+
+    if (keepNoopCallback) {
+        window[callbackName] = function () { };
+    } else {
+        try { delete window[callbackName]; } catch (_) {
+            window[callbackName] = undefined;
+        }
+    }
+};
+
+window[callbackName] = function (response) {
+    if (settled) return;
+    settled = true;
+    cleanup();
+    resolve(response);
+};
+
+script.onerror = () => {
+    if (settled) return;
+    settled = true;
+    cleanup();
+    reject(new Error("JSONP hiba (script betöltés sikertelen)"));
+};
+
+const timeoutId = setTimeout(() => {
+    if (settled) return;
+    settled = true;
+    cleanup({ keepNoopCallback: true });
+    reject(new Error("JSONP timeout: a szerver nem válaszolt időben."));
+
+    setTimeout(() => {
+        try { delete window[callbackName]; } catch (_) {
+            window[callbackName] = undefined;
+        }
+    }, 60000);
+}, 30000);
+
         document.body.appendChild(script);
     });
 }

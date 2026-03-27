@@ -7,7 +7,14 @@
 
     <link rel="stylesheet" href="styles.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="manifest" href="./manifest.json">
+    <script>
+    if (/^https?:$/i.test(window.location.protocol)) {
+        const manifestLink = document.createElement("link");
+        manifestLink.rel = "manifest";
+        manifestLink.href = "./manifest.json";
+        document.head.appendChild(manifestLink);
+    }
+</script>
 </head>
 
 <body class="boot">
@@ -540,6 +547,7 @@
             </div>
         </section>
 <script src="utils/helpers.js"></script>
+<script src="utils/pagination.js"></script>
 <script src="scripts/api.js"></script>
 <script src="ui/sidebar.js"></script>
 <script src="ui/modals.js"></script>
@@ -552,13 +560,15 @@
 
 <script src="ui/page-bootstrap.js"></script>
 <script src="app.js"></script>
-        <script>
-            if ("serviceWorker" in navigator) {
-                window.addEventListener("load", () => {
-                    navigator.serviceWorker.register("./service-worker.js").catch(() => { });
-                });
-            }
-        </script>
+<script>
+    if ("serviceWorker" in navigator && /^https?:$/i.test(window.location.protocol)) {
+        window.addEventListener("load", () => {
+            navigator.serviceWorker.register("./service-worker.js").catch((err) => {
+                console.error("Service worker regisztráció sikertelen:", err);
+            });
+        });
+    }
+</script>
     </div> <!-- content-wrapper -->
 </body>
 

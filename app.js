@@ -12,7 +12,10 @@ async function loadDropdownValues() {
     try {
         const result = await api.getValueSets();
         if (!result || !result.success) {
-            console.error("Nem sikerült betölteni az értékkészleteket:", result?.error || result?.message || "ismeretlen hiba");
+            console.warn(
+                "getValueSets unsuccessful response:",
+                result?.error || result?.message || result
+            );
             return;
         }
 

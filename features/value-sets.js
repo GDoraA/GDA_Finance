@@ -57,11 +57,33 @@ async function loadValueSetsPage() {
     const categorySelect = document.getElementById("valueSetCategorySelect");
     const resultCount = document.getElementById("valueSetResultCount");
     if (!categorySelect) return;
-    const res = await api.getValueSetsDetailed();
-    if (!res || !res.success) {
-        if (resultCount) resultCount.textContent = "Nem sikerült betölteni az értékkészleteket.";
-        return;
-    }
+let res;
+
+try {
+    res = await api.getValueSetsDetailed();
+} catch (err) {
+    console.error("getValueSetsDetailed failed:", err);
+
+    resultCount.textContent = "Hálózati hiba történt";
+    
+    // UI reset (sync-safe fallback)
+    if (tableBody) tableBody.innerHTML = "";
+    if (valueSetSelect) valueSetSelect.innerHTML = "";
+
+    return;
+}
+
+if (!res || !res.success) {
+    console.warn("getValueSetsDetailed unsuccessful response:", res);
+
+    resultCount.textContent = "Hiba a betöltés során";
+
+    // UI reset (inkonzisztencia elkerülése)
+    if (tableBody) tableBody.innerHTML = "";
+    if (valueSetSelect) valueSetSelect.innerHTML = "";
+
+    return;
+}
     const categories = Array.isArray(res.categories) ? res.categories : [];
     const itemsByCategory = res.itemsByCategory || {};
     if (!categorySelect.dataset.initialized) {

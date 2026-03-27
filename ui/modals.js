@@ -188,8 +188,18 @@ async function openTransactionEditor(tx) {
             if (!Array.isArray(transactionsCache)) {
                 try {
                     const r = await api.getTransactions();
-                    transactionsCache = (r && r.success && Array.isArray(r.data)) ? r.data : [];
-                } catch (_) {
+
+                    if (!r || !r.success) {
+                        console.warn(
+                            "getTransactions unsuccessful response in openTransactionEditor:",
+                            r?.error || r?.message || r
+                        );
+                        transactionsCache = [];
+                    } else {
+                        transactionsCache = Array.isArray(r.data) ? r.data : [];
+                    }
+                } catch (err) {
+                    console.error("getTransactions failed in openTransactionEditor:", err);
                     transactionsCache = [];
                 }
             }
@@ -222,24 +232,39 @@ async function openTransactionEditor(tx) {
     overlay.classList.add("open");
 }
 // Tranzakció törlése modalból
-document.getElementById("txDeleteBtn")?.addEventListener("click", async () => {
+document.getElementById("txDeleteBtn")?.addEventListener("click", async (event) => {
+    const deleteBtn = event.currentTarget;
     const form = document.getElementById("txForm");
     const txId = form?.getAttribute("data-edit-id");
+
     if (!txId) return;
+    if (deleteBtn?.disabled) return;
+
     const ok = confirm("Biztosan törlöd ezt a tranzakciót? A kapcsolódó tételek is törlődhetnek.");
     if (!ok) return;
+
+    if (deleteBtn) deleteBtn.disabled = true;
+
     try {
         const resp = await api.deleteTransaction(txId);
+
         if (!resp || !resp.success) {
+            console.warn(
+                "deleteTransaction unsuccessful response:",
+                resp?.error || resp?.message || resp
+            );
             alert(resp?.error || resp?.message || "A törlés nem sikerült.");
             return;
         }
+
         document.getElementById("txModal")?.classList.remove("open");
         document.getElementById("modalOverlay")?.classList.remove("open");
         await loadTransactions(true);
     } catch (err) {
         console.error("deleteTransaction error:", err);
         alert("Váratlan hiba történt a törlés során.");
+    } finally {
+        if (deleteBtn) deleteBtn.disabled = false;
     }
 });
 // Tranzakció másolása (date + month nélkül)

@@ -97,24 +97,24 @@ async function loadTransactions(forceRefresh = false) {
             th.classList.add(txSortDirection === "asc" ? "sort-asc" : "sort-desc");
         }
     });
-const tbody = document.getElementById("transactionsBody");
-const data = await ensureTransactionsCache(forceRefresh);
+    const tbody = document.getElementById("transactionsBody");
+    const data = await ensureTransactionsCache(forceRefresh);
 
-if (!Array.isArray(data)) {
-    const errorMessage =
-        data && data.error
-            ? data.error
-            : "Ismeretlen hiba a tranzakciók betöltésekor.";
+    if (!Array.isArray(data)) {
+        const errorMessage =
+            data && data.error
+                ? data.error
+                : "Ismeretlen hiba a tranzakciók betöltésekor.";
 
-    console.error("Nem sikerült betölteni a tranzakciókat:", errorMessage);
+        console.error("Nem sikerült betölteni a tranzakciókat:", errorMessage);
 
-    if (tbody) {
-        tbody.innerHTML = `<tr><td colspan="9">Hiba a tranzakciók betöltésekor: ${escapeHtml(errorMessage)}</td></tr>`;
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="9">Hiba a tranzakciók betöltésekor: ${escapeHtml(errorMessage)}</td></tr>`;
+        }
+        return;
     }
-    return;
-}
 
-transactionsCache = data;
+    transactionsCache = data;
     // --- Szűrőmezők ---
     const fMonth = document.getElementById("filterMonth").value.trim();
     const fDate = document.getElementById("filterDate").value.trim();
@@ -558,8 +558,13 @@ document.getElementById("txForm")?.addEventListener("submit", async e => {
     // formData.date változatlanul marad
     const s = document.getElementById("successMsg");
     const er = document.getElementById("errorMsg");
+    const submitBtn = e.target.querySelector("button[type='submit']");
+    if (submitBtn?.disabled) return;
+
     s.style.display = "none";
     er.style.display = "none";
+
+    if (submitBtn) submitBtn.disabled = true;
     // Ha van edit ID, akkor módosítunk – ha nincs, új rekord jön létre
     const editId = e.target.getAttribute("data-edit-id");
     console.log("EDIT MODE?", { editId });
@@ -579,34 +584,43 @@ document.getElementById("txForm")?.addEventListener("submit", async e => {
             result = await api.addTransaction(formData);
         }
         console.log("API RESULT:", result);
-        if (result && result.success) {
-            s.style.display = "block";
-            setTimeout(() => { s.style.display = "none"; }, 1500);
-            // form ürítése
-            e.target.reset();
-            // szerkesztési mód kikapcsolása
-            e.target.removeAttribute("data-edit-id");
-            // datalist frissítése
-            await loadDropdownValues();
-            // modal bezárása
-            modal.classList.remove("open");
-            overlay.classList.remove("open");
-            // lista frissítése
-            await loadTransactions(true);
-            await loadSharedExpenses();
-        } else {
+
+        if (!result || !result.success) {
+            console.warn(
+                "Transaction save unsuccessful response:",
+                result?.error || result?.message || result
+            );
+
+            er.textContent = result?.error || result?.message || "A mentés nem sikerült.";
             er.style.display = "block";
-            console.error("SAVE FAILED:", result);
-            // Ha van hibaüzenet a backendből, azt is írjuk ki
-            if (result?.error) {
-                er.textContent = result.error;
-            } else {
-                er.textContent = "A mentés sikertelen (ismeretlen hiba).";
-            }
+            return;
         }
+
+        s.style.display = "block";
+        setTimeout(() => { s.style.display = "none"; }, 1500);
+
+        // form ürítése
+        e.target.reset();
+
+        // szerkesztési mód kikapcsolása
+        e.target.removeAttribute("data-edit-id");
+
+        // datalist frissítése
+        await loadDropdownValues();
+
+        // modal bezárása
+        modal.classList.remove("open");
+        overlay.classList.remove("open");
+
+        // lista frissítése
+        await loadTransactions(true);
+        await loadSharedExpenses();
     } catch (err) {
+        er.textContent = "Váratlan hiba történt a mentés során.";
         er.style.display = "block";
-        console.error(err);
+        console.error("Transaction save error:", err);
+    } finally {
+        if (submitBtn) submitBtn.disabled = false;
     }
 });
 // ===== BULK MATCH MODAL =====

@@ -558,6 +558,8 @@ bankFileInput?.addEventListener("change", async (e) => {
     setBankStatus(`Beolvasva: ${bankImportItems.length} sor. Mentéshez kattints az Import gombra.`);
 });
 bankUploadBtn?.addEventListener("click", async () => {
+    if (bankUploadBtn?.disabled) return;
+
     try {
         if (!bankImportSelectedFile) {
             setBankStatus("Nincs kiválasztott fájl.");
@@ -593,9 +595,12 @@ bankUploadBtn?.addEventListener("click", async () => {
 
             try {
                 const resp = await api.addBankTransactions(payloads);
-
+                // backend itt tipikusan {success:true, ok:X, fail:Y, matched:Z, ...}
                 if (!resp || !resp.success) {
-                    console.error("Bank batch mentés sikertelen:", resp);
+                    console.warn(
+                        "addBankTransactions unsuccessful response:",
+                        resp?.error || resp?.message || resp
+                    );
                     fail += payloads.length;
                     return;
                 }

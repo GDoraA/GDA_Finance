@@ -364,22 +364,34 @@ const renderBankPreview = (items) => {
 async function loadBankTransactions() {
     try {
         await ensureOwnAccountsCache();
+
         if (!api?.getBankTransactions) {
             setBankStatus("Hiba: api.getBankTransactions nincs definiálva (api.js).");
             return;
         }
+
         setBankStatus("Banki adatok betöltése…");
-        const res = await api.getBankTransactions();
-        if (!res || !res.success) {
-            console.error("Nem sikerült betölteni a banki tranzakciókat.", res);
-            setBankStatus("Nem sikerült betölteni a banki adatokat (API).");
+
+        let res;
+        try {
+            res = await api.getBankTransactions();
+        } catch (err) {
+            console.error("Banki tranzakciók betöltése sikertelen:", err);
+            setBankStatus("Nem sikerült kapcsolódni a szerverhez a banki adatok betöltésekor.");
             return;
         }
+
+        if (!res || !res.success) {
+            console.error("Nem sikerült betölteni a banki tranzakciókat.", res);
+            setBankStatus(`Nem sikerült betölteni a banki adatokat: ${res?.error || res?.message || "ismeretlen hiba"}`);
+            return;
+        }
+
         bankImportItems = Array.isArray(res.data) ? res.data : [];
         renderBankPreview(bankImportItems);
         setBankStatus(`Betöltve: ${bankImportItems.length} sor.`);
     } catch (err) {
-        console.error(err);
+        console.error("Hiba a banki adatok betöltése során:", err);
         setBankStatus("Hiba a banki adatok betöltése során.");
     }
 }
@@ -503,28 +515,45 @@ bankPickBtn?.addEventListener("click", () => bankFileInput?.click());
 bankFileInput?.addEventListener("change", async (e) => {
     bankImportItems = [];
     bankImportSelectedFile = null;
+
     if (bankUploadBtn) bankUploadBtn.disabled = true;
     setBankStatus("");
+
     const file = e.target.files?.[0];
     if (!file) return;
+
     bankImportSelectedFile = file;
+
     // NE töröld le a táblát! A képernyőn maradjon a sheetből betöltött lista.
     setBankStatus(`Kiválasztva: ${file.name}`);
     setBankStatus("Feldolgozás…");
-    const items = await parseBankImportFile(file);
+
+    let items;
+    try {
+        items = await parseBankImportFile(file);
+    } catch (err) {
+        console.error("Importfájl feldolgozása sikertelen:", err);
+        if (bankUploadBtn) bankUploadBtn.disabled = true;
+        setBankStatus("Nem sikerült feldolgozni a kiválasztott fájlt.");
+        return;
+    }
+
     // import batch azonosító generálása betöltéskor (1 fájl = 1 batch)
     bankImportBatchId = `BIMP-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+
     // bankImportItems: ez megy majd mentésre, de NEM rendereljük ki preview-ként
     bankImportItems = (items || []).map(it => ({
         ...it,
         source_file: (file && file.name) ? file.name : (it?.source_file || ""),
         import_batch_id: bankImportBatchId
     }));
+
     if (!bankImportItems || bankImportItems.length === 0) {
         if (bankUploadBtn) bankUploadBtn.disabled = true;
         setBankStatus("Nincs importálható adat (üres vagy hibás struktúra).");
         return;
     }
+
     if (bankUploadBtn) bankUploadBtn.disabled = false;
     setBankStatus(`Beolvasva: ${bankImportItems.length} sor. Mentéshez kattints az Import gombra.`);
 });
@@ -534,34 +563,43 @@ bankUploadBtn?.addEventListener("click", async () => {
             setBankStatus("Nincs kiválasztott fájl.");
             return;
         }
+
         if (!bankImportBatchId) {
             setBankStatus("Hiányzik az import batch azonosító (import_batch_id). Válaszd ki újra a fájlt.");
             return;
         }
+
         if (!bankImportItems || bankImportItems.length === 0) {
             setBankStatus("Nincs importálható sor.");
             return;
         }
+
         if (!api?.addBankTransactions) {
             setBankStatus("Hiba: api.addBankTransactions nincs definiálva (api.js).");
             return;
         }
+
         setBankStatus("Mentés folyamatban…");
         bankUploadBtn.disabled = true;
+
         let ok = 0;
         let fail = 0;
         let matched = 0;
         let unmatched = 0;
         const BANK_BATCH_SIZE = 50;
+
         async function sendBatchWithSplit(payloads) {
             if (!payloads || payloads.length === 0) return;
+
             try {
                 const resp = await api.addBankTransactions(payloads);
-                // backend itt tipikusan {success:true, ok:X, fail:Y, matched:Z, ...}
+
                 if (!resp || !resp.success) {
+                    console.error("Bank batch mentés sikertelen:", resp);
                     fail += payloads.length;
                     return;
                 }
+
                 ok += Number(resp.ok ?? 0);
                 fail += Number(resp.fail ?? 0);
                 matched += Number(resp.matched ?? 0);
@@ -570,28 +608,35 @@ bankUploadBtn?.addEventListener("click", async () => {
             } catch (err) {
                 const msg = (err && err.message) ? err.message : String(err || "Ismeretlen hiba");
                 const isJsonp = String(msg).toLowerCase().includes("jsonp");
-                // ha nem JSONP hiba vagy már 1 elem is hibázik, akkor mind fail
+
                 if (!isJsonp || payloads.length <= 1) {
+                    console.error("Bank batch mentés hiba:", err);
                     fail += payloads.length;
                     return;
                 }
-                // felezés és újrapróba
+
                 const mid = Math.ceil(payloads.length / 2);
                 await sendBatchWithSplit(payloads.slice(0, mid));
                 await sendBatchWithSplit(payloads.slice(mid));
             }
         }
+
         for (let i = 0; i < bankImportItems.length; i += BANK_BATCH_SIZE) {
             const batch = bankImportItems.slice(i, i + BANK_BATCH_SIZE);
             await sendBatchWithSplit(batch);
-            setBankStatus(`Mentés fut… OK: ${ok}, Hiba: ${fail} (batch: ${Math.min(i + BANK_BATCH_SIZE, bankImportItems.length)}/${bankImportItems.length})`);
+
+            setBankStatus(
+                `Mentés fut… OK: ${ok}, Hiba: ${fail} (batch: ${Math.min(i + BANK_BATCH_SIZE, bankImportItems.length)}/${bankImportItems.length})`
+            );
         }
+
         setBankStatus(`Mentve. OK: ${ok}, Hiba: ${fail}, Párosítva: ${matched}, Nem párosítható: ${unmatched}`);
         await loadBankTransactions();
     } catch (err) {
-        console.error(err);
+        console.error("Hiba a banki import mentése során:", err);
         setBankStatus("Hiba a mentés során.");
-        bankUploadBtn.disabled = false;
+    } finally {
+        if (bankUploadBtn) bankUploadBtn.disabled = false;
     }
 });
 // =========================

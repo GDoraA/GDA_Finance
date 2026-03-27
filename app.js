@@ -9,22 +9,33 @@ document.addEventListener("DOMContentLoaded", () => {
 // DATALIST ÉRTÉKEK BETÖLTÉSE
 // ======================================================
 async function loadDropdownValues() {
-    const result = await api.getValueSets();
-    if (!result || !result.success) return;
-    const sets = result.sets;
-    // Modal datalist-ek
-    fillDatalist("titlesList", sets.titles);
-    fillDatalist("sharedTitlesList", sets.titles);
-    fillDatalist("categoriesList", sets.categories);
-    fillDatalist("paymentTypesList", sets.payments);
-    fillDatalist("transactionTypesList", sets.types);
-    // Új értékkészlet a fizető felekhez
-    fillDatalist("paidByList", sets.paid_by || []);
-    // Szűrő datalist-ek
-    fillDatalist("filterTitlesList", sets.titles);
-    fillDatalist("filterCategoriesList", sets.categories);
-    fillDatalist("filterPaymentsList", sets.payments);
-    fillDatalist("filterTypesList", sets.types);
+    try {
+        const result = await api.getValueSets();
+        if (!result || !result.success) {
+            console.error("Nem sikerült betölteni az értékkészleteket:", result?.error || result?.message || "ismeretlen hiba");
+            return;
+        }
+
+        const sets = result.sets || {};
+
+        // Modal datalist-ek
+        fillDatalist("titlesList", sets.titles || []);
+        fillDatalist("sharedTitlesList", sets.titles || []);
+        fillDatalist("categoriesList", sets.categories || []);
+        fillDatalist("paymentTypesList", sets.payments || []);
+        fillDatalist("transactionTypesList", sets.types || []);
+
+        // Új értékkészlet a fizető felekhez
+        fillDatalist("paidByList", sets.paid_by || []);
+
+        // Szűrő datalist-ek
+        fillDatalist("filterTitlesList", sets.titles || []);
+        fillDatalist("filterCategoriesList", sets.categories || []);
+        fillDatalist("filterPaymentsList", sets.payments || []);
+        fillDatalist("filterTypesList", sets.types || []);
+    } catch (err) {
+        console.error("Értékkészletek betöltése sikertelen:", err);
+    }
 }
 // ======================================================
 // LISTÁZÁS & SZŰRÉS

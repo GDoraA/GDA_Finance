@@ -3,10 +3,18 @@ async function loadAdminUsers() {
     if (!tbody) return;
 
     tbody.innerHTML = "";
-    const resp = await api.getUsers();
+
+    let resp;
+    try {
+        resp = await api.getUsers();
+    } catch (err) {
+        console.error("Felhasználók betöltése sikertelen:", err);
+        tbody.innerHTML = `<tr><td colspan="4">Hiba a felhasználók betöltésekor.</td></tr>`;
+        return;
+    }
 
     if (!resp || !resp.success) {
-        tbody.innerHTML = `<tr><td colspan="4">Nincs jogosultság vagy hiba: ${resp?.error || "ismeretlen"}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4">Nincs jogosultság vagy hiba: ${escapeHtml(resp?.error || resp?.message || "ismeretlen")}</td></tr>`;
         return;
     }
 
@@ -113,7 +121,6 @@ async function loadAdminPermissions() {
         tbody.appendChild(tr);
     }
 }
-
 document.getElementById("adminUserForm")?.addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -121,20 +128,34 @@ document.getElementById("adminUserForm")?.addEventListener("submit", async (e) =
     const email = document.getElementById("adminUserEmail")?.value?.trim() || "";
 
     const msg = document.getElementById("adminUserMsg");
-    if (msg) { msg.style.display = "none"; msg.className = "msg"; msg.textContent = ""; }
+    if (msg) {
+        msg.style.display = "none";
+        msg.className = "msg";
+        msg.textContent = "";
+    }
 
-    const resp = await api.addUser(name, email);
+    let resp;
+    try {
+        resp = await api.addUser(name, email);
+    } catch (err) {
+        console.error("Felhasználó hozzáadása sikertelen:", err);
+        if (msg) {
+            msg.style.display = "block";
+            msg.className = "msg error";
+            msg.textContent = "Nem sikerült kapcsolódni a szerverhez. Próbáld újra.";
+        }
+        return;
+    }
 
     if (!resp || !resp.success) {
         if (msg) {
             msg.style.display = "block";
             msg.className = "msg error";
-            msg.textContent = resp?.error || "Hiba történt.";
+            msg.textContent = resp?.error || resp?.message || "Hiba történt.";
         }
         return;
     }
 
-    // reset + újratöltés
     document.getElementById("adminUserName").value = "";
     document.getElementById("adminUserEmail").value = "";
 

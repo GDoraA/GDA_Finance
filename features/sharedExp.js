@@ -7,18 +7,41 @@ async function loadSharedExpenses() {
                 th.classList.add(seSortDirection === "asc" ? "sort-asc" : "sort-desc");
             }
         });
-        const result = await api.getSharedExpenses();
-        const valueSetsResponse = await api.getValueSets();
+
+        const tbody = document.getElementById("sharedExpensesBody");
+        if (!tbody) return;
+
+        let result;
+        try {
+            result = await api.getSharedExpenses();
+        } catch (err) {
+            console.error("Megosztott költségek betöltése sikertelen:", err);
+            tbody.innerHTML = `<tr><td colspan="12">Hiba a megosztott költségek betöltésekor.</td></tr>`;
+            return;
+        }
+
+        let valueSetsResponse;
+        try {
+            valueSetsResponse = await api.getValueSets();
+        } catch (err) {
+            console.error("Value setek betöltése sikertelen:", err);
+            tbody.innerHTML = `<tr><td colspan="12">Hiba a segédlisták betöltésekor.</td></tr>`;
+            return;
+        }
+
         if (!result || !result.success) {
             console.error("Nem sikerült betölteni a megosztott költségeket.", result);
+            tbody.innerHTML = `<tr><td colspan="12">Nincs jogosultság vagy hiba: ${escapeHtml(result?.error || result?.message || "ismeretlen")}</td></tr>`;
             return;
         }
+
         if (!valueSetsResponse || !valueSetsResponse.success) {
             console.error("Nem sikerült betölteni a value seteket.", valueSetsResponse);
+            tbody.innerHTML = `<tr><td colspan="12">Nem sikerült betölteni a segédlistákat.</td></tr>`;
             return;
         }
+
         const valueSets = valueSetsResponse.sets || {};
-        const tbody = document.getElementById("sharedExpensesBody");
         tbody.innerHTML = "";
         seRowsById = new Map();
         // ===== DÁTUM SZERINTI RENDEZÉS (ÚJ FELÜL) =====
@@ -416,27 +439,35 @@ document.getElementById("seForm")?.addEventListener("submit", async (e) => {
             Dori_amount: doriAmount,
             notes
         };
+
         if (seModalIsSettlement) payload.settlement = "x";
+
         const editId = document.getElementById("seForm")?.getAttribute("data-edit-id");
         let response;
-        if (editId) {
-            response = await api.updateSharedExpenseRow({ ...payload, id: editId });
-        } else {
-            response = await api.addSharedExpense(payload);
-        }
-        if (!response || !response.success) {
-            console.error("addSharedExpense FAILED:", response);
-            document.getElementById("seErrorMsg").style.display = "block";
-            alert(response?.error || response?.message || "Hiba történt a mentéskor.");
+
+        try {
+            if (editId) {
+                response = await api.updateSharedExpenseRow({ ...payload, id: editId });
+            } else {
+                response = await api.addSharedExpense(payload);
+            }
+        } catch (err) {
+            console.error("Megosztott tétel mentése sikertelen:", err);
+            alert("Nem sikerült kapcsolódni a szerverhez. Próbáld újra.");
             return;
         }
-        document.getElementById("seSuccessMsg").style.display = "block";
+
+        if (!response || !response.success) {
+            console.error("addSharedExpense FAILED:", response);
+            alert(response?.error || response?.message || "Hiba a mentés során.");
+            return;
+        }
+
         closeSeModal();
         await loadSharedExpenses();
     } catch (err) {
-        console.error("Shared Expense modal save error:", err);
-        document.getElementById("seErrorMsg").style.display = "block";
-        alert("Váratlan hiba történt a mentés során.");
+        console.error("save shared expense error:", err);
+        alert("Váratlan hiba történt mentés közben.");
     }
 });
 // ===== Shared Expenses – Row click opens modal for edit (no Edit button) =====
@@ -506,14 +537,30 @@ document.getElementById("sharedExpensesBody").addEventListener("change", async (
     if (target.classList.contains("se-paid-by-input")) {
         const value = target.value.trim();
         if (!value) return;
-        await api.updateSharedExpense(rowId, "paid_by", value);
-        // value set frissítés, ha új elem
-        const valueSets = await api.getValueSets();
-        const existing = valueSets.sets.paid_by.map(v => v.toLowerCase());
-        if (!existing.includes(value.toLowerCase())) {
-            await api.addValueToSet("paid_by", value);
+
+        try {
+            const resp = await api.updateSharedExpense(rowId, "paid_by", value);
+            if (!resp || !resp.success) {
+                alert(resp?.error || resp?.message || "Nem sikerült menteni a módosítást.");
+                return;
+            }
+
+            const valueSets = await api.getValueSets();
+            const existing = (valueSets?.sets?.paid_by || []).map(v => String(v).toLowerCase());
+
+            if (!existing.includes(value.toLowerCase())) {
+                const addValueResp = await api.addValueToSet("paid_by", value);
+                if (!addValueResp || !addValueResp.success) {
+                    alert(addValueResp?.error || addValueResp?.message || "Nem sikerült frissíteni a fizető felek listáját.");
+                    return;
+                }
+            }
+
+            await loadSharedExpenses();
+        } catch (err) {
+            console.error("paid_by módosítás sikertelen:", err);
+            alert("Nem sikerült kapcsolódni a szerverhez. Próbáld újra.");
         }
-        await loadSharedExpenses();
         return;
     }
     // 2) Zsolti_amount mező
@@ -689,21 +736,30 @@ async function saveNewSharedExpense() {
     }
     // Hónap minden esetben a dátumból képződik (YYYYMM)
     const month = deriveMonth(date);
-    const response = await api.addSharedExpense({
-        month,
-        date,
-        title,                 // ne legyen fix "Törlesztés"
-        amount,
-        paid_by: paidBy,
-        Zsolti_amount: zsoltiAmount,  // <-- ezt küldjük, ne 0-t
-        Dori_amount: doriAmount,      // <-- ezt küldjük, ne 0-t
-        notes
-    });
+    let response;
+    try {
+        response = await api.addSharedExpense({
+            month,
+            date,
+            title,                 // ne legyen fix "Törlesztés"
+            amount,
+            paid_by: paidBy,
+            Zsolti_amount: zsoltiAmount,
+            Dori_amount: doriAmount,
+            notes
+        });
+    } catch (err) {
+        console.error("Új megosztott költség mentése sikertelen:", err);
+        alert("Nem sikerült kapcsolódni a szerverhez. Próbáld újra.");
+        return;
+    }
+
     if (!response || !response.success) {
         console.error("addSharedExpense FAILED:", response);
         alert(response?.error || response?.message || "Hiba az új megosztott költség mentésekor.");
         return;
     }
+
     // inline sor eltávolítása és lista frissítése
     tr.remove();
     await loadSharedExpenses();
@@ -775,22 +831,31 @@ async function saveInlineSettlement() {
     }
     const month = deriveMonth(date);
     // Settlement jelző + megosztott mezők nullázása
-    const response = await api.addSharedExpense({
-        month,
-        date,
-        title: title || "Törlesztés",
-        amount,
-        paid_by: paidBy,
-        Zsolti_amount: 0,
-        Dori_amount: 0,
-        settlement: "x",   // <-- ettől lesz speciális számítás a backendben
-        notes
-    });
-    if (!response || !response.success) {
-        console.error("addSharedExpense (settlement) FAILED:", response);
-        alert(response?.error || response?.message || "Hiba történt a törlesztés mentésekor.");
+    let response;
+    try {
+        response = await api.addSharedExpense({
+            month,
+            date,
+            title: title || "Törlesztés",
+            amount,
+            paid_by: paidBy,
+            Zsolti_amount: 0,
+            Dori_amount: 0,
+            settlement: "x",
+            notes
+        });
+    } catch (err) {
+        console.error("Törlesztés mentése sikertelen:", err);
+        alert("Nem sikerült kapcsolódni a szerverhez. Próbáld újra.");
         return;
     }
+
+    if (!response || !response.success) {
+        console.error("addSharedExpense (settlement) FAILED:", response);
+        alert(response?.error || response?.message || "Hiba a törlesztés mentésekor.");
+        return;
+    }
+
     tr.remove();
     await loadSharedExpenses();
 }

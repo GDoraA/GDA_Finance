@@ -120,25 +120,6 @@ function getUserAccess_(email, function_key) {
   return "none";
 }
 
-function requirePermission_(auth, function_key, level) {
-  // level: "read" | "write"
-  const need = String(level || "").trim().toLowerCase();
-  const fk = String(function_key || "").trim();
-  if (!fk) throw new Error("Hiányzó function_key.");
-
-  // Admin mindent vihet (megtartjuk a jelenlegi admin logikát)
-  try { requireAdmin_(auth); return; } catch (_) { }
-
-  const email = (auth && auth.email) ? String(auth.email).trim().toLowerCase() : "";
-  const acc = getUserAccess_(email, fk);
-
-  const rank = { none: 0, read: 1, write: 2 };
-  if ((rank[acc] || 0) < (rank[need] || 0)) {
-    throw new Error("Nincs jogosultság (" + fk + ":" + need + ").");
-  }
-}
-
-
 function createSessionToken_(user) {
   const token = Utilities.getUuid();
   const sess = { id: user.id, name: user.name, email: user.email };

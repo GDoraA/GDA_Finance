@@ -508,37 +508,6 @@ function setPermission_(email, function_key, access) {
   sheet.appendRow([em, fk, acc]);
   return { success: true, created: true };
 }
-function getUserAccess_(email, function_key) {
-  const sheet = SpreadsheetApp.getActive().getSheetByName("Permissions");
-  if (!sheet) return "none";
-
-  const em = String(email || "").trim().toLowerCase();
-  const fk = String(function_key || "").trim().toLowerCase();
-  if (!em || !fk) return "none";
-
-  const data = sheet.getDataRange().getValues();
-  if (data.length < 2) return "none";
-
-  const header = (data[0] || []).map(h => String(h || "").trim());
-  const col = (name) => header.indexOf(name);
-
-  const cEmail = col("email");
-  const cKey = col("function_key");
-  const cAcc = col("access");
-  if (cEmail === -1 || cKey === -1 || cAcc === -1) return "none";
-
-  for (let i = 1; i < data.length; i++) {
-    const row = data[i];
-    const rowEmail = String(row[cEmail] || "").trim().toLowerCase();
-    const rowKey = String(row[cKey] || "").trim();
-    if (rowEmail === em && rowKey === fk) {
-      const acc = String(row[cAcc] || "").trim().toLowerCase();
-      return ["none", "read", "write"].includes(acc) ? acc : "none";
-    }
-  }
-  return "none";
-}
-
 function requirePermission_(auth, function_key, level) {
   // level: "read" | "write"
   const need = String(level || "").trim().toLowerCase();
@@ -622,11 +591,12 @@ function doGet(e) {
       requirePermission_(auth, "tx_read", "read");
       result = getTransactions_(p);
 
-    } else if (action === "getValueSets") {
-      result = getValueSets_();
+} else if (action === "getValueSets") {
+  result = getValueSets_();
 
-    } else if (action === "getValueSetsDetailed") {
-      result = getValueSetsDetailed_();
+} else if (action === "getValueSetsDetailed") {
+  requirePermission_(auth, "value_sets_read", "read");
+  result = getValueSetsDetailed_();
 
     } else if (action === "updateTransaction") {
       const tx = {
@@ -677,8 +647,9 @@ function doGet(e) {
         }
       }
       result = bulkMatchTransactions_(items);
-    } else if (action === "addValueToSet") {
-      result = addValueToSet_(p);
+} else if (action === "addValueToSet") {
+  requirePermission_(auth, "value_sets_write", "write");
+  result = addValueToSet_(p);
 
     } else if (action === "getSharedExpenses") {
       requirePermission_(auth, "se_read", "read");

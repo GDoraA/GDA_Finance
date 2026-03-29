@@ -54,8 +54,9 @@ function renderValueSetsTable(list) {
     }
 }
 async function loadValueSetsPage() {
-    const categorySelect = document.getElementById("valueSetCategorySelect");
-    const resultCount = document.getElementById("valueSetResultCount");
+const categorySelect = document.getElementById("valueSetCategorySelect");
+const resultCount = document.getElementById("valueSetResultCount");
+const tableBody = document.querySelector("#valueSetsTable tbody");
     if (!categorySelect) return;
 let res;
 
@@ -64,11 +65,10 @@ try {
 } catch (err) {
     console.error("getValueSetsDetailed failed:", err);
 
-    resultCount.textContent = "Hálózati hiba történt";
-    
-    // UI reset (sync-safe fallback)
-    if (tableBody) tableBody.innerHTML = "";
-    if (valueSetSelect) valueSetSelect.innerHTML = "";
+if (resultCount) resultCount.textContent = "Hálózati hiba történt";
+
+// UI reset (sync-safe fallback)
+if (tableBody) tableBody.innerHTML = "";
 
     return;
 }
@@ -76,11 +76,10 @@ try {
 if (!res || !res.success) {
     console.warn("getValueSetsDetailed unsuccessful response:", res);
 
-    resultCount.textContent = "Hiba a betöltés során";
+if (resultCount) resultCount.textContent = "Hiba a betöltés során";
 
-    // UI reset (inkonzisztencia elkerülése)
-    if (tableBody) tableBody.innerHTML = "";
-    if (valueSetSelect) valueSetSelect.innerHTML = "";
+// UI reset
+if (tableBody) tableBody.innerHTML = "";
 
     return;
 }

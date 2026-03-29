@@ -1,9 +1,17 @@
-
 let bankTxCache = null;
 let bankTxCachePromise = null;
 let bankToTxMap = new Map();
 let filteredTransactions = [];
 let transactionsCache = null;
+
+window.transactionsPageBridge = window.transactionsPageBridge || {
+    resetPage() {
+        txCurrentPage = 1;
+    },
+    load(forceRefresh = false) {
+        return loadTransactions(forceRefresh);
+    }
+};
 async function ensureTransactionsCache(forceRefresh = false) {
     if (!forceRefresh && Array.isArray(transactionsCache)) return transactionsCache;
 

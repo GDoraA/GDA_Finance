@@ -68,7 +68,26 @@ function showPage(page) {
     const adminBtn = document.getElementById("showAdminUsersBtn");
     const adminFunctionsBtn = document.getElementById("showAdminFunctionsBtn");
     const adminPermissionsBtn = document.getElementById("showAdminPermissionsBtn");
-    // mindent elrejt + active reset (minden ismert oldalra/gombra)
+        const hasAccess = (key) => {
+        const v = myPermissions?.[key];
+        return !!v && String(v).toLowerCase() !== "none";
+    };
+
+    if (page === "value-sets" && !hasAccess("value_sets_read")) {
+        if (hasAccess("tx_read")) {
+            page = "transactions";
+        } else if (hasAccess("se_read")) {
+            page = "shared";
+        } else if (hasAccess("admin_users")) {
+            page = "admin-users";
+        } else if (hasAccess("admin_functions")) {
+            page = "admin-functions";
+        } else if (hasAccess("admin_permissions")) {
+            page = "admin-permissions";
+        } else {
+            page = "shared";
+        }
+    }// mindent elrejt + active reset (minden ismert oldalra/gombra)
     [txPage, sharedPage, bankImportPage, valueSetsPage, adminPage, adminFunctionsPage, adminPermissionsPage]
         .forEach(p => p && p.classList.add("hidden"));
     [txBtn, sharedBtn, bankImportBtn, valueSetsBtn, adminBtn, adminFunctionsBtn, adminPermissionsBtn]

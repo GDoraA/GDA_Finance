@@ -12,10 +12,18 @@
     function initPageBootstrapping() {
         if (pageBootstrappingInitialized) return;
         pageBootstrappingInitialized = true;
-        registerPageEvent("page:transactions", () => {
-            txCurrentPage = 1;
-            typeof loadTransactions === "function" && loadTransactions();
-        });
+registerPageEvent("page:transactions", () => {
+    if (window.transactionsPageBridge) {
+        typeof window.transactionsPageBridge.resetPage === "function" &&
+            window.transactionsPageBridge.resetPage();
+        typeof window.transactionsPageBridge.load === "function" &&
+            window.transactionsPageBridge.load();
+        return;
+    }
+
+    txCurrentPage = 1;
+    typeof loadTransactions === "function" && loadTransactions();
+});
         registerPageEvent("page:shared", () => {
             typeof loadSharedExpenses === "function" && loadSharedExpenses();
         });

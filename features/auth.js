@@ -55,26 +55,24 @@ const ensureAuth = async () => {
         return false;
     }
 };
+function getLandingPage() {
+    const hasAccess = (key) => {
+        const v = myPermissions?.[key];
+        return !!v && String(v).toLowerCase() !== "none";
+    };
 
+    if (hasAccess("tx_read")) return "transactions";
+    if (hasAccess("se_read")) return "shared";
+    if (hasAccess("value_sets_read")) return "value-sets";
 
+    // admin oldalak – első elérhető
+    if (hasAccess("admin_users")) return "admin-users";
+    if (hasAccess("admin_functions")) return "admin-functions";
+    if (hasAccess("admin_permissions")) return "admin-permissions";
 
-    function getLandingPage() {
-        const hasAccess = (key) => {
-            const v = myPermissions?.[key];
-            return !!v && String(v).toLowerCase() !== "none";
-        };
-
-        if (hasAccess("tx_read")) return "transactions";
-        if (hasAccess("se_read")) return "shared";
-
-        // admin oldalak – első elérhető
-        if (hasAccess("admin_users")) return "admin-users";
-        if (hasAccess("admin_functions")) return "admin-functions";
-        if (hasAccess("admin_permissions")) return "admin-permissions";
-
-        // ha semmi sincs, maradjon a shared (vagy teheted "transactions"-ra, de ez legalább működő oldalt ad)
-        return "shared";
-    }
+    // ha semmi sincs, maradjon a shared
+    return "shared";
+}
 
 
     const loadMyPermissions = async () => {

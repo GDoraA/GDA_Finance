@@ -10,6 +10,15 @@ window.transactionsPageBridge = window.transactionsPageBridge || {
     },
     load(forceRefresh = false) {
         return loadTransactions(forceRefresh);
+    },
+    ensureCache(forceRefresh = false) {
+        return ensureTransactionsCache(forceRefresh);
+    },
+    getMatchingBankItems(tx, bankItems) {
+        return getMatchingBankItems(tx, bankItems);
+    },
+    getCache() {
+        return transactionsCache;
     }
 };
 async function ensureTransactionsCache(forceRefresh = false) {

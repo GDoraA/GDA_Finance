@@ -24,9 +24,15 @@ registerPageEvent("page:transactions", () => {
     txCurrentPage = 1;
     typeof loadTransactions === "function" && loadTransactions();
 });
-        registerPageEvent("page:shared", () => {
-            typeof loadSharedExpenses === "function" && loadSharedExpenses();
-        });
+registerPageEvent("page:shared", () => {
+    if (window.sharedExpensesPageBridge) {
+        typeof window.sharedExpensesPageBridge.load === "function" &&
+            window.sharedExpensesPageBridge.load();
+        return;
+    }
+
+    typeof loadSharedExpenses === "function" && loadSharedExpenses();
+});
 
         registerPageEvent("page:bank-import", () => {
             typeof loadBankTransactions === "function" && loadBankTransactions();

@@ -1,3 +1,8 @@
+window.sharedExpensesPageBridge = window.sharedExpensesPageBridge || {
+    load() {
+        return loadSharedExpenses();
+    }
+};
 async function loadSharedExpenses() {
     try {
         // ===== SORT ICONS RESET (SHARED EXPENSES) =====

@@ -1,9 +1,19 @@
+// Tudatosan megmaradó tranzakciós modul-szintű state:
+// - bankTxCache / bankTxCachePromise:
+//   banki tételek cache és inflight lekérés a tranzakciós szerkesztéshez
+// - bankToTxMap:
+//   banki tétel -> tranzakció ID-k index
+// - filteredTransactions:
+//   aktuális szűrt lista a renderhez és lapozáshoz
+// - transactionsCache:
+//   a teljes tranzakciólista cache-e, több UI művelet is erre támaszkodik
+//
+// Ebben a release-ben ez a state nem kerül tovább bontásra.
 let bankTxCache = null;
 let bankTxCachePromise = null;
 let bankToTxMap = new Map();
 let filteredTransactions = [];
 let transactionsCache = null;
-
 window.transactionsPageBridge = window.transactionsPageBridge || {
     resetPage() {
         txCurrentPage = 1;
@@ -21,6 +31,23 @@ window.transactionsPageBridge = window.transactionsPageBridge || {
         return transactionsCache;
     }
 };
+function renderTransactionsLoadError(tbody, errorLike, fallbackMessage) {
+    const message =
+        errorLike?.error ||
+        errorLike?.message ||
+        fallbackMessage ||
+        "Hiba a tranzakciók betöltésekor.";
+
+    if (errorLike instanceof Error) {
+        console.error("Transactions load error:", errorLike);
+    } else if (errorLike) {
+        console.warn("Transactions unsuccessful response:", errorLike);
+    }
+
+    if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="9">${escapeHtml(message)}</td></tr>`;
+    }
+}
 async function ensureTransactionsCache(forceRefresh = false) {
     if (!forceRefresh && Array.isArray(transactionsCache)) return transactionsCache;
 
@@ -114,20 +141,27 @@ async function loadTransactions(forceRefresh = false) {
             th.classList.add(txSortDirection === "asc" ? "sort-asc" : "sort-desc");
         }
     });
+
     const tbody = document.getElementById("transactionsBody");
-    const data = await ensureTransactionsCache(forceRefresh);
+    let data;
+
+    try {
+        data = await ensureTransactionsCache(forceRefresh);
+    } catch (err) {
+        renderTransactionsLoadError(
+            tbody,
+            err,
+            "Hiba a tranzakciók betöltésekor."
+        );
+        return;
+    }
 
     if (!Array.isArray(data)) {
-        const errorMessage =
-            data && data.error
-                ? data.error
-                : "Ismeretlen hiba a tranzakciók betöltésekor.";
-
-        console.error("Nem sikerült betölteni a tranzakciókat:", errorMessage);
-
-        if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="9">Hiba a tranzakciók betöltésekor: ${escapeHtml(errorMessage)}</td></tr>`;
-        }
+        renderTransactionsLoadError(
+            tbody,
+            data,
+            "Hiba a tranzakciók betöltésekor."
+        );
         return;
     }
 

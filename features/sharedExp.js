@@ -1,8 +1,29 @@
 window.sharedExpensesPageBridge = window.sharedExpensesPageBridge || {
+    resetPage() {
+        // Jelenleg nincs külön shared page számláló/state, ezért ez tudatos no-op.
+        // Az interfész-egységesség miatt mégis része a bridge-nek.
+    },
     load() {
         return loadSharedExpenses();
     }
 };
+function renderSharedLoadError(tbody, colspan, errorLike, fallbackMessage) {
+    const message =
+        errorLike?.error ||
+        errorLike?.message ||
+        fallbackMessage ||
+        "Hiba a megosztott költségek betöltésekor.";
+
+    if (errorLike instanceof Error) {
+        console.error("Shared expenses load error:", errorLike);
+    } else if (errorLike) {
+        console.warn("Shared expenses unsuccessful response:", errorLike);
+    }
+
+    if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="${colspan}">${escapeHtml(message)}</td></tr>`;
+    }
+}
 async function loadSharedExpenses() {
     try {
         // ===== SORT ICONS RESET (SHARED EXPENSES) =====
@@ -20,8 +41,12 @@ async function loadSharedExpenses() {
         try {
             result = await api.getSharedExpenses();
         } catch (err) {
-            console.error("Megosztott költségek betöltése sikertelen:", err);
-            tbody.innerHTML = `<tr><td colspan="12">Hiba a megosztott költségek betöltésekor.</td></tr>`;
+            renderSharedLoadError(
+                tbody,
+                12,
+                err,
+                "Hiba a megosztott költségek betöltésekor."
+            );
             return;
         }
 
@@ -29,20 +54,32 @@ async function loadSharedExpenses() {
         try {
             valueSetsResponse = await api.getValueSets();
         } catch (err) {
-            console.error("Value setek betöltése sikertelen:", err);
-            tbody.innerHTML = `<tr><td colspan="12">Hiba a segédlisták betöltésekor.</td></tr>`;
+            renderSharedLoadError(
+                tbody,
+                12,
+                err,
+                "Hiba a segédlisták betöltésekor."
+            );
             return;
         }
 
         if (!result || !result.success) {
-            console.error("Nem sikerült betölteni a megosztott költségeket.", result);
-            tbody.innerHTML = `<tr><td colspan="12">Nincs jogosultság vagy hiba: ${escapeHtml(result?.error || result?.message || "ismeretlen")}</td></tr>`;
+            renderSharedLoadError(
+                tbody,
+                12,
+                result,
+                "Hiba a megosztott költségek betöltésekor."
+            );
             return;
         }
 
         if (!valueSetsResponse || !valueSetsResponse.success) {
-            console.error("Nem sikerült betölteni a value seteket.", valueSetsResponse);
-            tbody.innerHTML = `<tr><td colspan="12">Nem sikerült betölteni a segédlistákat.</td></tr>`;
+            renderSharedLoadError(
+                tbody,
+                12,
+                valueSetsResponse,
+                "Hiba a segédlisták betöltésekor."
+            );
             return;
         }
 
@@ -257,77 +294,7 @@ document.querySelectorAll("#sharedExpensesTable thead th[data-sort]").forEach(th
         }
     });
 });
-document.getElementById("bankFirstPageBtn")?.addEventListener("click", () => {
-    bankCurrentPage = 1;
-    renderBankPreview(bankImportItems);
-});
-document.getElementById("bankPrevPageBtn")?.addEventListener("click", () => {
-    bankCurrentPage = Math.max(1, bankCurrentPage - 1);
-    renderBankPreview(bankImportItems);
-});
-document.getElementById("bankNextPageBtn")?.addEventListener("click", () => {
-    // totalPages számítás: a szűrt találatok alapján
-    const filterTextEl = document.getElementById("bankFilterText");
-    const filterUnmatchedEl = document.getElementById("bankFilterUnmatchedOnly");
-    const q = String(filterTextEl?.value ?? "").trim().toLowerCase();
-    const unmatchedOnly = (filterUnmatchedEl?.checked === true);
-    const filteredCount = (Array.isArray(bankImportItems) ? bankImportItems : []).filter(it => {
-        if (unmatchedOnly && String(it?.matched_transaction_ids ?? "").trim() !== "") return false;
-        if (!q) return true;
-        return Object.values(it || {}).some(v => String(v ?? "").toLowerCase().includes(q));
-    }).length;
-    const perPageEl = document.getElementById("bankItemsPerPage");
-    const perPageRaw = perPageEl ? perPageEl.value : "100";
-    const pageSize =
-        perPageRaw === "all"
-            ? Math.max(1, filteredCount)
-            : (Number(perPageRaw) || 100);
 
-    const totalPages = Math.max(1, Math.ceil(filteredCount / pageSize));
-    bankCurrentPage = Math.min(totalPages, bankCurrentPage + 1);
-    renderBankPreview(bankImportItems);
-});
-document.getElementById("bankLastPageBtn")?.addEventListener("click", () => {
-    // totalPages számítás: a szűrt találatok alapján
-    const filterTextEl = document.getElementById("bankFilterText");
-    const filterUnmatchedEl = document.getElementById("bankFilterUnmatchedOnly");
-    const q = String(filterTextEl?.value ?? "").trim().toLowerCase();
-    const unmatchedOnly = (filterUnmatchedEl?.checked === true);
-    const filteredCount = (Array.isArray(bankImportItems) ? bankImportItems : []).filter(it => {
-        if (unmatchedOnly && String(it?.matched_transaction_ids ?? "").trim() !== "") return false;
-        if (!q) return true;
-        return Object.values(it || {}).some(v => String(v ?? "").toLowerCase().includes(q));
-    }).length;
-    const perPageEl = document.getElementById("bankItemsPerPage");
-    const perPageRaw = perPageEl ? perPageEl.value : "100";
-    const pageSize =
-        perPageRaw === "all"
-            ? Math.max(1, filteredCount)
-            : (Number(perPageRaw) || 100);
-    const totalPages = Math.max(1, Math.ceil(filteredCount / pageSize));
-    bankCurrentPage = totalPages;
-    renderBankPreview(bankImportItems);
-});
-document.getElementById("bankItemsPerPage")?.addEventListener("change", () => {
-    bankCurrentPage = 1;
-    renderBankPreview(bankImportItems);
-});
-// Banki szűrők változására: vissza 1. oldalra + újrarender
-document.getElementById("bankFilterText")?.addEventListener("input", () => {
-    bankCurrentPage = 1;
-    clearTimeout(bankFilterTextDebounce);
-    bankFilterTextDebounce = setTimeout(() => {
-        renderBankPreview(bankImportItems);
-    }, 180);
-});
-document.getElementById("bankFilterUnmatchedOnly")?.addEventListener("change", () => {
-    bankCurrentPage = 1;
-    renderBankPreview(bankImportItems);
-});
-document.getElementById("bankFilterHideInternalTransfers")?.addEventListener("change", () => {
-    bankCurrentPage = 1;
-    renderBankPreview(bankImportItems);
-});
 // ================================
 // Shared Expenses – Modal open/close (NEW only)
 // ================================

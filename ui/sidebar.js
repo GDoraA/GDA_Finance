@@ -123,6 +123,9 @@ function showPage(page) {
 
     target.pageEl?.classList.remove("hidden");
     target.btnEl?.classList.add("active");
+
+    // Az oldalbetöltés hivatalos belépési pontja a page event dispatch.
+    // Itt szándékosan nincs közvetlen load*() hívás.
     document.dispatchEvent(new CustomEvent(target.eventName));
 
     if (typeof applySidebarPermissions === "function") {

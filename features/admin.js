@@ -9,6 +9,23 @@ window.adminPagesBridge = window.adminPagesBridge || {
         return loadAdminPermissions();
     }
 };
+function renderAdminLoadError(tbody, colspan, respOrError, fallbackMessage) {
+    const message =
+        respOrError?.error ||
+        respOrError?.message ||
+        fallbackMessage ||
+        "Hiba a betöltés során.";
+
+    if (respOrError instanceof Error) {
+        console.error("Admin load error:", respOrError);
+    } else if (respOrError) {
+        console.warn("Admin unsuccessful response:", respOrError);
+    }
+
+    if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="${colspan}">${escapeHtml(message)}</td></tr>`;
+    }
+}
 async function loadAdminUsers() {
     const tbody = document.getElementById("adminUsersBody");
     if (!tbody) return;
@@ -19,13 +36,22 @@ async function loadAdminUsers() {
     try {
         resp = await api.getUsers();
     } catch (err) {
-        console.error("Felhasználók betöltése sikertelen:", err);
-        tbody.innerHTML = `<tr><td colspan="4">Hiba a felhasználók betöltésekor.</td></tr>`;
+        renderAdminLoadError(
+            tbody,
+            4,
+            err,
+            "Hiba a felhasználók betöltésekor."
+        );
         return;
     }
 
     if (!resp || !resp.success) {
-        tbody.innerHTML = `<tr><td colspan="4">Nincs jogosultság vagy hiba: ${escapeHtml(resp?.error || resp?.message || "ismeretlen")}</td></tr>`;
+        renderAdminLoadError(
+            tbody,
+            4,
+            resp,
+            "Hiba a felhasználók betöltésekor."
+        );
         return;
     }
 
@@ -50,13 +76,23 @@ async function loadAdminFunctions() {
     let resp;
     try {
         resp = await api.getFunctions();
-    } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="3">Hiba a funkciók betöltésekor</td></tr>`;
+    } catch (err) {
+        renderAdminLoadError(
+            tbody,
+            3,
+            err,
+            "Hiba a funkciók betöltésekor."
+        );
         return;
     }
 
     if (!resp || !resp.success) {
-        tbody.innerHTML = `<tr><td colspan="3">Nincs jogosultság vagy hiba: ${resp?.error || "ismeretlen"}</td></tr>`;
+        renderAdminLoadError(
+            tbody,
+            3,
+            resp,
+            "Hiba a funkciók betöltésekor."
+        );
         return;
     }
 
@@ -80,13 +116,23 @@ async function loadAdminPermissions() {
     let resp;
     try {
         resp = await api.getPermissions();
-    } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="3">Hiba a jogosultságok betöltésekor</td></tr>`;
+    } catch (err) {
+        renderAdminLoadError(
+            tbody,
+            3,
+            err,
+            "Hiba a jogosultságok betöltésekor."
+        );
         return;
     }
 
     if (!resp || !resp.success) {
-        tbody.innerHTML = `<tr><td colspan="3">Nincs jogosultság vagy hiba: ${resp?.error || "ismeretlen"}</td></tr>`;
+        renderAdminLoadError(
+            tbody,
+            3,
+            resp,
+            "Hiba a jogosultságok betöltésekor."
+        );
         return;
     }
 
@@ -112,6 +158,7 @@ async function loadAdminPermissions() {
               </select>
             </td>
         `;
+
         tbody.querySelectorAll("select.perm-access").forEach(sel => {
             sel.addEventListener("change", async () => {
                 const email = sel.getAttribute("data-email");

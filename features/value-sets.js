@@ -63,35 +63,41 @@ function renderValueSetsTable(list) {
     }
 }
 async function loadValueSetsPage() {
-const categorySelect = document.getElementById("valueSetCategorySelect");
-const resultCount = document.getElementById("valueSetResultCount");
-const tableBody = document.querySelector("#valueSetsTable tbody");
+    const categorySelect = document.getElementById("valueSetCategorySelect");
+    const resultCount = document.getElementById("valueSetResultCount");
+    const tableBody = document.querySelector("#valueSetsTable tbody");
     if (!categorySelect) return;
-let res;
 
-try {
-    res = await api.getValueSetsDetailed();
-} catch (err) {
-    console.error("getValueSetsDetailed failed:", err);
+    const showLoadError = (message, details) => {
+        if (details) {
+            console.error("Value sets load error:", details);
+        }
 
-if (resultCount) resultCount.textContent = "Hálózati hiba történt";
+        if (resultCount) {
+            resultCount.textContent = message;
+        }
 
-// UI reset (sync-safe fallback)
-if (tableBody) tableBody.innerHTML = "";
+        if (tableBody) {
+            tableBody.innerHTML = "";
+        }
+    };
 
-    return;
-}
+    let res;
 
-if (!res || !res.success) {
-    console.warn("getValueSetsDetailed unsuccessful response:", res);
+    try {
+        res = await api.getValueSetsDetailed();
+    } catch (err) {
+        showLoadError("Hiba az értékkészletek betöltésekor.", err);
+        return;
+    }
 
-if (resultCount) resultCount.textContent = "Hiba a betöltés során";
-
-// UI reset
-if (tableBody) tableBody.innerHTML = "";
-
-    return;
-}
+    if (!res || !res.success) {
+        showLoadError(
+            res?.error || res?.message || "Hiba az értékkészletek betöltésekor.",
+            res
+        );
+        return;
+    }
     const categories = Array.isArray(res.categories) ? res.categories : [];
     const itemsByCategory = res.itemsByCategory || {};
     if (!categorySelect.dataset.initialized) {

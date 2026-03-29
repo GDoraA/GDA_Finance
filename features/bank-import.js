@@ -6,6 +6,15 @@ let bankImportItems = [];
 let filteredBankItems = [];
 let bankImportSelectedFile = null;
 let bankImportBatchId = "";
+
+window.bankImportPageBridge = window.bankImportPageBridge || {
+    resetPage() {
+        bankCurrentPage = 1;
+    },
+    load() {
+        return loadBankTransactions();
+    }
+};
 const bankPickBtn = document.getElementById("bankImportPickFileBtn");
 const bankUploadBtn = document.getElementById("bankImportUploadBtn");
 const bankFileInput = document.getElementById("bankImportFileInput");

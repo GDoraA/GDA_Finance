@@ -54,21 +54,45 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 // Váltás a két panel között
 function showPage(page) {
-    const txPage = document.getElementById("page-transactions");
-    const sharedPage = document.getElementById("page-shared-expenses");
-    const bankImportPage = document.getElementById("page-bank-import");
-    const valueSetsPage = document.getElementById("page-value-sets");
-    const adminPage = document.getElementById("page-admin-users");
-    const adminFunctionsPage = document.getElementById("page-admin-functions");
-    const adminPermissionsPage = document.getElementById("page-admin-permissions");
-    const txBtn = document.getElementById("showTransactionsBtn");
-    const sharedBtn = document.getElementById("showSharedExpensesBtn");
-    const bankImportBtn = document.getElementById("showBankImportBtn");
-    const valueSetsBtn = document.getElementById("showValueSetsBtn");
-    const adminBtn = document.getElementById("showAdminUsersBtn");
-    const adminFunctionsBtn = document.getElementById("showAdminFunctionsBtn");
-    const adminPermissionsBtn = document.getElementById("showAdminPermissionsBtn");
-        const hasAccess = (key) => {
+    const pages = {
+        "transactions": {
+            pageEl: document.getElementById("page-transactions"),
+            btnEl: document.getElementById("showTransactionsBtn"),
+            eventName: "page:transactions"
+        },
+        "shared": {
+            pageEl: document.getElementById("page-shared-expenses"),
+            btnEl: document.getElementById("showSharedExpensesBtn"),
+            eventName: "page:shared"
+        },
+        "bank-import": {
+            pageEl: document.getElementById("page-bank-import"),
+            btnEl: document.getElementById("showBankImportBtn"),
+            eventName: "page:bank-import"
+        },
+        "value-sets": {
+            pageEl: document.getElementById("page-value-sets"),
+            btnEl: document.getElementById("showValueSetsBtn"),
+            eventName: "page:value-sets"
+        },
+        "admin-users": {
+            pageEl: document.getElementById("page-admin-users"),
+            btnEl: document.getElementById("showAdminUsersBtn"),
+            eventName: "page:admin-users"
+        },
+        "admin-functions": {
+            pageEl: document.getElementById("page-admin-functions"),
+            btnEl: document.getElementById("showAdminFunctionsBtn"),
+            eventName: "page:admin-functions"
+        },
+        "admin-permissions": {
+            pageEl: document.getElementById("page-admin-permissions"),
+            btnEl: document.getElementById("showAdminPermissionsBtn"),
+            eventName: "page:admin-permissions"
+        }
+    };
+
+    const hasAccess = (key) => {
         const v = myPermissions?.[key];
         return !!v && String(v).toLowerCase() !== "none";
     };
@@ -87,58 +111,22 @@ function showPage(page) {
         } else {
             page = "shared";
         }
-    }// mindent elrejt + active reset (minden ismert oldalra/gombra)
-    [txPage, sharedPage, bankImportPage, valueSetsPage, adminPage, adminFunctionsPage, adminPermissionsPage]
-        .forEach(p => p && p.classList.add("hidden"));
-    [txBtn, sharedBtn, bankImportBtn, valueSetsBtn, adminBtn, adminFunctionsBtn, adminPermissionsBtn]
-        .forEach(b => b && b.classList.remove("active"));
-    if (page === "transactions") {
-        txPage?.classList.remove("hidden");
-        txBtn?.classList.add("active");
-        document.dispatchEvent(new CustomEvent("page:transactions"));
-        typeof applySidebarPermissions === "function" && applySidebarPermissions();
-        return;
     }
-    if (page === "shared") {
-        sharedPage?.classList.remove("hidden");
-        sharedBtn?.classList.add("active");
-        document.dispatchEvent(new CustomEvent("page:shared"));
-        typeof applySidebarPermissions === "function" && applySidebarPermissions(); return;
-    }
-    if (page === "bank-import") {
-        bankImportPage?.classList.remove("hidden");
-        bankImportBtn?.classList.add("active");
-        document.dispatchEvent(new CustomEvent("page:bank-import"));
-        typeof applySidebarPermissions === "function" && applySidebarPermissions();
-        return;
-    }
-    if (page === "value-sets") {
-        valueSetsPage?.classList.remove("hidden");
-        valueSetsBtn?.classList.add("active");
-        document.dispatchEvent(new CustomEvent("page:value-sets"));
-        typeof applySidebarPermissions === "function" && applySidebarPermissions();
-        return;
-    }
-    if (page === "admin-users") {
-        adminPage?.classList.remove("hidden");
-        adminBtn?.classList.add("active");
-        document.dispatchEvent(new CustomEvent("page:admin-users"));
-        typeof applySidebarPermissions === "function" && applySidebarPermissions();
-        return;
-    }
-    if (page === "admin-functions") {
-        adminFunctionsPage?.classList.remove("hidden");
-        adminFunctionsBtn?.classList.add("active");
-        document.dispatchEvent(new CustomEvent("page:admin-functions"));
-        typeof applySidebarPermissions === "function" && applySidebarPermissions();
-        return;
-    }
-    if (page === "admin-permissions") {
-        adminPermissionsPage?.classList.remove("hidden");
-        adminPermissionsBtn?.classList.add("active");
-        document.dispatchEvent(new CustomEvent("page:admin-permissions"));
-        typeof applySidebarPermissions === "function" && applySidebarPermissions();
-        return;
+
+    Object.values(pages).forEach(({ pageEl, btnEl }) => {
+        pageEl?.classList.add("hidden");
+        btnEl?.classList.remove("active");
+    });
+
+    const target = pages[page];
+    if (!target) return;
+
+    target.pageEl?.classList.remove("hidden");
+    target.btnEl?.classList.add("active");
+    document.dispatchEvent(new CustomEvent(target.eventName));
+
+    if (typeof applySidebarPermissions === "function") {
+        applySidebarPermissions();
     }
 }
 document.getElementById("showTransactionsBtn").addEventListener("click", () => {

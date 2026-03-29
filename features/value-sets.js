@@ -1,5 +1,14 @@
 let valueSetsSort = { field: "value", dir: "asc" };
 let valueSetsPage = 1;
+
+window.valueSetsPageBridge = window.valueSetsPageBridge || {
+    resetPage() {
+        valueSetsPage = 1;
+    },
+    load() {
+        return loadValueSetsPage();
+    }
+};
 function renderValueSetsTable(list) {
     const tbody = document.querySelector("#valueSetsTable tbody");
     const filterInput = document.getElementById("valueSetFilterText");

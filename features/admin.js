@@ -1,3 +1,14 @@
+window.adminPagesBridge = window.adminPagesBridge || {
+    loadUsers() {
+        return loadAdminUsers();
+    },
+    loadFunctions() {
+        return loadAdminFunctions();
+    },
+    loadPermissions() {
+        return loadAdminPermissions();
+    }
+};
 async function loadAdminUsers() {
     const tbody = document.getElementById("adminUsersBody");
     if (!tbody) return;

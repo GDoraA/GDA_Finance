@@ -155,7 +155,37 @@ function buildMonthlySummaryRows(transactions) {
         };
     });
 }
+async function getTransactionsForMonthlySummary() {
+    try {
+        // 1) cache használat, ha van
+        if (window.transactionsPageBridge) {
+            const cached = window.transactionsPageBridge.getCache?.();
+            if (Array.isArray(cached)) {
+                return cached;
+            }
 
+            // 2) cache betöltés bridge-en keresztül
+            const ensured = await window.transactionsPageBridge.ensureCache?.();
+            if (Array.isArray(ensured)) {
+                return ensured;
+            }
+        }
+    } catch (e) {
+        console.warn("transactionsPageBridge hiba, fallback API-ra:", e);
+    }
+
+    // 3) fallback API
+    const resp = await api.getTransactions();
+    if (!resp || resp.success !== true || !Array.isArray(resp.data)) {
+        throw new Error(
+            resp?.error ||
+            resp?.message ||
+            "Nem sikerült lekérni a tranzakciókat."
+        );
+    }
+
+    return resp.data;
+}
 async function loadMonthlySummaryPage() {
     const tbody = document.getElementById("monthlySummaryBody");
     if (tbody) {
@@ -168,9 +198,9 @@ async function loadMonthlySummaryPage() {
 
     renderMonthlySummaryStatus("Havi összesítő betöltése...");
 
-    let response;
+    let transactions;
     try {
-        response = await api.getTransactions();
+        transactions = await getTransactionsForMonthlySummary();
     } catch (err) {
         console.error("Havi összesítő betöltése sikertelen:", err);
         renderMonthlySummaryStatus("Nem sikerült betölteni a havi összesítőt.");
@@ -184,9 +214,8 @@ async function loadMonthlySummaryPage() {
         }
         return;
     }
-
-    if (!response || response.success !== true || !Array.isArray(response.data)) {
-        console.warn("Havi összesítő sikertelen válasz:", response);
+    if (!Array.isArray(transactions)) {
+        console.warn("Havi összesítő sikertelen adat:", transactions);
         renderMonthlySummaryStatus("Nem sikerült betölteni a havi összesítőt.");
 
         if (tbody) {
@@ -199,8 +228,8 @@ async function loadMonthlySummaryPage() {
         return;
     }
 
-    const rows = buildMonthlySummaryRows(response.data);
-    renderMonthlySummaryRows(rows);
+    const rows = buildMonthlySummaryRows(transactions);
+        renderMonthlySummaryRows(rows);
 
     if (!rows.length) {
         renderMonthlySummaryStatus("Nincs megjeleníthető havi adat.");

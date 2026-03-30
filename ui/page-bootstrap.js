@@ -62,6 +62,22 @@
             typeof loadBankTransactions === "function" && loadBankTransactions();
         });
 
+        registerPageEvent("page:reports-monthly", () => {
+            // Elsődleges útvonal:
+            // sidebar -> page event -> reportsMonthlyPageBridge.resetPage() -> reportsMonthlyPageBridge.load()
+            if (window.reportsMonthlyPageBridge) {
+                typeof window.reportsMonthlyPageBridge.resetPage === "function" &&
+                    window.reportsMonthlyPageBridge.resetPage();
+                typeof window.reportsMonthlyPageBridge.load === "function" &&
+                    window.reportsMonthlyPageBridge.load();
+                return;
+            }
+
+            // Legacy fallback részlegesen frissült állapotokra.
+            // Nem elsődleges page-enter ág.
+            typeof loadMonthlySummaryPage === "function" && loadMonthlySummaryPage();
+        });
+
         registerPageEvent("page:value-sets", () => {
             // Elsődleges útvonal:
             // sidebar -> page event -> valueSetsPageBridge.resetPage() -> valueSetsPageBridge.load()

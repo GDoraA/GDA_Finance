@@ -70,6 +70,11 @@ function showPage(page) {
             btnEl: document.getElementById("showBankImportBtn"),
             eventName: "page:bank-import"
         },
+        "reports-monthly": {
+            pageEl: document.getElementById("page-reports-monthly"),
+            btnEl: document.getElementById("showReportsMonthlyBtn"),
+            eventName: "page:reports-monthly"
+        },
         "value-sets": {
             pageEl: document.getElementById("page-value-sets"),
             btnEl: document.getElementById("showValueSetsBtn"),
@@ -141,6 +146,9 @@ document.getElementById("showSharedExpensesBtn").addEventListener("click", () =>
 document.getElementById("showBankImportBtn").addEventListener("click", () => {
     showPage("bank-import");
 });
+document.getElementById("showReportsMonthlyBtn")?.addEventListener("click", () => {
+    showPage("reports-monthly");
+});
 document.getElementById("showAdminUsersBtn").addEventListener("click", () => {
     showPage("admin-users");
 });
@@ -157,6 +165,7 @@ function applySidebarPermissions() {
     const txBtn = document.getElementById("showTransactionsBtn");
     const seBtn = document.getElementById("showSharedExpensesBtn");
     const bankImportBtn = document.getElementById("showBankImportBtn");
+    const reportsMonthlyBtn = document.getElementById("showReportsMonthlyBtn");
     const adminUsersBtn = document.getElementById("showAdminUsersBtn");
     const adminFunctionsBtn = document.getElementById("showAdminFunctionsBtn");
     const adminPermissionsBtn = document.getElementById("showAdminPermissionsBtn");
@@ -179,10 +188,10 @@ function applySidebarPermissions() {
     };
     // RESET: ha korábban el volt rejtve (display:none), most legyen visszaállítva,
     // különben “beragad” és hiába kap jogot, nem jelenik meg.
-    [txBtn, seBtn, bankImportBtn, adminUsersBtn, adminFunctionsBtn, adminPermissionsBtn,
-        txCreateBtn, txImportBtn, seCreateBtn, seSettleBtn].forEach((b) => {
-            if (b) b.style.display = "";
-        });
+[txBtn, seBtn, bankImportBtn, reportsMonthlyBtn, adminUsersBtn, adminFunctionsBtn, adminPermissionsBtn,
+    txCreateBtn, txImportBtn, seCreateBtn, seSettleBtn].forEach((b) => {
+        if (b) b.style.display = "";
+    });
     // Oldal-gombok: ha nincs jog, ne jelenjenek meg
     // Fontos: az oldal akkor is legyen elérhető/látható, ha bármely tx_* / se_* funkcióhoz van jog,
     // nem csak akkor, ha konkrétan tx_read / se_read van kiosztva.
@@ -200,6 +209,7 @@ const canSeeSePage = hasAny("se_");
     if (!canSeeSePage && seBtn) seBtn.style.display = "none";
     // Bank import: ugyanahhoz a jogosultsághoz kötjük, mint a tranzakció importot
     if (!hasAccess("tx_import") && bankImportBtn) bankImportBtn.style.display = "none";
+    if (!hasAccess("tx_read") && reportsMonthlyBtn) reportsMonthlyBtn.style.display = "none";
     // Admin menüpontok – kizárólag saját admin jog alapján
     if (!hasAccess("admin_users") && adminUsersBtn) adminUsersBtn.style.display = "none";
     if (!hasAccess("admin_functions") && adminFunctionsBtn) adminFunctionsBtn.style.display = "none";

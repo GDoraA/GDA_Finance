@@ -8,13 +8,13 @@
     <link rel="stylesheet" href="styles.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script>
-    if (/^https?:$/i.test(window.location.protocol)) {
-        const manifestLink = document.createElement("link");
-        manifestLink.rel = "manifest";
-        manifestLink.href = "./manifest.json";
-        document.head.appendChild(manifestLink);
-    }
-</script>
+        if (/^https?:$/i.test(window.location.protocol)) {
+            const manifestLink = document.createElement("link");
+            manifestLink.rel = "manifest";
+            manifestLink.href = "./manifest.json";
+            document.head.appendChild(manifestLink);
+        }
+    </script>
 </head>
 
 <body class="boot">
@@ -45,7 +45,10 @@
             <button id="showTransactionsBtn" class="sidebar-btn">Tranzakciók</button>
             <button id="showSharedExpensesBtn" class="sidebar-btn">Megosztott költségek</button>
             <button id="showBankImportBtn" class="sidebar-btn">Bank import</button>
-            <button id="showValueSetsBtn" class="sidebar-btn">Értékkészletek</button>       <button id="showAdminUsersBtn" class="sidebar-btn">Admin</button>
+            <button id="showReportsMonthlyBtn" class="sidebar-btn">Havi összesítő</button>
+
+            <button id="showValueSetsBtn" class="sidebar-btn">Értékkészletek</button> <button id="showAdminUsersBtn"
+                class="sidebar-btn">Admin</button>
             <button id="showAdminFunctionsBtn" class="sidebar-btn">Funkciók</button>
             <button id="showAdminPermissionsBtn" class="sidebar-btn">Jogosultságok</button>
             <button id="logoutBtn" class="sidebar-btn secondary" type="button">Kijelentkezés</button>
@@ -135,8 +138,8 @@
                     <div class="csv-help-section">
                         <strong>Példa (pontos fejlécnevek és tipikus magyar formátum):</strong>
                         <pre class="csv-sample">Dátum;Összeg;Jogcím;Kategória;Típus;Jelleg;Kivonat sor
-    2026.01.10.;12 500;Élelmiszer;Bolt;Kártya;Kiadás;OTP 123
-    2026-01-12;250 000;Fizetés;Bér;Utalás;Bevétel;Employer</pre>
+                                                2026.01.10.;12 500;Élelmiszer;Bolt;Kártya;Kiadás;OTP 123
+                                                2026-01-12;250 000;Fizetés;Bér;Utalás;Bevétel;Employer</pre>
                     </div>
                 </div>
                 <!-- Transactions Modal háttér -->
@@ -273,6 +276,34 @@
                 </div>
             </div>
         </section>
+        <section id="page-reports-monthly" class="hidden">
+            <h2>Havi pénzügyi összesítő</h2>
+            <p class="result-count">Havi szintű összesítő a teljes tranzakcióhalmazon.</p>
+
+            <div class="card">
+                <div id="monthlySummaryStatus" class="result-count"></div>
+
+                <div class="table-wrapper">
+                    <table id="monthlySummaryTable" class="tx-table">
+                        <thead>
+                            <tr>
+                                <th>Hónap</th>
+                                <th>Bevétel</th>
+                                <th>Kiadás</th>
+                                <th>Megtakarítás</th>
+                                <th>Havi egyenleg</th>
+                                <th>Kumulált egyenleg</th>
+                            </tr>
+                        </thead>
+                        <tbody id="monthlySummaryBody">
+                            <tr>
+                                <td colspan="6">A riport még nem lett betöltve.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
         <section id="page-bank-import" class="hidden">
             <h2>Bank import</h2>
             <div class="container">
@@ -330,20 +361,20 @@
                     </table>
                 </div>
             </div>
-                            <!-- Banki tranzakció részletek modal háttér -->
-                <div id="bankItemOverlay" class="modal-overlay"></div>
+            <!-- Banki tranzakció részletek modal háttér -->
+            <div id="bankItemOverlay" class="modal-overlay"></div>
 
-                <!-- Banki tranzakció részletek modal -->
-                <div id="bankItemModal" class="modal">
-                    <div class="modal-content">
-                        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-                            <h2 style="margin:0;">Banki tétel részletei</h2>
-                            <button id="bankItemCloseBtn" type="button" class="secondary">Mégse</button>
-                        </div>
-
-                        <div id="bankItemDetails" style="margin-top:12px;"></div>
+            <!-- Banki tranzakció részletek modal -->
+            <div id="bankItemModal" class="modal">
+                <div class="modal-content">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                        <h2 style="margin:0;">Banki tétel részletei</h2>
+                        <button id="bankItemCloseBtn" type="button" class="secondary">Mégse</button>
                     </div>
+
+                    <div id="bankItemDetails" style="margin-top:12px;"></div>
                 </div>
+            </div>
         </section>
         <!-- Shared Expenses Panel -->
         <section id="page-shared-expenses" class="hidden">
@@ -485,38 +516,38 @@
             </div>
         </section>
         <section id="page-value-sets" class="page hidden">
-  <h2>Értékkészletek</h2>
+            <h2>Értékkészletek</h2>
 
-  <div class="toolbar">
-    <label for="valueSetCategorySelect">Kategória:</label>
-    <select id="valueSetCategorySelect"></select>
+            <div class="toolbar">
+                <label for="valueSetCategorySelect">Kategória:</label>
+                <select id="valueSetCategorySelect"></select>
 
-    <label for="valueSetFilterText">Szűrés:</label>
-    <input id="valueSetFilterText" type="text" placeholder="Keresés...">
+                <label for="valueSetFilterText">Szűrés:</label>
+                <input id="valueSetFilterText" type="text" placeholder="Keresés...">
 
-    <label for="valueSetItemsPerPage">Tételek oldalanként:</label>
-    <select id="valueSetItemsPerPage">
-      <option value="10">10</option>
-      <option value="20" selected>20</option>
-      <option value="50">50</option>
-    </select>
-  </div>
+                <label for="valueSetItemsPerPage">Tételek oldalanként:</label>
+                <select id="valueSetItemsPerPage">
+                    <option value="10">10</option>
+                    <option value="20" selected>20</option>
+                    <option value="50">50</option>
+                </select>
+            </div>
 
-  <div id="valueSetResultCount"></div>
+            <div id="valueSetResultCount"></div>
 
-  <div class="table-wrapper">
-    <table id="valueSetsTable" class="tx-table">
-      <thead>
-        <tr>
-          <th data-sort="value">Érték</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
+            <div class="table-wrapper">
+                <table id="valueSetsTable" class="tx-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="value">Érték</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
 
-  <div id="valueSetsPagination" class="pagination"></div>
-</section>
+            <div id="valueSetsPagination" class="pagination"></div>
+        </section>
         <section id="page-own-accounts" class="page hidden">
             <div class="page-header">
                 <h2>Saját számlák</h2>
@@ -546,29 +577,29 @@
                 </table>
             </div>
         </section>
-<script src="utils/helpers.js"></script>
-<script src="utils/pagination.js"></script>
-<script src="scripts/api.js"></script>
-<script src="ui/sidebar.js"></script>
-<script src="ui/modals.js"></script>
-<script src="features/transactions.js"></script>
-<script src="features/bank-import.js"></script>
-<script src="features/auth.js"></script>
-<script src="features/sharedExp.js"></script>
-<script src="features/value-sets.js"></script>
-<script src="features/admin.js"></script>
-
-<script src="ui/page-bootstrap.js"></script>
-<script src="app.js"></script>
-<script>
-    if ("serviceWorker" in navigator && /^https?:$/i.test(window.location.protocol)) {
-        window.addEventListener("load", () => {
-            navigator.serviceWorker.register("./service-worker.js").catch((err) => {
-                console.error("Service worker regisztráció sikertelen:", err);
-            });
-        });
-    }
-</script>
+        <script src="utils/helpers.js"></script>
+        <script src="utils/pagination.js"></script>
+        <script src="scripts/api.js"></script>
+        <script src="ui/sidebar.js"></script>
+        <script src="ui/modals.js"></script>
+        <script src="features/transactions.js"></script>
+        <script src="features/bank-import.js"></script>
+        <script src="features/auth.js"></script>
+        <script src="features/sharedExp.js"></script>
+        <script src="features/value-sets.js"></script>
+        <script src="features/admin.js"></script>
+        <script src="reports-monthly-summary.js"></script>
+        <script src="ui/page-bootstrap.js"></script>
+        <script src="app.js"></script>
+        <script>
+            if ("serviceWorker" in navigator && /^https?:$/i.test(window.location.protocol)) {
+                window.addEventListener("load", () => {
+                    navigator.serviceWorker.register("./service-worker.js").catch((err) => {
+                        console.error("Service worker regisztráció sikertelen:", err);
+                    });
+                });
+            }
+        </script>
     </div> <!-- content-wrapper -->
 </body>
 

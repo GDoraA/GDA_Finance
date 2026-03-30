@@ -2,13 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (typeof initPageBootstrapping === "function") {
         initPageBootstrapping();
     }
-
-    // ===== Globális bootstrap: közös datalist-ek =====
-    // Ez szándékosan marad központi initként.
-    // Nem page-specifikus lifecycle része, mert több oldal és több modal
-    // ugyanazokat az értékkészleteket használja.
-    // A page-specifikus betöltések továbbra is a
-    // page-bootstrap.js -> page event -> bridge -> load útvonalon futnak.
+    // ===== Datalist betöltés =====
     loadDropdownValues();
 });
 // ======================================================
@@ -24,19 +18,15 @@ async function loadDropdownValues() {
             );
             return;
         }
-
         const sets = result.sets || {};
-
         // Modal datalist-ek
         fillDatalist("titlesList", sets.titles || []);
         fillDatalist("sharedTitlesList", sets.titles || []);
         fillDatalist("categoriesList", sets.categories || []);
         fillDatalist("paymentTypesList", sets.payments || []);
         fillDatalist("transactionTypesList", sets.types || []);
-
         // Új értékkészlet a fizető felekhez
         fillDatalist("paidByList", sets.paid_by || []);
-
         // Szűrő datalist-ek
         fillDatalist("filterTitlesList", sets.titles || []);
         fillDatalist("filterCategoriesList", sets.categories || []);
@@ -49,18 +39,6 @@ async function loadDropdownValues() {
 // ======================================================
 // LISTÁZÁS & SZŰRÉS
 // ======================================================
-// Tudatosan megmaradó globális UI state-ek:
-// - txCurrentPage / txSortField / txSortDirection:
-//   a tranzakció oldal lapozási és rendezési állapota
-// - seSortField / seSortDirection / seRowsById:
-//   a shared oldal rendezési és szerkesztési segédállapota
-// - bankCurrentPage / bankSortField / bankSortDirection / bankFilterTextDebounce:
-//   a bank import oldal UI állapota
-// - myPermissions:
-//   globális jogosultságkép, mert landing, sidebar és page-hozzáférés is használja
-//
-// Ebben a release-ben ezek tudatosan maradnak globálisak.
-// Csak az oldalakon átívelően használt UI/runtime state maradhat itt.
 let txCurrentPage = 1;
 let txSortField = "date";
 let txSortDirection = "desc"; // "asc" | "desc"
@@ -71,6 +49,7 @@ let bankCurrentPage = 1;
 let bankSortField = "transaction_date";
 let bankSortDirection = "desc";
 let bankFilterTextDebounce = null;
+// ===== Bank_Transactions cache (Transactions modal dropdownhoz) =====
 let myPermissions = {};
 function buildStatementItemOptions(tx, bankItems) {
     const rawTxDate = String(tx?.date ?? "").trim();

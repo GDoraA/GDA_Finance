@@ -424,9 +424,18 @@ button.secondary {
     font-size: 0.8rem;
     color: #888;
 }
-
 .tx-table tr:last-child td {
     border-bottom: none;
+}
+
+.monthly-summary-total-row td {
+    background: #f3f6fa;
+    border-top: 2px solid var(--primary);
+    font-weight: 700;
+}
+
+.monthly-summary-total-row:hover td {
+    background: #f3f6fa;
 }
 
 /* mobil */

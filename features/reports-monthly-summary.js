@@ -26,7 +26,22 @@ function renderMonthlySummaryRows(rows) {
         return;
     }
 
-    tbody.innerHTML = rows.map((row) => `
+    const totals = rows.reduce((acc, row) => {
+        acc.income += Number(row.income) || 0;
+        acc.expenseDisplay += Number(row.expenseDisplay) || 0;
+        acc.saving += Number(row.saving) || 0;
+        acc.monthlyBalance += Number(row.monthlyBalance) || 0;
+        return acc;
+    }, {
+        income: 0,
+        expenseDisplay: 0,
+        saving: 0,
+        monthlyBalance: 0
+    });
+
+    const lastCumulativeBalance = Number(rows[rows.length - 1]?.cumulativeBalance) || 0;
+
+    const bodyRowsHtml = rows.map((row) => `
         <tr>
             <td>${escapeHtml(String(row.month || ""))}</td>
             <td class="text-right">${escapeHtml(formatAmount(row.income))} Ft</td>
@@ -40,6 +55,23 @@ function renderMonthlySummaryRows(rows) {
             </td>
         </tr>
     `).join("");
+
+    const totalsRowHtml = `
+        <tr class="monthly-summary-total-row">
+            <td><strong>Összesen</strong></td>
+            <td class="text-right"><strong>${escapeHtml(formatAmount(totals.income))} Ft</strong></td>
+            <td class="text-right"><strong>${escapeHtml(formatAmount(totals.expenseDisplay))} Ft</strong></td>
+            <td class="text-right"><strong>${escapeHtml(formatAmount(totals.saving))} Ft</strong></td>
+            <td class="text-right ${totals.monthlyBalance < 0 ? "amount-expense" : "amount-income"}">
+                <strong>${escapeHtml(formatSignedAmount(totals.monthlyBalance))} Ft</strong>
+            </td>
+            <td class="text-right ${lastCumulativeBalance < 0 ? "amount-expense" : "amount-income"}">
+                <strong>${escapeHtml(formatSignedAmount(lastCumulativeBalance))} Ft</strong>
+            </td>
+        </tr>
+    `;
+
+    tbody.innerHTML = bodyRowsHtml + totalsRowHtml;
 }
 
 function getMonthlySummaryMonthKey(tx) {
@@ -141,12 +173,12 @@ async function loadMonthlySummaryPage() {
         response = await api.getTransactions();
     } catch (err) {
         console.error("Havi összesítő betöltése sikertelen:", err);
-        renderMonthlySummaryStatus("Nem sikerült betölteni a tranzakciókat.");
+        renderMonthlySummaryStatus("Nem sikerült betölteni a havi összesítőt.");
 
         if (tbody) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="6">Hiba a havi összesítő betöltésekor.</td>
+                    <td colspan="6">Nem sikerült betölteni a havi összesítőt.</td>
                 </tr>
             `;
         }
@@ -155,16 +187,12 @@ async function loadMonthlySummaryPage() {
 
     if (!response || response.success !== true || !Array.isArray(response.data)) {
         console.warn("Havi összesítő sikertelen válasz:", response);
-        renderMonthlySummaryStatus(
-            response?.error ||
-            response?.message ||
-            "Nem sikerült betölteni a tranzakciókat."
-        );
+        renderMonthlySummaryStatus("Nem sikerült betölteni a havi összesítőt.");
 
         if (tbody) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="6">Hiba a havi összesítő betöltésekor.</td>
+                    <td colspan="6">Nem sikerült betölteni a havi összesítőt.</td>
                 </tr>
             `;
         }
@@ -179,7 +207,7 @@ async function loadMonthlySummaryPage() {
         return;
     }
 
-    renderMonthlySummaryStatus(`Hónapok száma: ${rows.length}`);
+    renderMonthlySummaryStatus("A riport sikeresen betöltött.");
 }
 
 window.loadMonthlySummaryPage = loadMonthlySummaryPage;

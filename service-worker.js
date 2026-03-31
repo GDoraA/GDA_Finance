@@ -18,8 +18,8 @@ const ASSETS = [
   "./features/admin.js",
   "./features/reports-monthly-summary.js",
   "./manifest.json",
-  "./icon-192.png",
-  "./icon-512.png"
+  "./icons/icon-192.png",
+  "./icons/icon-512.png"
 ];
 self.addEventListener("install", (event) => {
   self.skipWaiting();

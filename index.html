@@ -46,6 +46,7 @@
             <button id="showSharedExpensesBtn" class="sidebar-btn">Megosztott költségek</button>
             <button id="showBankImportBtn" class="sidebar-btn">Bank import</button>
             <button id="showReportsMonthlyBtn" class="sidebar-btn">Havi összesítő</button>
+            <button id="showBankMatchingBtn" class="sidebar-btn">Párosítás riport</button>
 
             <button id="showValueSetsBtn" class="sidebar-btn">Értékkészletek</button> <button id="showAdminUsersBtn"
                 class="sidebar-btn">Admin</button>
@@ -298,6 +299,67 @@
                         <tbody id="monthlySummaryBody">
                             <tr>
                                 <td colspan="6">A riport még nem lett betöltve.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        <section id="page-bank-matching" class="hidden">
+            <h2>Bank párosítás riport</h2>
+            <div id="bankMatchingStatus" class="result-count" data-bank-matching-status>
+                Riport modul inicializálása...
+            </div>
+
+            <div class="card">
+                <h3>Párosítási statisztika</h3>
+
+                <div class="bank-matching-kpi-grid">
+                    <div class="bank-matching-kpi">
+                        <div class="bank-matching-kpi-label">Összes</div>
+                        <div id="bankMatchingTotal" class="bank-matching-kpi-value">0</div>
+                    </div>
+
+                    <div class="bank-matching-kpi">
+                        <div class="bank-matching-kpi-label">Matched</div>
+                        <div id="bankMatchingMatched" class="bank-matching-kpi-value">0</div>
+                    </div>
+
+                    <div class="bank-matching-kpi">
+                        <div class="bank-matching-kpi-label">Open</div>
+                        <div id="bankMatchingOpen" class="bank-matching-kpi-value">0</div>
+                    </div>
+
+                    <div class="bank-matching-kpi">
+                        <div class="bank-matching-kpi-label">Ignored</div>
+                        <div id="bankMatchingIgnored" class="bank-matching-kpi-value">0</div>
+                    </div>
+
+                    <div class="bank-matching-kpi">
+                        <div class="bank-matching-kpi-label">Arány</div>
+                        <div id="bankMatchingRatio" class="bank-matching-kpi-value">0%</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Nyitott banki tételek</h3>
+
+                    <table id="bankMatchingTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Hó</th>
+                                <th>Tranzakció dátum</th>
+                                <th>Könyvelés dátum</th>
+                                <th>Összeg</th>
+                                <th>Irány</th>
+                                <th>Partner</th>
+                                <th>Közlemény</th>
+                                <th>Státusz</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bankMatchingTableBody">
+                            <tr>
+                                <td colspan="9">Nincs megjeleníthető adat.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -589,6 +651,7 @@
         <script src="features/value-sets.js"></script>
         <script src="features/admin.js"></script>
         <script src="features/reports-monthly-summary.js"></script>
+        <script src="features/reports-bank-matching.js"></script>
         <script src="ui/page-bootstrap.js"></script>
         <script src="app.js"></script>
         <script>

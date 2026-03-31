@@ -75,6 +75,11 @@ function showPage(page) {
             btnEl: document.getElementById("showReportsMonthlyBtn"),
             eventName: "page:reports-monthly"
         },
+        "bank-matching": {
+            pageEl: document.getElementById("page-bank-matching"),
+            btnEl: document.getElementById("showBankMatchingBtn"),
+            eventName: "page:bank-matching"
+        },
         "value-sets": {
             pageEl: document.getElementById("page-value-sets"),
             btnEl: document.getElementById("showValueSetsBtn"),
@@ -149,6 +154,9 @@ document.getElementById("showBankImportBtn").addEventListener("click", () => {
 document.getElementById("showReportsMonthlyBtn")?.addEventListener("click", () => {
     showPage("reports-monthly");
 });
+document.getElementById("showBankMatchingBtn")?.addEventListener("click", () => {
+    showPage("bank-matching");
+});
 document.getElementById("showAdminUsersBtn").addEventListener("click", () => {
     showPage("admin-users");
 });
@@ -188,22 +196,22 @@ function applySidebarPermissions() {
     };
     // RESET: ha korábban el volt rejtve (display:none), most legyen visszaállítva,
     // különben “beragad” és hiába kap jogot, nem jelenik meg.
-[txBtn, seBtn, bankImportBtn, reportsMonthlyBtn, adminUsersBtn, adminFunctionsBtn, adminPermissionsBtn,
-    txCreateBtn, txImportBtn, seCreateBtn, seSettleBtn].forEach((b) => {
-        if (b) b.style.display = "";
-    });
+    [txBtn, seBtn, bankImportBtn, reportsMonthlyBtn, adminUsersBtn, adminFunctionsBtn, adminPermissionsBtn,
+        txCreateBtn, txImportBtn, seCreateBtn, seSettleBtn].forEach((b) => {
+            if (b) b.style.display = "";
+        });
     // Oldal-gombok: ha nincs jog, ne jelenjenek meg
     // Fontos: az oldal akkor is legyen elérhető/látható, ha bármely tx_* / se_* funkcióhoz van jog,
     // nem csak akkor, ha konkrétan tx_read / se_read van kiosztva.
-const hasAny = (prefix) =>
-    Object.keys(myPermissions || {}).some((k) => k.startsWith(prefix) && hasAccess(k));
+    const hasAny = (prefix) =>
+        Object.keys(myPermissions || {}).some((k) => k.startsWith(prefix) && hasAccess(k));
 
-// Transactions oldal: a backend getTransactions hívása tx_read jogosultságot vár,
-// ezért az oldalmenü láthatóságát is ehhez igazítjuk.
-const canSeeTxPage = hasAccess("tx_read");
+    // Transactions oldal: a backend getTransactions hívása tx_read jogosultságot vár,
+    // ezért az oldalmenü láthatóságát is ehhez igazítjuk.
+    const canSeeTxPage = hasAccess("tx_read");
 
-// Shared Expenses oldal marad prefix-alapú ennél a lépésnél.
-const canSeeSePage = hasAny("se_");
+    // Shared Expenses oldal marad prefix-alapú ennél a lépésnél.
+    const canSeeSePage = hasAny("se_");
     // Oldalmenü – oldal szintű jogosultságok
     if (!canSeeTxPage && txBtn) txBtn.style.display = "none";
     if (!canSeeSePage && seBtn) seBtn.style.display = "none";

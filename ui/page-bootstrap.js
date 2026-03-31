@@ -78,6 +78,22 @@
             typeof loadMonthlySummaryPage === "function" && loadMonthlySummaryPage();
         });
 
+        registerPageEvent("page:bank-matching", () => {
+            // Elsődleges útvonal:
+            // sidebar -> page event -> bankMatchingPageBridge.resetPage() -> bankMatchingPageBridge.load()
+            if (window.bankMatchingPageBridge) {
+                typeof window.bankMatchingPageBridge.resetPage === "function" &&
+                    window.bankMatchingPageBridge.resetPage();
+                typeof window.bankMatchingPageBridge.load === "function" &&
+                    window.bankMatchingPageBridge.load();
+                return;
+            }
+
+            // Legacy fallback részlegesen frissült állapotokra.
+            // Nem elsődleges page-enter ág.
+            typeof loadBankMatchingPage === "function" && loadBankMatchingPage();
+        });
+
         registerPageEvent("page:value-sets", () => {
             // Elsődleges útvonal:
             // sidebar -> page event -> valueSetsPageBridge.resetPage() -> valueSetsPageBridge.load()

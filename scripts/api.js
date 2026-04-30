@@ -1,5 +1,5 @@
 // ----------- API KONFIG -------------
-const API_URL = "https://script.google.com/macros/s/AKfycbxbUoAuR7TGlscRiJXhXxU9OgZ7SEqs03I6rMCyXx3QyINgu9U5Xrm4dJ9JXbvCm0A/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwUfpzZt8Gxnb_CXyRQyV9FqiGMPRQPYrAcT5FvY-WhRTD65G8bctWKifTlgdLgt5w/exec";
 // ----------- JSONP HÍVÓ FUNKCIÓ -------------
 function jsonp(action, params = {}) {
     return new Promise((resolve, reject) => {
@@ -87,6 +87,9 @@ const api = {
     getBankTransactions() {
         return jsonp("getBankTransactions");
     },
+    setBankTransactionMatchStatus(id, status) {
+    return jsonp("setBankTransactionMatchStatus", { id, status });
+},
     updateTransaction(data) {
         return jsonp("updateTransaction", data);
     },

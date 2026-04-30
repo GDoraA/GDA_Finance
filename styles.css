@@ -579,6 +579,7 @@ button.secondary {
    MOBIL KÁRTYANÉZET (≤ 600px)
    ============================ */
 
+
 @media (max-width: 600px) {
 
     /* Elrejtjük a táblázat fejléceit (kivéve a bank import preview-t) */
@@ -586,12 +587,20 @@ button.secondary {
         display: none;
     }
 
-
-
+    /* Mobil kártyanézetben ne örökölje a desktop széles táblázat minimumszélességét */
+    .tx-table,
+    .tx-table tbody {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+    }
 
     /* A sorok kártyákká alakulnak */
     .tx-table tr {
         display: block;
+        width: 100%;
+        max-width: 100%;
         margin-bottom: 15px;
         background: white;
         padding: 12px;

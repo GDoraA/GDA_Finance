@@ -681,9 +681,25 @@ button.secondary {
     content: "Típus";
 }
 
-    #transactionsTable td:nth-child(9)::before {
-        content: "Kivonat sor";
-    }
+#transactionsTable td:nth-child(9)::before {
+    content: "Megosztott?";
+}
+
+#transactionsTable td:nth-child(10)::before {
+    content: "Kivonat sor";
+}
+
+/* Bank matching riport – mezőnevek oszlopsorrend alapján */
+#bankMatchingTable td:nth-child(1)::before { content: "ID"; }
+#bankMatchingTable td:nth-child(2)::before { content: "Hó"; }
+#bankMatchingTable td:nth-child(3)::before { content: "Tranzakció dátum"; }
+#bankMatchingTable td:nth-child(4)::before { content: "Könyvelés dátum"; }
+#bankMatchingTable td:nth-child(5)::before { content: "Összeg"; }
+#bankMatchingTable td:nth-child(6)::before { content: "Irány"; }
+#bankMatchingTable td:nth-child(7)::before { content: "Partner"; }
+#bankMatchingTable td:nth-child(8)::before { content: "Közlemény"; }
+#bankMatchingTable td:nth-child(9)::before { content: "Státusz"; }
+#bankMatchingTable td:nth-child(10)::before { content: "Művelet"; }
 /* Bank import (banki tételek) – mezőnevek oszlopsorrend alapján */
 #bankImportPreviewTable td:nth-child(1)::before { content: "ID"; }
 #bankImportPreviewTable td:nth-child(2)::before { content: "Rendelt tranzakció ID-k"; }

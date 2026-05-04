@@ -317,31 +317,114 @@ async function loadTransactions(forceRefresh = false) {
     // ===== Találatok kijelző elemek (csak referencia) =====
     const rcTop = document.getElementById("transactions-result-count");
     const rcBottom = document.getElementById("transactions-result-count-bottom");
-    // ===== Egyenlegek számítása típus alapján =====
-    let expenseTotal = 0;
-    let incomeTotal = 0;
-    let savingTotal = 0;
-    (data || []).forEach(tx => {
-        const t = String(tx.transaction_type || "").trim().toLowerCase();
-        const amount = Number(tx.amount) || 0;
-        const isSaving = t.includes("megtak") || t === "saving";
-        const isExpense = t.includes("kiad") || t === "expense";
-        const isIncome = t.includes("bev") || t === "income";
-        if (isSaving) {
-            savingTotal += amount;
-        } else if (isExpense) {
-            expenseTotal += amount;
-        } else if (isIncome) {
-            incomeTotal += amount;
-        }
-    });
-    // ===== Egyenlegek kiírása (index.html ID-k alapján) =====
-    const be = document.getElementById("txExpenseTotal");
-    const bi = document.getElementById("txIncomeTotal");
-    const bs = document.getElementById("txSavingTotal");
-    if (be) be.textContent = `${formatAmount(expenseTotal)} Ft`;
-    if (bi) bi.textContent = `${formatAmount(incomeTotal)} Ft`;
-    if (bs) bs.textContent = `${formatAmount(savingTotal)} Ft`;
+// ===== Egyenlegek számítása típus alapján =====
+let expenseTotal = 0;
+let incomeTotal = 0;
+let savingTotal = 0;
+
+let cashIncomeTotal = 0;
+let cashExpenseTotal = 0;
+let accountIncomeTotal = 0;
+let accountExpenseTotal = 0;
+
+const normalizePaymentTypeForSummary = (value) =>
+    String(value || "").trim().toLowerCase();
+
+const cashIncomePaymentTypes = new Set([
+    "b - készpénz"
+]);
+
+const cashExpensePaymentTypes = new Set([
+    "k - készpénz"
+]);
+
+const accountIncomePaymentTypes = new Set([
+    "b - bevétel",
+    "b - egyéb bevétel"
+]);
+
+const accountExpensePaymentTypes = new Set([
+    "k - átutalás",
+    "k - bankkártya",
+    "k - bankköltség",
+    "k - bbmc - fsz",
+    "k - bbmc - upc"
+]);
+
+(data || []).forEach(tx => {
+    const t = String(tx.transaction_type || "").trim().toLowerCase();
+    const amount = Number(tx.amount) || 0;
+    const absAmount = Math.abs(amount);
+    const paymentType = normalizePaymentTypeForSummary(tx.payment_type);
+
+    const isSaving = t.includes("megtak") || t === "saving";
+    const isExpense = t.includes("kiad") || t === "expense";
+    const isIncome = t.includes("bev") || t === "income";
+
+    if (isSaving) {
+        savingTotal += amount;
+        return;
+    }
+
+    if (isExpense) {
+        expenseTotal += amount;
+    } else if (isIncome) {
+        incomeTotal += amount;
+    }
+
+    if (cashIncomePaymentTypes.has(paymentType)) {
+        cashIncomeTotal += absAmount;
+        return;
+    }
+
+    if (cashExpensePaymentTypes.has(paymentType)) {
+        cashExpenseTotal += absAmount;
+        return;
+    }
+
+    if (accountIncomePaymentTypes.has(paymentType)) {
+        accountIncomeTotal += absAmount;
+        return;
+    }
+
+    if (accountExpensePaymentTypes.has(paymentType)) {
+        accountExpenseTotal += absAmount;
+    }
+});
+
+// ===== Egyenlegek kiírása (index.html ID-k alapján) =====
+const be = document.getElementById("txExpenseTotal");
+const bi = document.getElementById("txIncomeTotal");
+const bs = document.getElementById("txSavingTotal");
+if (be) be.textContent = `${formatAmount(expenseTotal)} Ft`;
+if (bi) bi.textContent = `${formatAmount(incomeTotal)} Ft`;
+if (bs) bs.textContent = `${formatAmount(savingTotal)} Ft`;
+
+const cashBalanceTotal = cashIncomeTotal - cashExpenseTotal;
+const accountBalanceTotal = accountIncomeTotal - accountExpenseTotal;
+
+const cashIncomeEl = document.getElementById("txCashIncomeTotal");
+const cashExpenseEl = document.getElementById("txCashExpenseTotal");
+const cashBalanceEl = document.getElementById("txCashBalanceTotal");
+const accountIncomeEl = document.getElementById("txAccountIncomeTotal");
+const accountExpenseEl = document.getElementById("txAccountExpenseTotal");
+const accountBalanceEl = document.getElementById("txAccountBalanceTotal");
+
+if (cashIncomeEl) cashIncomeEl.textContent = `${formatAmount(cashIncomeTotal)} Ft`;
+if (cashExpenseEl) cashExpenseEl.textContent = `${formatAmount(cashExpenseTotal)} Ft`;
+
+if (cashBalanceEl) {
+    cashBalanceEl.className = cashBalanceTotal < 0 ? "amount-expense" : "amount-income";
+    cashBalanceEl.textContent = `${formatSignedAmount(cashBalanceTotal)} Ft`;
+}
+
+if (accountIncomeEl) accountIncomeEl.textContent = `${formatAmount(accountIncomeTotal)} Ft`;
+if (accountExpenseEl) accountExpenseEl.textContent = `${formatAmount(accountExpenseTotal)} Ft`;
+
+if (accountBalanceEl) {
+    accountBalanceEl.className = accountBalanceTotal < 0 ? "amount-expense" : "amount-income";
+    accountBalanceEl.textContent = `${formatSignedAmount(accountBalanceTotal)} Ft`;
+}
     // ===== Nettó egyenleg: Bevétel - Kiadás =====
     const netBalance = incomeTotal - Math.abs(expenseTotal);
     const nb = document.getElementById("txNetBalance");

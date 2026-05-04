@@ -50,12 +50,30 @@ h2 {
    CARD
    ========================================================================== */
 
-.card {
-    background: white;
-    padding: 24px;
+.tx-money-flow-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.tx-money-flow-column {
+    border: 1px solid #eee;
     border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    margin-bottom: 30px;
+    padding: 12px;
+    background: #fff;
+}
+
+.tx-money-flow-title {
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 8px;
+}
+
+@media (max-width: 600px) {
+    .tx-money-flow-summary {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* ==========================================================================

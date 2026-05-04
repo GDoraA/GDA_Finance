@@ -59,12 +59,28 @@
         <!-- Tranzakció lista -->
         <section id="page-transactions">
             <h2>Tranzakciók</h2>
-            <div id="txTypeBalanceBox" class="balance-box">
-                <div><strong>Kiadás:</strong> <span id="txExpenseTotal">0</span></div>
-                <div><strong>Bevétel:</strong> <span id="txIncomeTotal">0</span></div>
-                <div><strong>Megtakarítás:</strong> <span id="txSavingTotal">0</span></div>
-                <div><strong>Egyenleg:</strong> <span id="txNetBalance">0</span></div>
-            </div>
+<div id="txTypeBalanceBox" class="balance-box">
+    <div><strong>Kiadás:</strong> <span id="txExpenseTotal">0</span></div>
+    <div><strong>Bevétel:</strong> <span id="txIncomeTotal">0</span></div>
+    <div><strong>Megtakarítás:</strong> <span id="txSavingTotal">0</span></div>
+    <div><strong>Egyenleg:</strong> <span id="txNetBalance">0</span></div>
+
+    <div class="tx-money-flow-summary">
+        <div class="tx-money-flow-column">
+            <div class="tx-money-flow-title">Készpénzes</div>
+            <div><strong>Bevétel:</strong> <span id="txCashIncomeTotal">0</span></div>
+            <div><strong>Kiadás:</strong> <span id="txCashExpenseTotal">0</span></div>
+            <div><strong>Egyenleg:</strong> <span id="txCashBalanceTotal">0</span></div>
+        </div>
+
+        <div class="tx-money-flow-column">
+            <div class="tx-money-flow-title">Számlás</div>
+            <div><strong>Bevétel:</strong> <span id="txAccountIncomeTotal">0</span></div>
+            <div><strong>Kiadás:</strong> <span id="txAccountExpenseTotal">0</span></div>
+            <div><strong>Egyenleg:</strong> <span id="txAccountBalanceTotal">0</span></div>
+        </div>
+    </div>
+</div>
             <div class="container">
                 <!-- Tranzakciós gombsor -->
                 <div class="tx-toolbar">

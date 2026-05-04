@@ -264,6 +264,7 @@
                                 <th data-sort="month">Hónap</th>
                                 <th data-sort="date">Dátum</th>
                                 <th data-sort="amount">Összeg</th>
+                                <th>Banki összeg</th>
                                 <th data-sort="title">Jogcím</th>
                                 <th data-sort="category">Kategória</th>
                                 <th data-sort="payment_type">Fizetési mód</th>
@@ -343,26 +344,27 @@
                 <div class="card">
                     <h3>Nyitott banki tételek</h3>
 
-                    <table id="bankMatchingTable" class="data-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Hó</th>
-                                <th>Tranzakció dátum</th>
-                                <th>Könyvelés dátum</th>
-                                <th>Összeg</th>
-                                <th>Irány</th>
-                                <th>Partner</th>
-                                <th>Közlemény</th>
-                                <th>Státusz</th>
-                            </tr>
-                        </thead>
-                        <tbody id="bankMatchingTableBody">
-                            <tr>
-                                <td colspan="9">Nincs megjeleníthető adat.</td>
-                            </tr>
-                        </tbody>
-                    </table>
+<table id="bankMatchingTable" class="data-table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Hó</th>
+            <th>Tranzakció dátum</th>
+            <th>Könyvelés dátum</th>
+            <th>Összeg</th>
+            <th>Irány</th>
+            <th>Partner</th>
+            <th>Közlemény</th>
+            <th>Státusz</th>
+            <th>Művelet</th>
+        </tr>
+    </thead>
+    <tbody id="bankMatchingTableBody">
+        <tr>
+            <td colspan="10">Nincs megjeleníthető adat.</td>
+        </tr>
+    </tbody>
+</table>
                 </div>
             </div>
         </section>

@@ -45,7 +45,7 @@ function renderTransactionsLoadError(tbody, errorLike, fallbackMessage) {
     }
 
     if (tbody) {
-        tbody.innerHTML = `<tr><td colspan="9">${escapeHtml(message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10">${escapeHtml(message)}</td></tr>`;
     }
 }
 async function ensureTransactionsCache(forceRefresh = false) {
@@ -131,6 +131,49 @@ function getMatchingBankItems(tx, bankItems) {
         // előjel kezelése: abs összehasonlítás
         return (bDateIso === txDateIso) && (Math.abs(bAmt) === Math.abs(txAmt));
     });
+}
+
+function getAssignedBankAmountState(tx, bankItemsById) {
+    const bankIds = parseStatementItemIds(tx?.statement_item);
+    if (!bankIds.length) {
+        return { text: "", className: "" };
+    }
+
+    let bankTotal = 0;
+    let foundCount = 0;
+
+    bankIds.forEach((id) => {
+        const bankItem = bankItemsById.get(String(id || "").trim());
+        if (!bankItem) return;
+
+        const amount = parseNumberHu(bankItem?.amount);
+        if (amount === null) return;
+
+        bankTotal += amount;
+        foundCount += 1;
+    });
+
+    if (foundCount === 0) {
+        return { text: "—", className: "bank-amount-missing" };
+    }
+
+    const txAmount = parseNumberHu(tx?.amount);
+    const txAbs = Math.abs(txAmount || 0);
+    const bankAbs = Math.abs(bankTotal);
+    const diff = bankAbs - txAbs;
+
+    let className = "bank-amount-match";
+
+    if (foundCount !== bankIds.length) {
+        className = "bank-amount-missing";
+    } else if (Math.abs(diff) > 0.009) {
+        className = diff < 0 ? "bank-amount-less" : "bank-amount-more";
+    }
+
+    return {
+        text: formatAmount(bankTotal),
+        className
+    };
 }
 
 async function loadTransactions(forceRefresh = false) {
@@ -346,8 +389,23 @@ async function loadTransactions(forceRefresh = false) {
     const txt = `Találatok: ${visibleItems.length} / ${filteredTransactions.length} db`;
     if (rcTop) rcTop.textContent = txt;
     if (rcBottom) rcBottom.textContent = txt;
+    let bankItemsForDisplay = [];
+
+    try {
+        bankItemsForDisplay = await ensureBankTxCache();
+    } catch (e) {
+        console.error("Banki összeg oszlop betöltési hiba:", e);
+    }
+
+    const bankItemsById = new Map(
+        (Array.isArray(bankItemsForDisplay) ? bankItemsForDisplay : [])
+            .map(item => [String(item?.id ?? "").trim(), item])
+            .filter(([id]) => !!id)
+    );
+
     let rows = "";
     visibleItems.forEach(tx => {
+        const bankAmountState = getAssignedBankAmountState(tx, bankItemsById);
         rows += `
                 <tr data-id="${tx.id}" class="${(tx.statement_item && String(tx.statement_item).trim() !== "") ? "is-matched" : ""}">
                     <td>${tx.month}</td>
@@ -363,9 +421,12 @@ async function loadTransactions(forceRefresh = false) {
                 return "";
             })()
             }">
-                        ${formatAmount(tx.amount)}
-                    </td>
-                    <td>${tx.title}</td>
+        ${formatAmount(tx.amount)}
+    </td>
+<td class="text-right ${bankAmountState.className}">
+    ${bankAmountState.text}
+</td>
+<td>${tx.title}</td>
                     <td>${tx.category}</td>
                     <td>${tx.payment_type}</td>
                     <td>${tx.transaction_type}</td>

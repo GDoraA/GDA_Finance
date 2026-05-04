@@ -575,6 +575,29 @@ button.secondary {
     font-weight: 700;
 }
 
+.bank-amount-match {
+    color: #2e7d32;
+    /* zöld */
+    font-weight: 700;
+}
+
+.bank-amount-less {
+    color: #c62828;
+    /* piros */
+    font-weight: 700;
+}
+
+.bank-amount-more {
+    color: #1565c0;
+    /* kék */
+    font-weight: 700;
+}
+
+.bank-amount-missing {
+    color: #888;
+    font-weight: 600;
+}
+
 /* ============================
    MOBIL KÁRTYANÉZET (≤ 600px)
    ============================ */
@@ -624,33 +647,37 @@ button.secondary {
         content: "Dátum";
     }
 
-    #transactionsTable td:nth-child(3)::before {
-        content: "Összeg";
-    }
+#transactionsTable td:nth-child(3)::before {
+    content: "Összeg";
+}
 
-    #transactionsTable td:nth-child(4)::before {
-        content: "Megnevezés";
-    }
+#transactionsTable td:nth-child(4)::before {
+    content: "Banki összeg";
+}
 
-    #transactionsTable td:nth-child(5)::before {
-        content: "Kategória";
-    }
+#transactionsTable td:nth-child(5)::before {
+    content: "Megnevezés";
+}
 
-    #transactionsTable td:nth-child(6)::before {
-        content: "Fizetési mód";
-    }
+#transactionsTable td:nth-child(6)::before {
+    content: "Kategória";
+}
 
-    #transactionsTable td:nth-child(7)::before {
-        content: "Típus";
-    }
+#transactionsTable td:nth-child(7)::before {
+    content: "Fizetési mód";
+}
 
-    #transactionsTable td:nth-child(8)::before {
-        content: "Megosztott?";
-    }
+#transactionsTable td:nth-child(8)::before {
+    content: "Típus";
+}
 
-    #transactionsTable td:nth-child(9)::before {
-        content: "Kivonat sor";
-    }
+#transactionsTable td:nth-child(9)::before {
+    content: "Megosztott?";
+}
+
+#transactionsTable td:nth-child(10)::before {
+    content: "Kivonat sor";
+}
 /* Bank import (banki tételek) – mezőnevek oszlopsorrend alapján */
 #bankImportPreviewTable td:nth-child(1)::before { content: "ID"; }
 #bankImportPreviewTable td:nth-child(2)::before { content: "Rendelt tranzakció ID-k"; }

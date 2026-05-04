@@ -774,6 +774,10 @@ if (cell instanceof Date && !isNaN(cell.getTime())) {
 
       result = { success: true, data: rows };
 
+    } else if (action === "setBankTransactionMatchStatus") {
+      requirePermission_(auth, "tx_import", "write");
+      result = setBankTransactionMatchStatus(p.id || "", p.status || "");
+
     } else if (action === "deleteSharedExpense") {
       requirePermission_(auth, "se_delete", "write");
       result = deleteSharedExpense_(p.id || "");
@@ -2130,4 +2134,61 @@ function deriveMonthFromDate_(value) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   return y + "" + m; // YYYYMM
+}
+function setBankTransactionMatchStatus(id, status) {
+    try {
+        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        const sheet = ss.getSheetByName("Bank_Transactions");
+        if (!sheet) {
+            throw new Error("Bank_Transactions sheet nem található.");
+        }
+
+        const data = sheet.getDataRange().getValues();
+        if (!data || data.length < 2) {
+            throw new Error("Nincs adat a Bank_Transactions sheetben.");
+        }
+
+        const headers = data[0];
+
+        const idCol = headers.indexOf("id");
+        const statusCol = headers.indexOf("match_status");
+
+        if (idCol === -1) {
+            throw new Error("Hiányzik az 'id' oszlop.");
+        }
+        if (statusCol === -1) {
+            throw new Error("Hiányzik a 'match_status' oszlop.");
+        }
+
+        let updated = false;
+
+        for (let i = 1; i < data.length; i++) {
+            const rowId = String(data[i][idCol] || "").trim();
+
+            if (rowId === String(id).trim()) {
+                sheet.getRange(i + 1, statusCol + 1).setValue(status);
+                updated = true;
+                break;
+            }
+        }
+
+        if (!updated) {
+            throw new Error("Nem található banki rekord ezzel az ID-val: " + id);
+        }
+
+        return {
+            success: true
+        };
+
+    } catch (err) {
+        Logger.log("setBankTransactionMatchStatus error: " + err);
+
+        return {
+            success: false,
+            error: String(err)
+        };
+    }
+}
+function testSetBankTransactionMatchStatus() {
+  return setBankTransactionMatchStatus("BT-85401692A2", "ignored");
 }

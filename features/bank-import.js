@@ -102,9 +102,12 @@ const renderBankPreview = (items) => {
     const q = String(filterTextEl?.value ?? "").trim().toLowerCase();
     const unmatchedOnly = (filterUnmatchedEl?.checked === true);
     // 1) szűrés
-    let workingItems = safeItems.filter(it => {
-        if (unmatchedOnly && String(it?.matched_transaction_ids ?? "").trim() !== "") return false;
-        if (!q) return true;
+let workingItems = safeItems.filter(it => {
+    const matchedIds = String(it?.matched_transaction_ids ?? "").trim();
+    const matchStatus = String(it?.match_status ?? "").trim().toLowerCase();
+
+    if (unmatchedOnly && (matchedIds !== "" || matchStatus === "ignored")) return false;
+    if (!q) return true;
         // teljes sorban keresünk (összes mező)
         // teljes sorban keresünk (összes mező) + összeg normalizált egyezés
         const rowMatch = Object.values(it || {}).some(v => String(v ?? "").toLowerCase().includes(q));

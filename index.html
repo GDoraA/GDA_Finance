@@ -311,36 +311,23 @@
             <div id="bankMatchingStatus" class="result-count" data-bank-matching-status>
                 Riport modul inicializálása...
             </div>
-
+            <div class="card">
+                <label for="bankMatchingStatusFilter">Státusz nézet</label>
+                <select id="bankMatchingStatusFilter">
+                    <option value="open" selected>Open</option>
+                    <option value="ignored">Ignored</option>
+                </select>
+            </div>
             <div class="card">
                 <h3>Párosítási statisztika</h3>
 
-                <div class="bank-matching-kpi-grid">
-                    <div class="bank-matching-kpi">
-                        <div class="bank-matching-kpi-label">Összes</div>
-                        <div id="bankMatchingTotal" class="bank-matching-kpi-value">0</div>
-                    </div>
-
-                    <div class="bank-matching-kpi">
-                        <div class="bank-matching-kpi-label">Matched</div>
-                        <div id="bankMatchingMatched" class="bank-matching-kpi-value">0</div>
-                    </div>
-
-                    <div class="bank-matching-kpi">
-                        <div class="bank-matching-kpi-label">Open</div>
-                        <div id="bankMatchingOpen" class="bank-matching-kpi-value">0</div>
-                    </div>
-
-                    <div class="bank-matching-kpi">
-                        <div class="bank-matching-kpi-label">Ignored</div>
-                        <div id="bankMatchingIgnored" class="bank-matching-kpi-value">0</div>
-                    </div>
-
-                    <div class="bank-matching-kpi">
-                        <div class="bank-matching-kpi-label">Arány</div>
-                        <div id="bankMatchingRatio" class="bank-matching-kpi-value">0%</div>
-                    </div>
-                </div>
+<div class="bank-matching-stats-list">
+    <div><strong>Összes:</strong> <span id="bankMatchingTotal">0</span></div>
+    <div><strong>Matched:</strong> <span id="bankMatchingMatched">0</span></div>
+    <div><strong>Open:</strong> <span id="bankMatchingOpen">0</span></div>
+    <div><strong>Ignored:</strong> <span id="bankMatchingIgnored">0</span></div>
+    <div><strong>Arány:</strong> <span id="bankMatchingRatio">0%</span></div>
+</div>
                 <div class="card">
                     <h3>Nyitott banki tételek</h3>
 

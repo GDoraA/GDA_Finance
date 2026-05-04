@@ -602,6 +602,7 @@ button.secondary {
    MOBIL KÁRTYANÉZET (≤ 600px)
    ============================ */
 
+
 @media (max-width: 600px) {
 
     /* Elrejtjük a táblázat fejléceit (kivéve a bank import preview-t) */
@@ -609,12 +610,21 @@ button.secondary {
         display: none;
     }
 
-
-
+    /* Mobil kártyanézetben ne örökölje a desktop széles táblázat minimumszélességét */
+    .tx-table,
+    .tx-table tbody {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+    }
 
     /* A sorok kártyákká alakulnak */
     .tx-table tr {
         display: block;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
         margin-bottom: 15px;
         background: white;
         padding: 12px;
@@ -671,13 +681,9 @@ button.secondary {
     content: "Típus";
 }
 
-#transactionsTable td:nth-child(9)::before {
-    content: "Megosztott?";
-}
-
-#transactionsTable td:nth-child(10)::before {
-    content: "Kivonat sor";
-}
+    #transactionsTable td:nth-child(9)::before {
+        content: "Kivonat sor";
+    }
 /* Bank import (banki tételek) – mezőnevek oszlopsorrend alapján */
 #bankImportPreviewTable td:nth-child(1)::before { content: "ID"; }
 #bankImportPreviewTable td:nth-child(2)::before { content: "Rendelt tranzakció ID-k"; }

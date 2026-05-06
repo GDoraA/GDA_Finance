@@ -356,10 +356,27 @@ const accountExpensePaymentTypes = new Set([
     const amount = Number(tx.amount) || 0;
     const absAmount = Math.abs(amount);
     const paymentType = normalizePaymentTypeForSummary(tx.payment_type);
+    const titleText = String(tx.title || "").trim().toLowerCase();
+    const categoryText = String(tx.category || "").trim().toLowerCase();
 
     const isSaving = t.includes("megtak") || t === "saving";
     const isExpense = t.includes("kiad") || t === "expense";
     const isIncome = t.includes("bev") || t === "income";
+
+    const isTransferType =
+        t.includes("átvezet") ||
+        t.includes("atvezet") ||
+        t === "transfer";
+
+    const isCashWithdrawal =
+        paymentType.includes("készpénzfelvét") ||
+        paymentType.includes("keszpenzfelvet") ||
+        titleText.includes("készpénzfelvét") ||
+        titleText.includes("keszpenzfelvet") ||
+        categoryText.includes("készpénzfelvét") ||
+        categoryText.includes("keszpenzfelvet");
+
+    const isCashWithdrawalTransfer = isTransferType && isCashWithdrawal;
 
     if (isSaving) {
         savingTotal += amount;
@@ -370,6 +387,12 @@ const accountExpensePaymentTypes = new Set([
         expenseTotal += amount;
     } else if (isIncome) {
         incomeTotal += amount;
+    }
+
+    if (isCashWithdrawalTransfer) {
+        cashIncomeTotal += absAmount;
+        accountExpenseTotal += absAmount;
+        return;
     }
 
     if (cashIncomePaymentTypes.has(paymentType)) {

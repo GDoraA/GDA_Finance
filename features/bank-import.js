@@ -65,7 +65,165 @@ function openBankItemModal(item) {
             </div>
         `;
     }).join("");
-    details.innerHTML = `<div class="bank-item-grid">${html}</div>`;
+
+    const bankId = String(item?.id ?? "").trim();
+    const matchedIds = String(item?.matched_transaction_ids ?? "").trim();
+    const matchStatus = String(item?.match_status ?? "").trim().toLowerCase();
+
+    const typeText = String(item?.type ?? "").trim().toLowerCase();
+    const memoText = String(item?.memo ?? "").trim().toLowerCase();
+    const partnerText = String(item?.partner_name ?? "").trim().toLowerCase();
+
+    const isAlreadyMatched = matchedIds !== "";
+    const isIgnored = matchStatus === "ignored";
+
+    const isCashWithdrawal =
+        typeText.includes("készpénzfelvét") ||
+        typeText.includes("keszpenzfelvet") ||
+        typeText.includes("atm") ||
+        memoText.includes("készpénzfelvét") ||
+        memoText.includes("keszpenzfelvet") ||
+        memoText.includes("atm") ||
+        partnerText.includes("atm");
+
+    const createCashTxDisabled =
+        (!bankId || isAlreadyMatched || isIgnored || !isCashWithdrawal) ? "disabled" : "";
+
+    const createCashTxHint = !bankId
+        ? "Hiányzó banki tétel ID."
+        : isAlreadyMatched
+            ? "Ehhez a banki tételhez már tartozik tranzakció."
+            : isIgnored
+                ? "Ignored státuszú banki tételből nem hozunk létre tranzakciót."
+                : !isCashWithdrawal
+                    ? "Ez a banki tétel nem tűnik készpénzfelvételnek."
+                    : "A tranzakció létrehozása a következő lépésben történik.";
+
+    details.innerHTML = `
+        <div class="bank-item-actions" style="margin-bottom:12px;">
+            <button id="bankCreateCashWithdrawalTxBtn"
+                    type="button"
+                    ${createCashTxDisabled}
+                    title="${escapeHtml(createCashTxHint)}">
+                Tranzakció létrehozása készpénzfelvételből
+            </button>
+            <div id="bankCreateCashWithdrawalTxMsg" class="muted" style="margin-top:6px;">
+                ${escapeHtml(createCashTxHint)}
+            </div>
+        </div>
+        <div class="bank-item-grid">${html}</div>
+    `;
+
+    const createCashTxBtn = document.getElementById("bankCreateCashWithdrawalTxBtn");
+    const createCashTxMsg = document.getElementById("bankCreateCashWithdrawalTxMsg");
+
+    if (createCashTxBtn && !createCashTxBtn.disabled) {
+        createCashTxBtn.addEventListener("click", async () => {
+            const built = buildCashWithdrawalTransactionPayload(item);
+
+            if (!built || built.success !== true) {
+                if (createCashTxMsg) {
+                    createCashTxMsg.textContent = built?.error || "Nem sikerült előállítani a tranzakció adatait.";
+                }
+                return;
+            }
+
+            createCashTxBtn.disabled = true;
+            createCashTxBtn.textContent = "Mentés...";
+            if (createCashTxMsg) {
+                createCashTxMsg.textContent = "Tranzakció létrehozása folyamatban...";
+            }
+
+            try {
+                const resp = await api.addTransaction(built.data);
+
+                if (!resp || resp.success !== true) {
+                    createCashTxBtn.disabled = false;
+                    createCashTxBtn.textContent = "Tranzakció létrehozása készpénzfelvételből";
+                    if (createCashTxMsg) {
+                        createCashTxMsg.textContent =
+                            resp?.error || resp?.message || "Nem sikerült létrehozni a tranzakciót.";
+                    }
+                    return;
+                }
+
+                const createdTxId = String(resp?.id || "").trim();
+                const bankId = String(item?.id ?? "").trim();
+
+                createCashTxBtn.textContent = "Tranzakció létrehozva";
+
+                if (createCashTxMsg) {
+                    createCashTxMsg.textContent = `Sikeresen létrehozva: ${createdTxId || "új tranzakció"}. Lista frissítése...`;
+                }
+
+                // Optimista helyi frissítés:
+                // a backend a Transactions.statement_item alapján tudja visszaépíteni a banki tételhez tartozó TR ID-t,
+                // de a UI-ban azonnal jelöljük párosítottként is.
+                if (bankId && createdTxId) {
+                    item.matched_transaction_ids = createdTxId;
+
+                    if (Array.isArray(bankImportItems)) {
+                        const currentBankItem = bankImportItems.find(x =>
+                            String(x?.id ?? "").trim() === bankId
+                        );
+
+                        if (currentBankItem) {
+                            currentBankItem.matched_transaction_ids = createdTxId;
+                        }
+                    }
+
+                    if (typeof bankToTxMap !== "undefined" && bankToTxMap instanceof Map) {
+                        bankToTxMap.set(bankId, [createdTxId]);
+                    }
+                }
+
+                try {
+                    if (window.transactionsPageBridge?.load) {
+                        await window.transactionsPageBridge.load(true);
+                    } else if (typeof loadTransactions === "function") {
+                        await loadTransactions(true);
+                    }
+
+                    // A tranzakció cache frissítése után újra megerősítjük a bank -> tx indexet.
+                    // Ez védi a banki listát akkor is, ha valamelyik async lista cache-ből jön vissza.
+                    if (bankId && createdTxId && typeof bankToTxMap !== "undefined" && bankToTxMap instanceof Map) {
+                        bankToTxMap.set(bankId, [createdTxId]);
+                    }
+
+                    if (typeof loadBankTransactions === "function") {
+                        await loadBankTransactions();
+                    } else {
+                        renderBankPreview(bankImportItems);
+                    }
+
+                    if (createCashTxMsg) {
+                        createCashTxMsg.textContent = `Sikeresen létrehozva és frissítve: ${createdTxId || "új tranzakció"}.`;
+                    }
+                } catch (refreshErr) {
+                    console.warn("Készpénzfelvétel tranzakció létrejött, de a lista frissítése nem sikerült:", refreshErr);
+
+                    // Mentés már sikeres volt, ezért nem engedjük újra a gombot.
+                    // Legalább a jelenlegi banki listát újrarendereljük a helyi állapottal.
+                    renderBankPreview(bankImportItems);
+
+                    if (createCashTxMsg) {
+                        createCashTxMsg.textContent =
+                            `Sikeresen létrehozva: ${createdTxId || "új tranzakció"}. A teljes frissítéshez töltsd újra az oldalt.`;
+                    }
+                }
+            } catch (err) {
+                console.error("Készpénzfelvétel tranzakció létrehozási hiba:", err);
+
+                createCashTxBtn.disabled = false;
+                createCashTxBtn.textContent = "Tranzakció létrehozása készpénzfelvételből";
+
+                if (createCashTxMsg) {
+                    createCashTxMsg.textContent = "Váratlan hiba történt a tranzakció létrehozásakor.";
+                }
+            }
+        });
+    }
+
     if (closeBtn && !closeBtn.__bankBound) {
         closeBtn.addEventListener("click", closeBankItemModal);
         closeBtn.__bankBound = true;
@@ -93,6 +251,46 @@ const normalizeAmount = (v) => {
     const n = Number(s);
     return isNaN(n) ? "" : n;
 };
+
+function buildCashWithdrawalTransactionPayload(item) {
+    const bankId = String(item?.id ?? "").trim();
+    if (!bankId) {
+        return { success: false, error: "Hiányzó banki tétel ID." };
+    }
+
+    const rawDate = String(item?.transaction_date || item?.posting_date || "").trim();
+    const date = typeof toIsoDate === "function"
+        ? toIsoDate(rawDate)
+        : rawDate.slice(0, 10);
+
+    if (!date) {
+        return { success: false, error: "Hiányzó vagy hibás banki tranzakció dátum." };
+    }
+
+    const amount = normalizeAmount(item?.amount);
+    if (typeof amount !== "number" || Number.isNaN(amount)) {
+        return { success: false, error: "Hiányzó vagy hibás banki összeg." };
+    }
+
+    const absAmount = Math.abs(amount);
+
+return {
+    success: true,
+    data: {
+        date,
+        month: toMonthYYYYMM(date),
+        amount: String(absAmount),
+        title: "Készpénzfelvétel",
+        category: "Készpénzfelvétel",
+        payment_type: "Készpénzfelvétel",
+        transaction_type: "Átvezetés",
+        is_shared: "",
+        statement_item: bankId,
+        paid_by: ""
+    }
+};
+}
+
 const renderBankPreview = (items) => {
     if (!bankHeadRow || !bankBody) return;
     const safeItems = Array.isArray(items) ? items : [];

@@ -1,4 +1,4 @@
-const CACHE_NAME = "gda-finance-cache-v17";
+const CACHE_NAME = "gda-finance-cache-v19";
 const ASSETS = [
   "./",
   "./index.html",

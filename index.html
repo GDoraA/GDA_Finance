@@ -328,13 +328,18 @@
                 Riport modul inicializálása...
             </div>
 
-            <div class="card">
-                <label for="bankMatchingStatusFilter">Státusz nézet</label>
-                <select id="bankMatchingStatusFilter">
-                    <option value="open" selected>Open</option>
-                    <option value="ignored">Ignored</option>
-                </select>
-            </div>
+<div class="card">
+    <label for="bankMatchingStatusFilter">Státusz nézet</label>
+    <select id="bankMatchingStatusFilter">
+        <option value="open" selected>Open</option>
+        <option value="ignored">Ignored</option>
+    </select>
+
+    <label class="filter-checkbox" style="margin-top:8px;">
+        <input id="bankMatchingHideInternalTransfers" type="checkbox">
+        Saját számlák közti utalások elrejtése
+    </label>
+</div>
 
             <div class="card">
                 <h3>Párosítási statisztika</h3>

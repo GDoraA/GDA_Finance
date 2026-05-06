@@ -162,14 +162,25 @@ function setBankMatchingCachedStatus(bankId, status) {
 
 function initBankMatchingStatusFilter() {
     const statusFilterEl = document.getElementById("bankMatchingStatusFilter");
-    if (!statusFilterEl || statusFilterEl.dataset.initialized === "1") return;
+    const hideInternalTransfersEl = document.getElementById("bankMatchingHideInternalTransfers");
 
-    statusFilterEl.addEventListener("change", () => {
-        bankMatchingCurrentPage = 1;
-        renderBankMatchingPageFromCache();
-    });
+    if (statusFilterEl && statusFilterEl.dataset.initialized !== "1") {
+        statusFilterEl.addEventListener("change", () => {
+            bankMatchingCurrentPage = 1;
+            renderBankMatchingPageFromCache();
+        });
 
-    statusFilterEl.dataset.initialized = "1";
+        statusFilterEl.dataset.initialized = "1";
+    }
+
+    if (hideInternalTransfersEl && hideInternalTransfersEl.dataset.initialized !== "1") {
+        hideInternalTransfersEl.addEventListener("change", () => {
+            bankMatchingCurrentPage = 1;
+            renderBankMatchingPageFromCache();
+        });
+
+        hideInternalTransfersEl.dataset.initialized = "1";
+    }
 }
 
 async function ensureBankMatchingItemsCache(forceRefresh = false) {
@@ -261,14 +272,120 @@ function renderBankMatchingPageFromCache() {
             || (bankId && bankMatchingIgnoredIds.has(bankId));
     });
 
-    const visibleItems = currentView === "ignored"
-        ? ignoredItems
-        : openItems;
+let visibleItems = currentView === "ignored"
+    ? ignoredItems
+    : openItems;
 
-    ensureBankMatchingPaginationControls();
+const hideInternalTransfers =
+    document.getElementById("bankMatchingHideInternalTransfers")?.checked === true;
 
-    const pageSize = getBankMatchingPageSize(visibleItems.length);
-    const totalPages = Math.max(1, Math.ceil(visibleItems.length / pageSize));
+let hiddenInternalCount = 0;
+
+if (hideInternalTransfers) {
+    const ownList = (typeof window !== "undefined" && Array.isArray(window.__ownAccountsCache))
+        ? window.__ownAccountsCache
+        : [];
+
+    const normAcc = (s) => String(s ?? "").replace(/\s+/g, "").trim().toLowerCase();
+    const ownSet = new Set(ownList.map(normAcc).filter(Boolean));
+
+    const classifyDir = (dirRaw, amt) => {
+        const d = String(dirRaw ?? "").trim().toLowerCase();
+
+        if (d === "bejövő" || d === "bejövo") return "in";
+        if (d === "kimenő" || d === "kimeno") return "out";
+
+        if (d === "credit" || d === "cr" || d === "c") return "in";
+        if (d === "debit" || d === "dr" || d === "d") return "out";
+
+        if (typeof amt === "number") {
+            if (amt < 0) return "out";
+            if (amt > 0) return "in";
+        }
+
+        return "";
+    };
+
+    const flagsByAbsAmount = new Map();
+
+    for (const item of visibleItems) {
+        const amt = normalizeAmount(item?.amount);
+        if (typeof amt !== "number") continue;
+
+        const acc1 = normAcc(item?.account_number);
+        const acc2 = normAcc(item?.partner_account);
+        const touchesOwn = ownSet.has(acc1) || ownSet.has(acc2);
+
+        if (!touchesOwn) continue;
+
+        const dirClass = classifyDir(item?.direction, amt);
+        if (!dirClass) continue;
+
+        const absAmt = Math.abs(amt);
+
+        if (!flagsByAbsAmount.has(absAmt)) {
+            flagsByAbsAmount.set(absAmt, { in: false, out: false });
+        }
+
+        const rec = flagsByAbsAmount.get(absAmt);
+
+        if (dirClass === "in") {
+            rec.in = true;
+        } else if (dirClass === "out") {
+            rec.out = true;
+        }
+    }
+
+    const internalAbsAmounts = new Set(
+        Array.from(flagsByAbsAmount.entries())
+            .filter(([_, v]) => v.in && v.out)
+            .map(([amount]) => amount)
+    );
+
+    visibleItems = visibleItems.filter((item) => {
+        const amt = normalizeAmount(item?.amount);
+        if (typeof amt !== "number") return true;
+
+        const acc1 = normAcc(item?.account_number);
+        const acc2 = normAcc(item?.partner_account);
+        const touchesOwn = ownSet.has(acc1) || ownSet.has(acc2);
+
+        if (!touchesOwn) return true;
+
+        const isInternal = internalAbsAmounts.has(Math.abs(amt));
+
+        if (isInternal) {
+            hiddenInternalCount += 1;
+            return false;
+        }
+
+        return true;
+    });
+}
+
+const hideInternalCb = document.getElementById("bankMatchingHideInternalTransfers");
+const hideInternalLabel = hideInternalCb?.closest("label");
+
+if (hideInternalLabel) {
+    const baseText = "Saját számlák közti utalások elrejtése";
+    const newText =
+        hideInternalTransfers && hiddenInternalCount > 0
+            ? ` ${baseText} (${hiddenInternalCount} elrejtve)`
+            : ` ${baseText}`;
+
+    Array.from(hideInternalLabel.childNodes).forEach((node) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+            hideInternalLabel.removeChild(node);
+        }
+    });
+
+    hideInternalLabel.appendChild(document.createTextNode(newText));
+}
+
+ensureBankMatchingPaginationControls();
+
+const pageSize = getBankMatchingPageSize(visibleItems.length);
+const totalPages = Math.max(1, Math.ceil(visibleItems.length / pageSize));
     bankMatchingCurrentPage = Math.min(
         Math.max(Number(bankMatchingCurrentPage) || 1, 1),
         totalPages
@@ -402,10 +519,14 @@ async function loadBankMatchingPage(forceRefresh = false) {
 
     setBankMatchingStatus("Adatok betöltése...");
 
-    try {
-        await ensureBankMatchingItemsCache(forceRefresh);
-        renderBankMatchingPageFromCache();
-    } catch (err) {
+try {
+    if (typeof window.ensureOwnAccountsCache === "function") {
+        await window.ensureOwnAccountsCache();
+    }
+
+    await ensureBankMatchingItemsCache(forceRefresh);
+    renderBankMatchingPageFromCache();
+} catch (err) {
         console.error("Bank matching load error:", err);
 
         bankMatchingItemsCache = null;

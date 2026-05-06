@@ -59,28 +59,28 @@
         <!-- Tranzakció lista -->
         <section id="page-transactions">
             <h2>Tranzakciók</h2>
-<div id="txTypeBalanceBox" class="balance-box">
-    <div><strong>Kiadás:</strong> <span id="txExpenseTotal">0</span></div>
-    <div><strong>Bevétel:</strong> <span id="txIncomeTotal">0</span></div>
-    <div><strong>Megtakarítás:</strong> <span id="txSavingTotal">0</span></div>
-    <div><strong>Egyenleg:</strong> <span id="txNetBalance">0</span></div>
+            <div id="txTypeBalanceBox" class="balance-box">
+                <div><strong>Kiadás:</strong> <span id="txExpenseTotal">0</span></div>
+                <div><strong>Bevétel:</strong> <span id="txIncomeTotal">0</span></div>
+                <div><strong>Megtakarítás:</strong> <span id="txSavingTotal">0</span></div>
+                <div><strong>Egyenleg:</strong> <span id="txNetBalance">0</span></div>
 
-    <div class="tx-money-flow-summary">
-        <div class="tx-money-flow-column">
-            <div class="tx-money-flow-title">Készpénzes</div>
-            <div><strong>Bevétel:</strong> <span id="txCashIncomeTotal">0</span></div>
-            <div><strong>Kiadás:</strong> <span id="txCashExpenseTotal">0</span></div>
-            <div><strong>Egyenleg:</strong> <span id="txCashBalanceTotal">0</span></div>
-        </div>
+                <div class="tx-money-flow-summary">
+                    <div class="tx-money-flow-column">
+                        <div class="tx-money-flow-title">Készpénzes</div>
+                        <div><strong>Bevétel:</strong> <span id="txCashIncomeTotal">0</span></div>
+                        <div><strong>Kiadás:</strong> <span id="txCashExpenseTotal">0</span></div>
+                        <div><strong>Egyenleg:</strong> <span id="txCashBalanceTotal">0</span></div>
+                    </div>
 
-        <div class="tx-money-flow-column">
-            <div class="tx-money-flow-title">Számlás</div>
-            <div><strong>Bevétel:</strong> <span id="txAccountIncomeTotal">0</span></div>
-            <div><strong>Kiadás:</strong> <span id="txAccountExpenseTotal">0</span></div>
-            <div><strong>Egyenleg:</strong> <span id="txAccountBalanceTotal">0</span></div>
-        </div>
-    </div>
-</div>
+                    <div class="tx-money-flow-column">
+                        <div class="tx-money-flow-title">Számlás</div>
+                        <div><strong>Bevétel:</strong> <span id="txAccountIncomeTotal">0</span></div>
+                        <div><strong>Kiadás:</strong> <span id="txAccountExpenseTotal">0</span></div>
+                        <div><strong>Egyenleg:</strong> <span id="txAccountBalanceTotal">0</span></div>
+                    </div>
+                </div>
+            </div>
             <div class="container">
                 <!-- Tranzakciós gombsor -->
                 <div class="tx-toolbar">
@@ -327,6 +327,7 @@
             <div id="bankMatchingStatus" class="result-count" data-bank-matching-status>
                 Riport modul inicializálása...
             </div>
+
             <div class="card">
                 <label for="bankMatchingStatusFilter">Státusz nézet</label>
                 <select id="bankMatchingStatusFilter">
@@ -334,40 +335,44 @@
                     <option value="ignored">Ignored</option>
                 </select>
             </div>
+
             <div class="card">
                 <h3>Párosítási statisztika</h3>
 
-<div class="bank-matching-stats-list">
-    <div><strong>Összes:</strong> <span id="bankMatchingTotal">0</span></div>
-    <div><strong>Matched:</strong> <span id="bankMatchingMatched">0</span></div>
-    <div><strong>Open:</strong> <span id="bankMatchingOpen">0</span></div>
-    <div><strong>Ignored:</strong> <span id="bankMatchingIgnored">0</span></div>
-    <div><strong>Arány:</strong> <span id="bankMatchingRatio">0%</span></div>
-</div>
-                <div class="card">
-                    <h3>Nyitott banki tételek</h3>
+                <div class="bank-matching-stats-list">
+                    <div><strong>Összes:</strong> <span id="bankMatchingTotal">0</span></div>
+                    <div><strong>Matched:</strong> <span id="bankMatchingMatched">0</span></div>
+                    <div><strong>Open:</strong> <span id="bankMatchingOpen">0</span></div>
+                    <div><strong>Ignored:</strong> <span id="bankMatchingIgnored">0</span></div>
+                    <div><strong>Arány:</strong> <span id="bankMatchingRatio">0%</span></div>
+                </div>
+            </div>
 
-<table id="bankMatchingTable" class="data-table">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Hó</th>
-            <th>Tranzakció dátum</th>
-            <th>Könyvelés dátum</th>
-            <th>Összeg</th>
-            <th>Irány</th>
-            <th>Partner</th>
-            <th>Közlemény</th>
-            <th>Státusz</th>
-            <th>Művelet</th>
-        </tr>
-    </thead>
-    <tbody id="bankMatchingTableBody">
-        <tr>
-            <td colspan="10">Nincs megjeleníthető adat.</td>
-        </tr>
-    </tbody>
-</table>
+            <div class="card">
+                <h3>Nyitott banki tételek</h3>
+
+                <div class="table-wrapper">
+                    <table id="bankMatchingTable" class="tx-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Hó</th>
+                                <th>Tranzakció dátum</th>
+                                <th>Könyvelés dátum</th>
+                                <th>Összeg</th>
+                                <th>Irány</th>
+                                <th>Partner</th>
+                                <th>Közlemény</th>
+                                <th>Státusz</th>
+                                <th>Művelet</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bankMatchingTableBody">
+                            <tr>
+                                <td colspan="10">Nincs megjeleníthető adat.</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </section>

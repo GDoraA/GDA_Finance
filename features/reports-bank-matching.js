@@ -1,220 +1,430 @@
 window.bankMatchingPageBridge = window.bankMatchingPageBridge || {
     resetPage() {
-        // Ebben a release-ben még nincs külön page-state, ezért tudatos no-op.
+        bankMatchingCurrentPage = 1;
     },
-    load() {
-        return loadBankMatchingPage();
+    load(forceRefresh = false) {
+        return loadBankMatchingPage(forceRefresh);
     }
 };
+
 const bankMatchingIgnoredIds = new Set();
+let bankMatchingItemsCache = null;
+let bankMatchingItemsCachePromise = null;
+let bankMatchingCurrentPage = 1;
+
+const BANK_MATCHING_DEFAULT_PAGE_SIZE = 50;
+
+function getBankMatchingCurrentView() {
+    const statusFilterEl = document.getElementById("bankMatchingStatusFilter");
+    return String(statusFilterEl?.value || "open").trim().toLowerCase();
+}
+
+function setBankMatchingText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = String(value);
+}
+
+function setBankMatchingStatus(message) {
+    const pageEl = document.getElementById("page-bank-matching");
+    const statusEl = pageEl?.querySelector("[data-bank-matching-status]");
+    if (statusEl) statusEl.textContent = String(message || "");
+}
+function ensureBankMatchingPaginationControls() {
+    const table = document.getElementById("bankMatchingTable");
+    if (!table) return null;
+
+    let toolbar = document.getElementById("bankMatchingPaginationToolbar");
+    if (toolbar) return toolbar;
+
+    toolbar = document.createElement("div");
+    toolbar.id = "bankMatchingPaginationToolbar";
+    toolbar.className = "tx-toolbar";
+    toolbar.style.marginBottom = "10px";
+
+    toolbar.innerHTML = `
+        <div class="tx-toolbar-left">
+            <label for="bankMatchingItemsPerPage">Tételek oldalanként:</label>
+            <select id="bankMatchingItemsPerPage">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+                <option value="all">Összes</option>
+            </select>
+        </div>
+
+        <div id="bankMatchingResultCount" class="result-count"></div>
+
+        <div id="bankMatchingPagination" class="pagination">
+            <button id="bankMatchingFirstPageBtn" type="button" class="page-btn" aria-label="Első oldal">⏮</button>
+            <button id="bankMatchingPrevPageBtn" type="button" class="page-btn" aria-label="Előző oldal">◀</button>
+            <span id="bankMatchingPageInfo" class="page-info"></span>
+            <button id="bankMatchingNextPageBtn" type="button" class="page-btn" aria-label="Következő oldal">▶</button>
+            <button id="bankMatchingLastPageBtn" type="button" class="page-btn" aria-label="Utolsó oldal">⏭</button>
+        </div>
+    `;
+
+    table.parentNode.insertBefore(toolbar, table);
+
+    document.getElementById("bankMatchingItemsPerPage")?.addEventListener("change", () => {
+        bankMatchingCurrentPage = 1;
+        renderBankMatchingPageFromCache();
+    });
+
+    document.getElementById("bankMatchingFirstPageBtn")?.addEventListener("click", () => {
+        bankMatchingCurrentPage = 1;
+        renderBankMatchingPageFromCache();
+    });
+
+    document.getElementById("bankMatchingPrevPageBtn")?.addEventListener("click", () => {
+        bankMatchingCurrentPage = Math.max(1, bankMatchingCurrentPage - 1);
+        renderBankMatchingPageFromCache();
+    });
+
+    document.getElementById("bankMatchingNextPageBtn")?.addEventListener("click", () => {
+        bankMatchingCurrentPage += 1;
+        renderBankMatchingPageFromCache();
+    });
+
+    document.getElementById("bankMatchingLastPageBtn")?.addEventListener("click", () => {
+        const totalPages = Number(
+            document.getElementById("bankMatchingPagination")?.dataset.totalPages || "1"
+        );
+
+        bankMatchingCurrentPage = Math.max(1, totalPages);
+        renderBankMatchingPageFromCache();
+    });
+
+    return toolbar;
+}
+
+function getBankMatchingPageSize(totalItems) {
+    const select = document.getElementById("bankMatchingItemsPerPage");
+    const raw = String(select?.value || BANK_MATCHING_DEFAULT_PAGE_SIZE);
+
+    if (raw === "all") {
+        return Math.max(1, Number(totalItems) || 0);
+    }
+
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0
+        ? n
+        : BANK_MATCHING_DEFAULT_PAGE_SIZE;
+}
+
+function updateBankMatchingPaginationUI(page, totalPages, visibleCount, totalCount) {
+    const pagination = document.getElementById("bankMatchingPagination");
+    const resultCount = document.getElementById("bankMatchingResultCount");
+    const pageInfo = document.getElementById("bankMatchingPageInfo");
+
+    if (pagination) {
+        pagination.dataset.totalPages = String(totalPages);
+        pagination.style.display = totalPages > 1 ? "flex" : "none";
+    }
+
+    if (resultCount) {
+        resultCount.textContent = `Találatok: ${visibleCount} / ${totalCount} db`;
+    }
+
+    if (pageInfo) {
+        pageInfo.textContent = `Oldal: ${page} / ${totalPages}`;
+    }
+
+    const atFirst = page <= 1;
+    const atLast = page >= totalPages;
+
+    const firstBtn = document.getElementById("bankMatchingFirstPageBtn");
+    const prevBtn = document.getElementById("bankMatchingPrevPageBtn");
+    const nextBtn = document.getElementById("bankMatchingNextPageBtn");
+    const lastBtn = document.getElementById("bankMatchingLastPageBtn");
+
+    if (firstBtn) firstBtn.disabled = atFirst;
+    if (prevBtn) prevBtn.disabled = atFirst;
+    if (nextBtn) nextBtn.disabled = atLast;
+    if (lastBtn) lastBtn.disabled = atLast;
+}
+function findBankMatchingCachedItem(bankId) {
+    const id = String(bankId || "").trim();
+    if (!id || !Array.isArray(bankMatchingItemsCache)) return null;
+
+    return bankMatchingItemsCache.find(item =>
+        String(item?.id || "").trim() === id
+    ) || null;
+}
+
+function setBankMatchingCachedStatus(bankId, status) {
+    const item = findBankMatchingCachedItem(bankId);
+    if (!item) return null;
+
+    const previousStatus = String(item?.match_status || "").trim();
+    item.match_status = String(status || "").trim();
+    return previousStatus;
+}
 
 function initBankMatchingStatusFilter() {
     const statusFilterEl = document.getElementById("bankMatchingStatusFilter");
     if (!statusFilterEl || statusFilterEl.dataset.initialized === "1") return;
 
     statusFilterEl.addEventListener("change", () => {
-        loadBankMatchingPage();
+        bankMatchingCurrentPage = 1;
+        renderBankMatchingPageFromCache();
     });
 
     statusFilterEl.dataset.initialized = "1";
 }
 
-async function loadBankMatchingPage() {
-    initBankMatchingStatusFilter();
+async function ensureBankMatchingItemsCache(forceRefresh = false) {
+    if (!forceRefresh && Array.isArray(bankMatchingItemsCache)) {
+        return bankMatchingItemsCache;
+    }
 
-    const pageEl = document.getElementById("page-bank-matching");
-    if (!pageEl) return;
+    if (!forceRefresh && bankMatchingItemsCachePromise) {
+        return bankMatchingItemsCachePromise;
+    }
 
-const statusEl = pageEl.querySelector("[data-bank-matching-status]");
-if (statusEl) {
-    statusEl.textContent = "Adatok betöltése...";
-}
-
-    const setText = (id, value) => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = String(value);
-    };
-try {
-    const statusFilterEl = document.getElementById("bankMatchingStatusFilter");
-    const currentView = String(statusFilterEl?.value || "open").trim().toLowerCase();
-
-    const resp = await api.getBankTransactions();
+    bankMatchingItemsCachePromise = (async () => {
+        const resp = await api.getBankTransactions();
 
         if (!resp || resp.success !== true || !Array.isArray(resp.data)) {
             throw new Error(resp?.error || resp?.message || "Hibás banki adatválasz.");
         }
 
-        const bankItems = resp.data;
+        bankMatchingItemsCache = resp.data;
+        return bankMatchingItemsCache;
+    })();
 
-        const total = bankItems.length;
-        let matched = 0;
-        let open = 0;
-        let ignored = 0;
+    try {
+        return await bankMatchingItemsCachePromise;
+    } finally {
+        bankMatchingItemsCachePromise = null;
+    }
+}
 
-        bankItems.forEach((item) => {
-            const bankId = String(item?.id || "").trim();
-            const matchedIds = String(item?.matched_transaction_ids || "").trim();
+function renderBankMatchingPageFromCache() {
+    const bankItems = Array.isArray(bankMatchingItemsCache) ? bankMatchingItemsCache : [];
+    const currentView = getBankMatchingCurrentView();
 
-            const matchStatus = String(item?.match_status || "").trim().toLowerCase();
+    const total = bankItems.length;
+    let matched = 0;
+    let open = 0;
+    let ignored = 0;
 
-            if (matchStatus === "ignored" || (bankId && bankMatchingIgnoredIds.has(bankId))) {
-                ignored += 1;
-            } else if (matchedIds) {
-                matched += 1;
-            } else {
-                open += 1;
-            }
-        });
+    bankItems.forEach((item) => {
+        const bankId = String(item?.id || "").trim();
+        const matchedIds = String(item?.matched_transaction_ids || "").trim();
+        const matchStatus = String(item?.match_status || "").trim().toLowerCase();
 
-        const denominator = total - ignored;
-        const ratio = denominator > 0
-            ? Math.round((matched / denominator) * 100)
-            : 0;
+        if (matchStatus === "ignored" || (bankId && bankMatchingIgnoredIds.has(bankId))) {
+            ignored += 1;
+        } else if (matchedIds) {
+            matched += 1;
+        } else {
+            open += 1;
+        }
+    });
 
-        setText("bankMatchingTotal", total);
-        setText("bankMatchingMatched", matched);
-        setText("bankMatchingOpen", open);
-        setText("bankMatchingIgnored", ignored);
-        setText("bankMatchingRatio", `${ratio}%`);
+    const denominator = total - ignored;
+    const ratio = denominator > 0
+        ? Math.round((matched / denominator) * 100)
+        : 0;
 
-        const tableBody = document.getElementById("bankMatchingTableBody");
-        if (tableBody) {
- 
-            const openItems = bankItems.filter((item) => {
-                const bankId = String(item?.id || "").trim();
-                const matchedIds = String(item?.matched_transaction_ids || "").trim();
-                const matchStatus = String(item?.match_status || "").trim().toLowerCase();
+    setBankMatchingText("bankMatchingTotal", total);
+    setBankMatchingText("bankMatchingMatched", matched);
+    setBankMatchingText("bankMatchingOpen", open);
+    setBankMatchingText("bankMatchingIgnored", ignored);
+    setBankMatchingText("bankMatchingRatio", `${ratio}%`);
 
-                return !matchedIds
-                    && matchStatus !== "ignored"
-                    && !bankMatchingIgnoredIds.has(bankId);
-            });
+    const tableBody = document.getElementById("bankMatchingTableBody");
+    if (!tableBody) {
+        setBankMatchingStatus(
+            currentView === "ignored"
+                ? "Ignored nézet betöltve."
+                : "Open nézet betöltve."
+        );
+        return;
+    }
 
-            const ignoredItems = bankItems.filter((item) => {
-                const bankId = String(item?.id || "").trim();
-                const matchStatus = String(item?.match_status || "").trim().toLowerCase();
+    const openItems = bankItems.filter((item) => {
+        const bankId = String(item?.id || "").trim();
+        const matchedIds = String(item?.matched_transaction_ids || "").trim();
+        const matchStatus = String(item?.match_status || "").trim().toLowerCase();
 
-                return matchStatus === "ignored"
-                    || (bankId && bankMatchingIgnoredIds.has(bankId));
-            });
+        return !matchedIds
+            && matchStatus !== "ignored"
+            && !bankMatchingIgnoredIds.has(bankId);
+    });
 
-            const visibleItems = currentView === "ignored"
-                ? ignoredItems
-                : openItems;
+    const ignoredItems = bankItems.filter((item) => {
+        const bankId = String(item?.id || "").trim();
+        const matchStatus = String(item?.match_status || "").trim().toLowerCase();
 
-            const emptyMessage = currentView === "ignored"
-                ? "Nincs ignored státuszú banki tétel."
-                : "Nincs nyitott, párosítatlan banki tétel.";
+        return matchStatus === "ignored"
+            || (bankId && bankMatchingIgnoredIds.has(bankId));
+    });
 
-            if (visibleItems.length === 0) {
-                tableBody.innerHTML = `
+    const visibleItems = currentView === "ignored"
+        ? ignoredItems
+        : openItems;
+
+    ensureBankMatchingPaginationControls();
+
+    const pageSize = getBankMatchingPageSize(visibleItems.length);
+    const totalPages = Math.max(1, Math.ceil(visibleItems.length / pageSize));
+    bankMatchingCurrentPage = Math.min(
+        Math.max(Number(bankMatchingCurrentPage) || 1, 1),
+        totalPages
+    );
+
+    const start = (bankMatchingCurrentPage - 1) * pageSize;
+    const end = start + pageSize;
+    const pageItems = visibleItems.slice(start, end);
+
+    updateBankMatchingPaginationUI(
+        bankMatchingCurrentPage,
+        totalPages,
+        pageItems.length,
+        visibleItems.length
+    );
+
+    const emptyMessage = currentView === "ignored"
+        ? "Nincs ignored státuszú banki tétel."
+        : "Nincs nyitott, párosítatlan banki tétel.";
+
+    if (visibleItems.length === 0) {
+        tableBody.innerHTML = `
 <tr>
 <td colspan="10">${escapeHtml(emptyMessage)}</td>
 </tr>
 `;
-            } else {
-                tableBody.innerHTML = visibleItems.map((item) => `
-                    <tr>
-                        <td>${escapeHtml(String(item?.id || ""))}</td>
-                        <td>${escapeHtml(String(item?.month || ""))}</td>
-                        <td>${escapeHtml(String(item?.transaction_date || ""))}</td>
-                        <td>${escapeHtml(String(item?.posting_date || ""))}</td>
-                        <td>${escapeHtml(String(item?.amount || ""))}</td>
-                        <td>${escapeHtml(String(item?.direction || ""))}</td>
-                        <td>${escapeHtml(String(item?.partner_name || ""))}</td>
-                        <td>${escapeHtml(String(item?.memo || ""))}</td>
-<td>${currentView === "ignored" ? "Ignored" : "Open"}</td>
-<td>
-    <button type="button"
-            class="${currentView === "ignored" ? "bank-matching-restore-btn" : "bank-matching-ignore-btn"}"
-            data-bank-id="${escapeHtml(String(item?.id || ""))}">
-        ${currentView === "ignored" ? "Visszaállítás" : "Nem kell párosítani"}
-    </button>
-</td>
-                    </tr>
-`).join("");
-            }
+    } else {
+tableBody.innerHTML = pageItems.map((item) => {
+    const bankId = String(item?.id || "");
+    const memo = String(item?.memo || "");
+    const partnerName = String(item?.partner_name || "");
+    const statusLabel = currentView === "ignored" ? "Ignored" : "Open";
 
-tableBody.querySelectorAll(".bank-matching-ignore-btn").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-        const bankId = String(btn.dataset.bankId || "").trim();
-        if (!bankId) return;
+    return `
+        <tr>
+            <td>${escapeHtml(bankId)}</td>
+            <td>${escapeHtml(String(item?.month || ""))}</td>
+            <td>${escapeHtml(String(item?.transaction_date || ""))}</td>
+            <td>${escapeHtml(String(item?.posting_date || ""))}</td>
+            <td class="text-right">${escapeHtml(formatAmount(item?.amount || ""))}</td>
+            <td>${escapeHtml(String(item?.direction || ""))}</td>
+            <td title="${escapeHtml(partnerName)}">${escapeHtml(partnerName)}</td>
+            <td title="${escapeHtml(memo)}">${escapeHtml(memo)}</td>
+            <td>${escapeHtml(statusLabel)}</td>
+            <td>
+                <button type="button"
+                        class="${currentView === "ignored" ? "bank-matching-restore-btn" : "bank-matching-ignore-btn"}"
+                        data-bank-id="${escapeHtml(bankId)}">
+                    ${currentView === "ignored" ? "Visszaállítás" : "Nem kell párosítani"}
+                </button>
+            </td>
+        </tr>
+    `;
+}).join("");
+    }
 
-btn.disabled = true;
-btn.textContent = "Ignorálás...";
+    bindBankMatchingRowActions(tableBody);
 
-bankMatchingIgnoredIds.add(bankId);
-        loadBankMatchingPage();
-
-        try {
-            const resp = await api.setBankTransactionMatchStatus(bankId, "ignored");
-
-            if (!resp || resp.success !== true) {
-                bankMatchingIgnoredIds.delete(bankId);
-                await loadBankMatchingPage();
-                alert(resp?.error || resp?.message || "Nem sikerült menteni a státuszt.");
-                return;
-            }
-
-            await loadBankMatchingPage();
-        } catch (err) {
-            console.error("Bank matching status save error:", err);
-            bankMatchingIgnoredIds.delete(bankId);
-            await loadBankMatchingPage();
-            alert("Hiba történt a státusz mentésekor.");
-        }
-    });
-});
-
-tableBody.querySelectorAll(".bank-matching-restore-btn").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-        const bankId = String(btn.dataset.bankId || "").trim();
-        if (!bankId) return;
-
-btn.disabled = true;
-btn.textContent = "Visszaállítás...";
-
-bankMatchingIgnoredIds.delete(bankId);
-        loadBankMatchingPage();
-
-        try {
-            const resp = await api.setBankTransactionMatchStatus(bankId, "open");
-
-            if (!resp || resp.success !== true) {
-                bankMatchingIgnoredIds.add(bankId);
-                await loadBankMatchingPage();
-                alert(resp?.error || resp?.message || "Nem sikerült visszaállítani a státuszt.");
-                return;
-            }
-
-            await loadBankMatchingPage();
-        } catch (err) {
-            console.error("Bank matching status restore error:", err);
-            bankMatchingIgnoredIds.add(bankId);
-            await loadBankMatchingPage();
-            alert("Hiba történt a státusz visszaállításakor.");
-        }
-    });
-});
-
-        }
-
-if (statusEl) {
-    statusEl.textContent = currentView === "ignored"
-        ? "Ignored nézet betöltve."
-        : "Open nézet betöltve.";
+setBankMatchingStatus(
+    currentView === "ignored"
+        ? `Ignored nézet betöltve. (${pageItems.length} / ${visibleItems.length} tétel)`
+        : `Open nézet betöltve. (${pageItems.length} / ${visibleItems.length} tétel)`
+);
 }
+
+function bindBankMatchingRowActions(tableBody) {
+    tableBody.querySelectorAll(".bank-matching-ignore-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            const bankId = String(btn.dataset.bankId || "").trim();
+            if (!bankId) return;
+
+            const previousStatus = setBankMatchingCachedStatus(bankId, "ignored");
+            bankMatchingIgnoredIds.add(bankId);
+            renderBankMatchingPageFromCache();
+
+            try {
+                const resp = await api.setBankTransactionMatchStatus(bankId, "ignored");
+
+                if (!resp || resp.success !== true) {
+                    setBankMatchingCachedStatus(bankId, previousStatus || "");
+                    bankMatchingIgnoredIds.delete(bankId);
+                    renderBankMatchingPageFromCache();
+                    alert(resp?.error || resp?.message || "Nem sikerült menteni a státuszt.");
+                    return;
+                }
+            } catch (err) {
+                console.error("Bank matching status save error:", err);
+                setBankMatchingCachedStatus(bankId, previousStatus || "");
+                bankMatchingIgnoredIds.delete(bankId);
+                renderBankMatchingPageFromCache();
+                alert("Hiba történt a státusz mentésekor.");
+            }
+        });
+    });
+
+    tableBody.querySelectorAll(".bank-matching-restore-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            const bankId = String(btn.dataset.bankId || "").trim();
+            if (!bankId) return;
+
+            const previousStatus = setBankMatchingCachedStatus(bankId, "open");
+            bankMatchingIgnoredIds.delete(bankId);
+            renderBankMatchingPageFromCache();
+
+            try {
+                const resp = await api.setBankTransactionMatchStatus(bankId, "open");
+
+                if (!resp || resp.success !== true) {
+                    setBankMatchingCachedStatus(bankId, previousStatus || "ignored");
+                    bankMatchingIgnoredIds.add(bankId);
+                    renderBankMatchingPageFromCache();
+                    alert(resp?.error || resp?.message || "Nem sikerült visszaállítani a státuszt.");
+                    return;
+                }
+            } catch (err) {
+                console.error("Bank matching status restore error:", err);
+                setBankMatchingCachedStatus(bankId, previousStatus || "ignored");
+                bankMatchingIgnoredIds.add(bankId);
+                renderBankMatchingPageFromCache();
+                alert("Hiba történt a státusz visszaállításakor.");
+            }
+        });
+    });
+}
+
+async function loadBankMatchingPage(forceRefresh = false) {
+    initBankMatchingStatusFilter();
+
+    const pageEl = document.getElementById("page-bank-matching");
+    if (!pageEl) return;
+
+    setBankMatchingStatus("Adatok betöltése...");
+
+    try {
+        await ensureBankMatchingItemsCache(forceRefresh);
+        renderBankMatchingPageFromCache();
     } catch (err) {
         console.error("Bank matching load error:", err);
 
-        setText("bankMatchingTotal", 0);
-        setText("bankMatchingMatched", 0);
-        setText("bankMatchingOpen", 0);
-        setText("bankMatchingIgnored", 0);
-        setText("bankMatchingRatio", "0%");
+        bankMatchingItemsCache = null;
 
-        if (statusEl) {
-            statusEl.textContent = "Hiba a banki adatok betöltésekor.";
+        setBankMatchingText("bankMatchingTotal", 0);
+        setBankMatchingText("bankMatchingMatched", 0);
+        setBankMatchingText("bankMatchingOpen", 0);
+        setBankMatchingText("bankMatchingIgnored", 0);
+        setBankMatchingText("bankMatchingRatio", "0%");
+
+        const tableBody = document.getElementById("bankMatchingTableBody");
+        if (tableBody) {
+            tableBody.innerHTML = `
+<tr>
+<td colspan="10">Hiba a banki adatok betöltésekor.</td>
+</tr>
+`;
         }
+
+        setBankMatchingStatus("Hiba a banki adatok betöltésekor.");
     }
 }

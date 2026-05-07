@@ -70,9 +70,10 @@ function openBankItemModal(item) {
     const matchedIds = String(item?.matched_transaction_ids ?? "").trim();
     const matchStatus = String(item?.match_status ?? "").trim().toLowerCase();
 
-    const typeText = String(item?.type ?? "").trim().toLowerCase();
-    const memoText = String(item?.memo ?? "").trim().toLowerCase();
-    const partnerText = String(item?.partner_name ?? "").trim().toLowerCase();
+const typeText = String(item?.type ?? "").trim().toLowerCase();
+const memoText = String(item?.memo ?? "").trim().toLowerCase();
+const partnerText = String(item?.partner_name ?? "").trim().toLowerCase();
+const bankCategoryText = String(item?.spend_category ?? item?.category ?? "").trim().toLowerCase();
 
     const isAlreadyMatched = matchedIds !== "";
     const isIgnored = matchStatus === "ignored";
@@ -84,10 +85,37 @@ function openBankItemModal(item) {
         memoText.includes("készpénzfelvét") ||
         memoText.includes("keszpenzfelvet") ||
         memoText.includes("atm") ||
+        bankCategoryText === "készpénz felvétel" ||
         partnerText.includes("atm");
+
+    const containsCashDepositText = (text) => {
+        const s = String(text || "").trim().toLowerCase();
+        if (!s) return false;
+
+        const hasCashMarker =
+            s.includes("készpénz") ||
+            s.includes("keszpenz") ||
+            s.includes("kp") ||
+            s.includes("atm") ||
+            s.includes("cash");
+
+        const hasDepositMarker =
+            s.includes("befizet") ||
+            s.includes("deposit");
+
+        return hasCashMarker && hasDepositMarker;
+    };
+
+    const isCashDeposit =
+        containsCashDepositText(typeText) ||
+        containsCashDepositText(memoText) ||
+        containsCashDepositText(partnerText);
 
     const createCashTxDisabled =
         (!bankId || isAlreadyMatched || isIgnored || !isCashWithdrawal) ? "disabled" : "";
+
+    const createCashDepositTxDisabled =
+        (!bankId || isAlreadyMatched || isIgnored || !isCashDeposit) ? "disabled" : "";
 
     const createCashTxHint = !bankId
         ? "Hiányzó banki tétel ID."
@@ -97,6 +125,16 @@ function openBankItemModal(item) {
                 ? "Ignored státuszú banki tételből nem hozunk létre tranzakciót."
                 : !isCashWithdrawal
                     ? "Ez a banki tétel nem tűnik készpénzfelvételnek."
+                    : "A tranzakció létrehozása a következő lépésben történik.";
+
+    const createCashDepositTxHint = !bankId
+        ? "Hiányzó banki tétel ID."
+        : isAlreadyMatched
+            ? "Ehhez a banki tételhez már tartozik tranzakció."
+            : isIgnored
+                ? "Ignored státuszú banki tételből nem hozunk létre tranzakciót."
+                : !isCashDeposit
+                    ? "Ez a banki tétel nem tűnik készpénzbefizetésnek."
                     : "A tranzakció létrehozása a következő lépésben történik.";
 
     details.innerHTML = `
@@ -110,12 +148,25 @@ function openBankItemModal(item) {
             <div id="bankCreateCashWithdrawalTxMsg" class="muted" style="margin-top:6px;">
                 ${escapeHtml(createCashTxHint)}
             </div>
+
+            <button id="bankCreateCashDepositTxBtn"
+                    type="button"
+                    ${createCashDepositTxDisabled}
+                    title="${escapeHtml(createCashDepositTxHint)}"
+                    style="margin-top:8px;">
+                Tranzakció létrehozása készpénzbefizetésből
+            </button>
+            <div id="bankCreateCashDepositTxMsg" class="muted" style="margin-top:6px;">
+                ${escapeHtml(createCashDepositTxHint)}
+            </div>
         </div>
         <div class="bank-item-grid">${html}</div>
     `;
 
     const createCashTxBtn = document.getElementById("bankCreateCashWithdrawalTxBtn");
     const createCashTxMsg = document.getElementById("bankCreateCashWithdrawalTxMsg");
+    const createCashDepositTxBtn = document.getElementById("bankCreateCashDepositTxBtn");
+    const createCashDepositTxMsg = document.getElementById("bankCreateCashDepositTxMsg");
 
     if (createCashTxBtn && !createCashTxBtn.disabled) {
         createCashTxBtn.addEventListener("click", async () => {
@@ -223,7 +274,105 @@ function openBankItemModal(item) {
             }
         });
     }
+    if (createCashDepositTxBtn && !createCashDepositTxBtn.disabled) {
+        createCashDepositTxBtn.addEventListener("click", async () => {
+            const built = buildCashDepositTransactionPayload(item);
 
+            if (!built || built.success !== true) {
+                if (createCashDepositTxMsg) {
+                    createCashDepositTxMsg.textContent = built?.error || "Nem sikerült előállítani a tranzakció adatait.";
+                }
+                return;
+            }
+
+            createCashDepositTxBtn.disabled = true;
+            createCashDepositTxBtn.textContent = "Mentés...";
+            if (createCashDepositTxMsg) {
+                createCashDepositTxMsg.textContent = "Tranzakció létrehozása folyamatban...";
+            }
+
+            try {
+                const resp = await api.addTransaction(built.data);
+
+                if (!resp || resp.success !== true) {
+                    createCashDepositTxBtn.disabled = false;
+                    createCashDepositTxBtn.textContent = "Tranzakció létrehozása készpénzbefizetésből";
+                    if (createCashDepositTxMsg) {
+                        createCashDepositTxMsg.textContent =
+                            resp?.error || resp?.message || "Nem sikerült létrehozni a tranzakciót.";
+                    }
+                    return;
+                }
+
+                const createdTxId = String(resp?.id || "").trim();
+                const bankId = String(item?.id ?? "").trim();
+
+                createCashDepositTxBtn.textContent = "Tranzakció létrehozva";
+
+                if (createCashDepositTxMsg) {
+                    createCashDepositTxMsg.textContent = `Sikeresen létrehozva: ${createdTxId || "új tranzakció"}. Lista frissítése...`;
+                }
+
+                if (bankId && createdTxId) {
+                    item.matched_transaction_ids = createdTxId;
+
+                    if (Array.isArray(bankImportItems)) {
+                        const currentBankItem = bankImportItems.find(x =>
+                            String(x?.id ?? "").trim() === bankId
+                        );
+
+                        if (currentBankItem) {
+                            currentBankItem.matched_transaction_ids = createdTxId;
+                        }
+                    }
+
+                    if (typeof bankToTxMap !== "undefined" && bankToTxMap instanceof Map) {
+                        bankToTxMap.set(bankId, [createdTxId]);
+                    }
+                }
+
+                try {
+                    if (window.transactionsPageBridge?.load) {
+                        await window.transactionsPageBridge.load(true);
+                    } else if (typeof loadTransactions === "function") {
+                        await loadTransactions(true);
+                    }
+
+                    if (bankId && createdTxId && typeof bankToTxMap !== "undefined" && bankToTxMap instanceof Map) {
+                        bankToTxMap.set(bankId, [createdTxId]);
+                    }
+
+                    if (typeof loadBankTransactions === "function") {
+                        await loadBankTransactions();
+                    } else {
+                        renderBankPreview(bankImportItems);
+                    }
+
+                    if (createCashDepositTxMsg) {
+                        createCashDepositTxMsg.textContent = `Sikeresen létrehozva és frissítve: ${createdTxId || "új tranzakció"}.`;
+                    }
+                } catch (refreshErr) {
+                    console.warn("Készpénzbefizetés tranzakció létrejött, de a lista frissítése nem sikerült:", refreshErr);
+
+                    renderBankPreview(bankImportItems);
+
+                    if (createCashDepositTxMsg) {
+                        createCashDepositTxMsg.textContent =
+                            `Sikeresen létrehozva: ${createdTxId || "új tranzakció"}. A teljes frissítéshez töltsd újra az oldalt.`;
+                    }
+                }
+            } catch (err) {
+                console.error("Készpénzbefizetés tranzakció létrehozási hiba:", err);
+
+                createCashDepositTxBtn.disabled = false;
+                createCashDepositTxBtn.textContent = "Tranzakció létrehozása készpénzbefizetésből";
+
+                if (createCashDepositTxMsg) {
+                    createCashDepositTxMsg.textContent = "Váratlan hiba történt a tranzakció létrehozásakor.";
+                }
+            }
+        });
+    }
     if (closeBtn && !closeBtn.__bankBound) {
         closeBtn.addEventListener("click", closeBankItemModal);
         closeBtn.__bankBound = true;
@@ -274,23 +423,60 @@ function buildCashWithdrawalTransactionPayload(item) {
 
     const absAmount = Math.abs(amount);
 
-return {
-    success: true,
-    data: {
-        date,
-        month: toMonthYYYYMM(date),
-        amount: String(absAmount),
-        title: "Készpénzfelvétel",
-        category: "Készpénzfelvétel",
-        payment_type: "Készpénzfelvétel",
-        transaction_type: "Átvezetés",
-        is_shared: "",
-        statement_item: bankId,
-        paid_by: ""
-    }
-};
+    return {
+        success: true,
+        data: {
+            date,
+            month: toMonthYYYYMM(date),
+            amount: String(absAmount),
+            title: "Készpénzfelvétel",
+            category: "Készpénzfelvétel",
+            payment_type: "Készpénzfelvétel",
+            transaction_type: "Átvezetés",
+            is_shared: "",
+            statement_item: bankId,
+            paid_by: ""
+        }
+    };
 }
+function buildCashDepositTransactionPayload(item) {
+    const bankId = String(item?.id ?? "").trim();
+    if (!bankId) {
+        return { success: false, error: "Hiányzó banki tétel ID." };
+    }
 
+    const rawDate = String(item?.transaction_date || item?.posting_date || "").trim();
+    const date = typeof toIsoDate === "function"
+        ? toIsoDate(rawDate)
+        : rawDate.slice(0, 10);
+
+    if (!date) {
+        return { success: false, error: "Hiányzó vagy hibás banki tranzakció dátum." };
+    }
+
+    const amount = normalizeAmount(item?.amount);
+    if (typeof amount !== "number" || Number.isNaN(amount)) {
+        return { success: false, error: "Hiányzó vagy hibás banki összeg." };
+    }
+
+    const absAmount = Math.abs(amount);
+
+    return {
+        success: true,
+        data: {
+            date,
+            month: toMonthYYYYMM(date),
+            amount: String(absAmount),
+            title: "Készpénzbefizetés",
+            category: "Készpénzbefizetés",
+            payment_type: "Készpénzbefizetés",
+            transaction_type: "Átvezetés",
+            is_shared: "",
+            statement_item: bankId,
+            paid_by: ""
+        }
+    };
+}
 const renderBankPreview = (items) => {
     if (!bankHeadRow || !bankBody) return;
     const safeItems = Array.isArray(items) ? items : [];
@@ -300,12 +486,12 @@ const renderBankPreview = (items) => {
     const q = String(filterTextEl?.value ?? "").trim().toLowerCase();
     const unmatchedOnly = (filterUnmatchedEl?.checked === true);
     // 1) szűrés
-let workingItems = safeItems.filter(it => {
-    const matchedIds = String(it?.matched_transaction_ids ?? "").trim();
-    const matchStatus = String(it?.match_status ?? "").trim().toLowerCase();
+    let workingItems = safeItems.filter(it => {
+        const matchedIds = String(it?.matched_transaction_ids ?? "").trim();
+        const matchStatus = String(it?.match_status ?? "").trim().toLowerCase();
 
-    if (unmatchedOnly && (matchedIds !== "" || matchStatus === "ignored")) return false;
-    if (!q) return true;
+        if (unmatchedOnly && (matchedIds !== "" || matchStatus === "ignored")) return false;
+        if (!q) return true;
         // teljes sorban keresünk (összes mező)
         // teljes sorban keresünk (összes mező) + összeg normalizált egyezés
         const rowMatch = Object.values(it || {}).some(v => String(v ?? "").toLowerCase().includes(q));

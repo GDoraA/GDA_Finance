@@ -369,14 +369,18 @@ const accountExpensePaymentTypes = new Set([
         t === "transfer";
 
     const isCashWithdrawal =
-        paymentType.includes("készpénzfelvét") ||
-        paymentType.includes("keszpenzfelvet") ||
-        titleText.includes("készpénzfelvét") ||
-        titleText.includes("keszpenzfelvet") ||
-        categoryText.includes("készpénzfelvét") ||
-        categoryText.includes("keszpenzfelvet");
+        categoryText === "készpénz felvétel";
+
+    const isCashDeposit =
+        paymentType.includes("készpénzbefizet") ||
+        paymentType.includes("keszpenzbefizet") ||
+        titleText.includes("készpénzbefizet") ||
+        titleText.includes("keszpenzbefizet") ||
+        categoryText.includes("készpénzbefizet") ||
+        categoryText.includes("keszpenzbefizet");
 
     const isCashWithdrawalTransfer = isTransferType && isCashWithdrawal;
+    const isCashDepositTransfer = isTransferType && isCashDeposit;
 
     if (isSaving) {
         savingTotal += amount;
@@ -392,6 +396,12 @@ const accountExpensePaymentTypes = new Set([
     if (isCashWithdrawalTransfer) {
         cashIncomeTotal += absAmount;
         accountExpenseTotal += absAmount;
+        return;
+    }
+
+    if (isCashDepositTransfer) {
+        cashExpenseTotal += absAmount;
+        accountIncomeTotal += absAmount;
         return;
     }
 
@@ -517,14 +527,20 @@ if (accountBalanceEl) {
                     <td>${tx.month}</td>
                     <td>${formatDateForList(tx.date)}</td>
                     <td class="${(() => {
-                const t = String(tx.transaction_type || "").trim().toLowerCase();
-                const isSaving = t.includes("megtak") || t === "saving";
-                const isExpense = t.includes("kiad") || t === "expense" || (Number(tx.amount) < 0);
-                const isIncome = t.includes("bev") || t === "income" || (Number(tx.amount) > 0);
-                if (isSaving) return "amount-saving";
-                if (isExpense) return "amount-expense";
-                if (isIncome) return "amount-income";
-                return "";
+const t = String(tx.transaction_type || "").trim().toLowerCase();
+const isSaving = t.includes("megtak") || t === "saving";
+const isTransfer =
+    t.includes("átvezet") ||
+    t.includes("atvezet") ||
+    t === "transfer";
+const isExpense = t.includes("kiad") || t === "expense" || (Number(tx.amount) < 0);
+const isIncome = t.includes("bev") || t === "income" || (Number(tx.amount) > 0);
+
+if (isSaving) return "amount-saving";
+if (isTransfer) return "bank-amount-match";
+if (isExpense) return "amount-expense";
+if (isIncome) return "amount-income";
+return "";
             })()
             }">
         ${formatAmount(tx.amount)}

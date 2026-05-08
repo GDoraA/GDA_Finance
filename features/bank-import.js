@@ -71,45 +71,20 @@ function openBankItemModal(item) {
     const matchStatus = String(item?.match_status ?? "").trim().toLowerCase();
 
 const typeText = String(item?.type ?? "").trim().toLowerCase();
-const memoText = String(item?.memo ?? "").trim().toLowerCase();
-const partnerText = String(item?.partner_name ?? "").trim().toLowerCase();
 const bankCategoryText = String(item?.spend_category ?? item?.category ?? "").trim().toLowerCase();
 
-    const isAlreadyMatched = matchedIds !== "";
-    const isIgnored = matchStatus === "ignored";
+const isAlreadyMatched = matchedIds !== "";
+const isIgnored = matchStatus === "ignored";
 
-    const isCashWithdrawal =
-        typeText.includes("készpénzfelvét") ||
-        typeText.includes("keszpenzfelvet") ||
-        typeText.includes("atm") ||
-        memoText.includes("készpénzfelvét") ||
-        memoText.includes("keszpenzfelvet") ||
-        memoText.includes("atm") ||
-        bankCategoryText === "készpénz felvétel" ||
-        partnerText.includes("atm");
+const isCashWithdrawal =
+    bankCategoryText === "készpénz felvétel";
 
-    const containsCashDepositText = (text) => {
-        const s = String(text || "").trim().toLowerCase();
-        if (!s) return false;
+const isAtmCashDepositType =
+    typeText === "atm készpénz befizetés";
 
-        const hasCashMarker =
-            s.includes("készpénz") ||
-            s.includes("keszpenz") ||
-            s.includes("kp") ||
-            s.includes("atm") ||
-            s.includes("cash");
-
-        const hasDepositMarker =
-            s.includes("befizet") ||
-            s.includes("deposit");
-
-        return hasCashMarker && hasDepositMarker;
-    };
-
-    const isCashDeposit =
-        containsCashDepositText(typeText) ||
-        containsCashDepositText(memoText) ||
-        containsCashDepositText(partnerText);
+const isCashDeposit =
+    bankCategoryText === "készpénz befizetés" ||
+    isAtmCashDepositType;
 
     const createCashTxDisabled =
         (!bankId || isAlreadyMatched || isIgnored || !isCashWithdrawal) ? "disabled" : "";
@@ -423,21 +398,21 @@ function buildCashWithdrawalTransactionPayload(item) {
 
     const absAmount = Math.abs(amount);
 
-    return {
-        success: true,
-        data: {
-            date,
-            month: toMonthYYYYMM(date),
-            amount: String(absAmount),
-            title: "Készpénzfelvétel",
-            category: "Készpénzfelvétel",
-            payment_type: "Készpénzfelvétel",
-            transaction_type: "Átvezetés",
-            is_shared: "",
-            statement_item: bankId,
-            paid_by: ""
-        }
-    };
+return {
+    success: true,
+    data: {
+        date,
+        month: toMonthYYYYMM(date),
+        amount: String(absAmount),
+        title: "Készpénzfelvétel",
+        category: "Készpénz felvétel",
+        payment_type: "Készpénzfelvétel",
+        transaction_type: "Átvezetés",
+        is_shared: "",
+        statement_item: bankId,
+        paid_by: ""
+    }
+};
 }
 function buildCashDepositTransactionPayload(item) {
     const bankId = String(item?.id ?? "").trim();

@@ -355,9 +355,8 @@ const accountExpensePaymentTypes = new Set([
     const t = String(tx.transaction_type || "").trim().toLowerCase();
     const amount = Number(tx.amount) || 0;
     const absAmount = Math.abs(amount);
-    const paymentType = normalizePaymentTypeForSummary(tx.payment_type);
-    const titleText = String(tx.title || "").trim().toLowerCase();
-    const categoryText = String(tx.category || "").trim().toLowerCase();
+const paymentType = normalizePaymentTypeForSummary(tx.payment_type);
+const categoryText = String(tx.category || "").trim().toLowerCase();
 
     const isSaving = t.includes("megtak") || t === "saving";
     const isExpense = t.includes("kiad") || t === "expense";
@@ -371,13 +370,8 @@ const accountExpensePaymentTypes = new Set([
     const isCashWithdrawal =
         categoryText === "készpénz felvétel";
 
-    const isCashDeposit =
-        paymentType.includes("készpénzbefizet") ||
-        paymentType.includes("keszpenzbefizet") ||
-        titleText.includes("készpénzbefizet") ||
-        titleText.includes("keszpenzbefizet") ||
-        categoryText.includes("készpénzbefizet") ||
-        categoryText.includes("keszpenzbefizet");
+const isCashDeposit =
+    categoryText === "készpénzbefizetés";
 
     const isCashWithdrawalTransfer = isTransferType && isCashWithdrawal;
     const isCashDepositTransfer = isTransferType && isCashDeposit;

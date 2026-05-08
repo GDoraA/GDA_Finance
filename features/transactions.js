@@ -323,10 +323,16 @@ let incomeTotal = 0;
 let savingTotal = 0;
 
 let cashIncomeTotal = 0;
+let cashWithdrawalTransferTotal = 0;
 let cashExpenseTotal = 0;
 let accountIncomeTotal = 0;
+let accountDepositTransferTotal = 0;
 let accountExpenseTotal = 0;
 
+let unclassifiedBalanceTransactions = [];
+let unclassifiedIncomeTransactions = [];
+let excludedTransferTransactions = [];
+let unclassifiedExpenseTransactions = [];
 const normalizePaymentTypeForSummary = (value) =>
     String(value || "").trim().toLowerCase();
 
@@ -339,86 +345,205 @@ const cashExpensePaymentTypes = new Set([
 ]);
 
 const accountIncomePaymentTypes = new Set([
-    "b - bevétel",
-    "b - egyéb bevétel"
+    "b - bevétel"
 ]);
 
 const accountExpensePaymentTypes = new Set([
     "k - átutalás",
     "k - bankkártya",
-    "k - bankköltség",
-    "k - bbmc - fsz",
-    "k - bbmc - upc"
+    "k - bankköltség"
 ]);
 
 (data || []).forEach(tx => {
     const t = String(tx.transaction_type || "").trim().toLowerCase();
     const amount = Number(tx.amount) || 0;
     const absAmount = Math.abs(amount);
-const paymentType = normalizePaymentTypeForSummary(tx.payment_type);
-const categoryText = String(tx.category || "").trim().toLowerCase();
+    const paymentType = normalizePaymentTypeForSummary(tx.payment_type);
+    const categoryText = String(tx.category || "").trim().toLowerCase();
 
-    const isSaving = t.includes("megtak") || t === "saving";
-    const isExpense = t.includes("kiad") || t === "expense";
-    const isIncome = t.includes("bev") || t === "income";
+    const isSaving = t === "megtakarítás" || t === "megtakaritas";
+    const isExpense = t === "kiadás" || t === "kiadas";
+    const isIncome = t === "bevétel" || t === "bevetel";
 
     const isTransferType =
         t.includes("átvezet") ||
         t.includes("atvezet") ||
         t === "transfer";
 
-    const isCashWithdrawal =
-        categoryText === "készpénz felvétel";
+const isCashWithdrawal =
+    categoryText === "készpénz felvétel" ||
+    categoryText === "készpénzfelvétel" ||
+    paymentType === "készpénz felvétel" ||
+    paymentType === "készpénzfelvétel";
 
 const isCashDeposit =
-    categoryText === "készpénzbefizetés";
+    categoryText === "készpénzbefizetés" ||
+    categoryText === "készpénz befizetés" ||
+    paymentType === "készpénzbefizetés" ||
+    paymentType === "készpénz befizetés";
 
-    const isCashWithdrawalTransfer = isTransferType && isCashWithdrawal;
-    const isCashDepositTransfer = isTransferType && isCashDeposit;
+const isCashWithdrawalTransfer = isTransferType && isCashWithdrawal;
+const isCashDepositTransfer = isTransferType && isCashDeposit;
+
+    const isCashIncome =
+        isIncome && cashIncomePaymentTypes.has(paymentType);
+
+    const isAccountIncome =
+        isIncome && accountIncomePaymentTypes.has(paymentType);
+
+    const isCashExpense =
+        isExpense && cashExpensePaymentTypes.has(paymentType);
+
+    const isAccountExpense =
+        isExpense && accountExpensePaymentTypes.has(paymentType);
+
+    const moneyFlowClassified =
+        isCashIncome ||
+        isAccountIncome ||
+        isCashExpense ||
+        isAccountExpense;
 
     if (isSaving) {
         savingTotal += amount;
         return;
     }
+if (isCashWithdrawalTransfer) {
+    cashWithdrawalTransferTotal += absAmount;
 
-    if (isExpense) {
-        expenseTotal += amount;
-    } else if (isIncome) {
+    excludedTransferTransactions.push({
+        id: tx.id || "",
+        date: tx.date || "",
+        amount: tx.amount || "",
+        title: tx.title || "",
+        payment_type: tx.payment_type || "",
+        transaction_type: tx.transaction_type || "",
+        category: tx.category || "",
+        reason: "Készpénzfelvétel átvezetés: a fő egyenlegből kimarad, de a készpénzes egyenleghez hozzáadódik."
+    });
+    return;
+}
+
+if (isCashDepositTransfer) {
+    accountDepositTransferTotal += absAmount;
+
+    excludedTransferTransactions.push({
+        id: tx.id || "",
+        date: tx.date || "",
+        amount: tx.amount || "",
+        title: tx.title || "",
+        payment_type: tx.payment_type || "",
+        transaction_type: tx.transaction_type || "",
+        category: tx.category || "",
+        reason: "Készpénzbefizetés átvezetés: a fő egyenlegből kimarad, de a számlás egyenleghez hozzáadódik."
+    });
+    return;
+}
+
+if (isTransferType) {
+    excludedTransferTransactions.push({
+        id: tx.id || "",
+        date: tx.date || "",
+        amount: tx.amount || "",
+        title: tx.title || "",
+        payment_type: tx.payment_type || "",
+        transaction_type: tx.transaction_type || "",
+        category: tx.category || "",
+        reason: "Átvezetés típusú tétel tudatosan kihagyva a fő egyenlegből és a készpénzes/számlás bontásból."
+    });
+    return;
+}
+
+    if (isCashIncome) {
         incomeTotal += amount;
-    }
-
-    if (isCashWithdrawalTransfer) {
-        cashIncomeTotal += absAmount;
-        accountExpenseTotal += absAmount;
-        return;
-    }
-
-    if (isCashDepositTransfer) {
-        cashExpenseTotal += absAmount;
-        accountIncomeTotal += absAmount;
-        return;
-    }
-
-    if (cashIncomePaymentTypes.has(paymentType)) {
         cashIncomeTotal += absAmount;
         return;
     }
 
-    if (cashExpensePaymentTypes.has(paymentType)) {
-        cashExpenseTotal += absAmount;
-        return;
-    }
-
-    if (accountIncomePaymentTypes.has(paymentType)) {
+    if (isAccountIncome) {
+        incomeTotal += amount;
         accountIncomeTotal += absAmount;
         return;
     }
 
-    if (accountExpensePaymentTypes.has(paymentType)) {
+    if (isCashExpense) {
+        expenseTotal += amount;
+        cashExpenseTotal += absAmount;
+        return;
+    }
+
+    if (isAccountExpense) {
+        expenseTotal += amount;
         accountExpenseTotal += absAmount;
+        return;
+    }
+
+    if ((isIncome || isExpense) && !moneyFlowClassified) {
+        unclassifiedBalanceTransactions.push({
+            id: tx.id || "",
+            date: tx.date || "",
+            amount: tx.amount || "",
+            title: tx.title || "",
+            payment_type: tx.payment_type || "",
+            transaction_type: tx.transaction_type || "",
+            category: tx.category || "",
+            reason: "Nem számolódik bele az egyenlegbe, mert a transaction_type + payment_type kombináció nem engedélyezett."
+        });
+    }
+
+    if (isIncome && !moneyFlowClassified) {
+        unclassifiedIncomeTransactions.push({
+            id: tx.id || "",
+            date: tx.date || "",
+            amount: tx.amount || "",
+            title: tx.title || "",
+            payment_type: tx.payment_type || "",
+            transaction_type: tx.transaction_type || "",
+            category: tx.category || "",
+            expected_payment_type: "B - Készpénz vagy B - Bevétel"
+        });
+    }
+
+    if (isExpense && !moneyFlowClassified) {
+        unclassifiedExpenseTransactions.push({
+            id: tx.id || "",
+            date: tx.date || "",
+            amount: tx.amount || "",
+            title: tx.title || "",
+            payment_type: tx.payment_type || "",
+            transaction_type: tx.transaction_type || "",
+            category: tx.category || "",
+            expected_payment_type: "K - Készpénz vagy K - Bankköltség / K - Bankkártya / K - Átutalás"
+        });
     }
 });
 
+if (unclassifiedBalanceTransactions.length > 0) {
+    console.warn(
+        "Egyenleg diagnosztika: vannak fő egyenlegbe számító, de készpénz/számla bontásba nem sorolt tranzakciók.",
+        unclassifiedBalanceTransactions
+    );
+}
+
+if (unclassifiedIncomeTransactions.length > 0) {
+    console.warn(
+        "Bevétel diagnosztika: vannak Bevétel típusú tételek, amelyek nem B - Készpénz vagy B - Bevétel fizetési módúak, ezért nem kerülnek be a készpénzes/számlás bevételi bontásba.",
+        unclassifiedIncomeTransactions
+    );
+}
+
+if (unclassifiedExpenseTransactions.length > 0) {
+    console.warn(
+        "Kiadás diagnosztika: vannak Kiadás típusú tételek, amelyek nem K - Készpénz, K - Bankköltség, K - Bankkártya vagy K - Átutalás fizetési módúak, ezért nem kerülnek be a készpénzes/számlás kiadási bontásba.",
+        unclassifiedExpenseTransactions
+    );
+}
+
+if (excludedTransferTransactions.length > 0) {
+    console.info(
+        "Átvezetés diagnosztika: ezek a tételek tudatosan kimaradtak a készpénzes/számlás bontásból.",
+        excludedTransferTransactions
+    );
+}
 // ===== Egyenlegek kiírása (index.html ID-k alapján) =====
 const be = document.getElementById("txExpenseTotal");
 const bi = document.getElementById("txIncomeTotal");
@@ -427,17 +552,20 @@ if (be) be.textContent = `${formatAmount(expenseTotal)} Ft`;
 if (bi) bi.textContent = `${formatAmount(incomeTotal)} Ft`;
 if (bs) bs.textContent = `${formatAmount(savingTotal)} Ft`;
 
-const cashBalanceTotal = cashIncomeTotal - cashExpenseTotal;
-const accountBalanceTotal = accountIncomeTotal - accountExpenseTotal;
+const cashBalanceTotal = cashIncomeTotal + cashWithdrawalTransferTotal - cashExpenseTotal;
+const accountBalanceTotal = accountIncomeTotal + accountDepositTransferTotal - accountExpenseTotal;
 
 const cashIncomeEl = document.getElementById("txCashIncomeTotal");
+const cashWithdrawalTransferEl = document.getElementById("txCashWithdrawalTransferTotal");
 const cashExpenseEl = document.getElementById("txCashExpenseTotal");
 const cashBalanceEl = document.getElementById("txCashBalanceTotal");
 const accountIncomeEl = document.getElementById("txAccountIncomeTotal");
+const accountDepositTransferEl = document.getElementById("txAccountDepositTransferTotal");
 const accountExpenseEl = document.getElementById("txAccountExpenseTotal");
 const accountBalanceEl = document.getElementById("txAccountBalanceTotal");
 
 if (cashIncomeEl) cashIncomeEl.textContent = `${formatAmount(cashIncomeTotal)} Ft`;
+if (cashWithdrawalTransferEl) cashWithdrawalTransferEl.textContent = `${formatAmount(cashWithdrawalTransferTotal)} Ft`;
 if (cashExpenseEl) cashExpenseEl.textContent = `${formatAmount(cashExpenseTotal)} Ft`;
 
 if (cashBalanceEl) {
@@ -446,6 +574,7 @@ if (cashBalanceEl) {
 }
 
 if (accountIncomeEl) accountIncomeEl.textContent = `${formatAmount(accountIncomeTotal)} Ft`;
+if (accountDepositTransferEl) accountDepositTransferEl.textContent = `${formatAmount(accountDepositTransferTotal)} Ft`;
 if (accountExpenseEl) accountExpenseEl.textContent = `${formatAmount(accountExpenseTotal)} Ft`;
 
 if (accountBalanceEl) {

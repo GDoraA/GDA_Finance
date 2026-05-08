@@ -77,7 +77,9 @@ const isAlreadyMatched = matchedIds !== "";
 const isIgnored = matchStatus === "ignored";
 
 const isCashWithdrawal =
-    bankCategoryText === "készpénz felvétel";
+    categoryText === "készpénz felvétel" ||
+    categoryText === "készpénzfelvétel" ||
+    paymentType === "készpénzfelvétel";
 
 const isAtmCashDepositType =
     typeText === "atm készpénz befizetés";
@@ -406,7 +408,7 @@ return {
         amount: String(absAmount),
         title: "Készpénzfelvétel",
         category: "Készpénz felvétel",
-        payment_type: "Készpénzfelvétel",
+        payment_type: "Készpénz felvétel",
         transaction_type: "Átvezetés",
         is_shared: "",
         statement_item: bankId,

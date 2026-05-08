@@ -60,8 +60,8 @@
         <section id="page-transactions">
             <h2>Tranzakciók</h2>
             <div id="txTypeBalanceBox" class="balance-box">
-                <div><strong>Kiadás:</strong> <span id="txExpenseTotal">0</span></div>
                 <div><strong>Bevétel:</strong> <span id="txIncomeTotal">0</span></div>
+                <div><strong>Kiadás:</strong> <span id="txExpenseTotal">0</span></div>
                 <div><strong>Megtakarítás:</strong> <span id="txSavingTotal">0</span></div>
                 <div><strong>Egyenleg:</strong> <span id="txNetBalance">0</span></div>
 
@@ -69,6 +69,9 @@
                     <div class="tx-money-flow-column">
                         <div class="tx-money-flow-title">Készpénzes</div>
                         <div><strong>Bevétel:</strong> <span id="txCashIncomeTotal">0</span></div>
+                        <div class="muted">Bevétel + B - Készpénz</div>
+                        <div><strong>Készpénzfelvétel:</strong> <span id="txCashWithdrawalTransferTotal">0</span></div>
+                        <div class="muted">Átvezetés + Készpénz felvétel</div>
                         <div><strong>Kiadás:</strong> <span id="txCashExpenseTotal">0</span></div>
                         <div><strong>Egyenleg:</strong> <span id="txCashBalanceTotal">0</span></div>
                     </div>
@@ -76,6 +79,9 @@
                     <div class="tx-money-flow-column">
                         <div class="tx-money-flow-title">Számlás</div>
                         <div><strong>Bevétel:</strong> <span id="txAccountIncomeTotal">0</span></div>
+                        <div class="muted">Bevétel + B - Bevétel</div>
+                        <div><strong>Készpénzbefizetés:</strong> <span id="txAccountDepositTransferTotal">0</span></div>
+                        <div class="muted">Átvezetés + Készpénzbefizetés</div>
                         <div><strong>Kiadás:</strong> <span id="txAccountExpenseTotal">0</span></div>
                         <div><strong>Egyenleg:</strong> <span id="txAccountBalanceTotal">0</span></div>
                     </div>
@@ -328,18 +334,18 @@
                 Riport modul inicializálása...
             </div>
 
-<div class="card">
-    <label for="bankMatchingStatusFilter">Státusz nézet</label>
-    <select id="bankMatchingStatusFilter">
-        <option value="open" selected>Open</option>
-        <option value="ignored">Ignored</option>
-    </select>
+            <div class="card">
+                <label for="bankMatchingStatusFilter">Státusz nézet</label>
+                <select id="bankMatchingStatusFilter">
+                    <option value="open" selected>Open</option>
+                    <option value="ignored">Ignored</option>
+                </select>
 
-    <label class="filter-checkbox" style="margin-top:8px;">
-        <input id="bankMatchingHideInternalTransfers" type="checkbox">
-        Saját számlák közti utalások elrejtése
-    </label>
-</div>
+                <label class="filter-checkbox" style="margin-top:8px;">
+                    <input id="bankMatchingHideInternalTransfers" type="checkbox">
+                    Saját számlák közti utalások elrejtése
+                </label>
+            </div>
 
             <div class="card">
                 <h3>Párosítási statisztika</h3>

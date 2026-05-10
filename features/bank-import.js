@@ -70,29 +70,29 @@ function openBankItemModal(item) {
     const matchedIds = String(item?.matched_transaction_ids ?? "").trim();
     const matchStatus = String(item?.match_status ?? "").trim().toLowerCase();
 
-const typeText = String(item?.type ?? "").trim().toLowerCase();
-const bankCategoryText = String(item?.spend_category ?? item?.category ?? "").trim().toLowerCase();
+    const typeText = String(item?.type ?? "").trim().toLowerCase();
+    const bankCategoryText = String(item?.spend_category ?? item?.category ?? "").trim().toLowerCase();
 
-const isAlreadyMatched = matchedIds !== "";
-const isIgnored = matchStatus === "ignored";
+    const isAlreadyMatched = matchedIds !== "";
+    const isIgnored = matchStatus === "ignored";
 
-const isAtmCashWithdrawalType =
-    typeText === "atm készpénz felvétel" ||
-    typeText === "atm készpénzfelvétel";
+    const isAtmCashWithdrawalType =
+        typeText === "atm készpénz felvétel" ||
+        typeText === "atm készpénzfelvétel";
 
-const isCashWithdrawal =
-    bankCategoryText === "készpénz felvétel" ||
-    bankCategoryText === "készpénzfelvétel" ||
-    isAtmCashWithdrawalType;
+    const isCashWithdrawal =
+        bankCategoryText === "készpénz felvétel" ||
+        bankCategoryText === "készpénzfelvétel" ||
+        isAtmCashWithdrawalType;
 
-const isAtmCashDepositType =
-    typeText === "atm készpénz befizetés" ||
-    typeText === "atm készpénzbefizetés";
+    const isAtmCashDepositType =
+        typeText === "atm készpénz befizetés" ||
+        typeText === "atm készpénzbefizetés";
 
-const isCashDeposit =
-    bankCategoryText === "készpénz befizetés" ||
-    bankCategoryText === "készpénzbefizetés" ||
-    isAtmCashDepositType;
+    const isCashDeposit =
+        bankCategoryText === "készpénz befizetés" ||
+        bankCategoryText === "készpénzbefizetés" ||
+        isAtmCashDepositType;
 
     const createCashTxDisabled =
         (!bankId || isAlreadyMatched || isIgnored || !isCashWithdrawal) ? "disabled" : "";
@@ -406,21 +406,21 @@ function buildCashWithdrawalTransactionPayload(item) {
 
     const absAmount = Math.abs(amount);
 
-return {
-    success: true,
-    data: {
-        date,
-        month: toMonthYYYYMM(date),
-        amount: String(absAmount),
-        title: "Készpénzfelvétel",
-        category: "Készpénz felvétel",
-        payment_type: "Készpénz felvétel",
-        transaction_type: "Átvezetés",
-        is_shared: "",
-        statement_item: bankId,
-        paid_by: ""
-    }
-};
+    return {
+        success: true,
+        data: {
+            date,
+            month: toMonthYYYYMM(date),
+            amount: String(absAmount),
+            title: "Készpénzfelvétel",
+            category: "Készpénz felvétel",
+            payment_type: "Készpénz felvétel",
+            transaction_type: "Átvezetés",
+            is_shared: "",
+            statement_item: bankId,
+            paid_by: ""
+        }
+    };
 }
 function buildCashDepositTransactionPayload(item) {
     const bankId = String(item?.id ?? "").trim();
@@ -939,6 +939,8 @@ bankFileInput?.addEventListener("change", async (e) => {
 bankUploadBtn?.addEventListener("click", async () => {
     if (bankUploadBtn?.disabled) return;
 
+    let importCompleted = false;
+
     try {
         if (!bankImportSelectedFile) {
             setBankStatus("Nincs kiválasztott fájl.");
@@ -965,6 +967,8 @@ bankUploadBtn?.addEventListener("click", async () => {
 
         let ok = 0;
         let fail = 0;
+        let skipped = 0;
+        let duplicates = 0;
         let matched = 0;
         let unmatched = 0;
         const BANK_BATCH_SIZE = 50;
@@ -986,6 +990,8 @@ bankUploadBtn?.addEventListener("click", async () => {
 
                 ok += Number(resp.ok ?? 0);
                 fail += Number(resp.fail ?? 0);
+                skipped += Number(resp.skipped ?? 0);
+                duplicates += Number(resp.duplicates ?? 0);
                 matched += Number(resp.matched ?? 0);
                 unmatched += Number(resp.unmatched ?? 0);
                 return;
@@ -1010,18 +1016,30 @@ bankUploadBtn?.addEventListener("click", async () => {
             await sendBatchWithSplit(batch);
 
             setBankStatus(
-                `Mentés fut… OK: ${ok}, Hiba: ${fail} (batch: ${Math.min(i + BANK_BATCH_SIZE, bankImportItems.length)}/${bankImportItems.length})`
+                `Mentés fut… Új: ${ok}, Kihagyva: ${skipped}, Duplikált: ${duplicates}, Hiba: ${fail} (batch: ${Math.min(i + BANK_BATCH_SIZE, bankImportItems.length)}/${bankImportItems.length})`
             );
         }
 
-        setBankStatus(`Mentve. OK: ${ok}, Hiba: ${fail}, Párosítva: ${matched}, Nem párosítható: ${unmatched}`);
-        await loadBankTransactions();
+setBankStatus(
+    `Mentve. Új: ${ok}, Kihagyva: ${skipped}, Duplikált: ${duplicates}, Hiba: ${fail}, Párosítva: ${matched}, Nem párosítható: ${unmatched}`
+);
+
+importCompleted = true;
+bankImportSelectedFile = null;
+bankImportBatchId = "";
+bankImportItems = [];
+
+if (bankFileInput) {
+    bankFileInput.value = "";
+}
+
+await loadBankTransactions();
     } catch (err) {
         console.error("Hiba a banki import mentése során:", err);
         setBankStatus("Hiba a mentés során.");
-    } finally {
-        if (bankUploadBtn) bankUploadBtn.disabled = false;
-    }
+} finally {
+    if (bankUploadBtn) bankUploadBtn.disabled = importCompleted;
+}
 });
 document.getElementById("bankFirstPageBtn")?.addEventListener("click", () => {
     bankCurrentPage = 1;

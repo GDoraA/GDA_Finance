@@ -76,16 +76,22 @@ const bankCategoryText = String(item?.spend_category ?? item?.category ?? "").tr
 const isAlreadyMatched = matchedIds !== "";
 const isIgnored = matchStatus === "ignored";
 
+const isAtmCashWithdrawalType =
+    typeText === "atm készpénz felvétel" ||
+    typeText === "atm készpénzfelvétel";
+
 const isCashWithdrawal =
-    categoryText === "készpénz felvétel" ||
-    categoryText === "készpénzfelvétel" ||
-    paymentType === "készpénzfelvétel";
+    bankCategoryText === "készpénz felvétel" ||
+    bankCategoryText === "készpénzfelvétel" ||
+    isAtmCashWithdrawalType;
 
 const isAtmCashDepositType =
-    typeText === "atm készpénz befizetés";
+    typeText === "atm készpénz befizetés" ||
+    typeText === "atm készpénzbefizetés";
 
 const isCashDeposit =
     bankCategoryText === "készpénz befizetés" ||
+    bankCategoryText === "készpénzbefizetés" ||
     isAtmCashDepositType;
 
     const createCashTxDisabled =

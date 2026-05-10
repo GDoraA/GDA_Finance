@@ -552,8 +552,17 @@ if (be) be.textContent = `${formatAmount(expenseTotal)} Ft`;
 if (bi) bi.textContent = `${formatAmount(incomeTotal)} Ft`;
 if (bs) bs.textContent = `${formatAmount(savingTotal)} Ft`;
 
-const cashBalanceTotal = cashIncomeTotal + cashWithdrawalTransferTotal - cashExpenseTotal;
-const accountBalanceTotal = accountIncomeTotal + accountDepositTransferTotal - accountExpenseTotal;
+const cashBalanceTotal =
+    cashIncomeTotal
+    + cashWithdrawalTransferTotal
+    - accountDepositTransferTotal
+    - cashExpenseTotal;
+
+const accountBalanceTotal =
+    accountIncomeTotal
+    - cashWithdrawalTransferTotal
+    + accountDepositTransferTotal
+    - accountExpenseTotal;
 
 const cashIncomeEl = document.getElementById("txCashIncomeTotal");
 const cashWithdrawalTransferEl = document.getElementById("txCashWithdrawalTransferTotal");

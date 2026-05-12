@@ -1074,97 +1074,241 @@ function addBankTransactions_(items) {
   if (!sheet) throw new Error('Nem található a "Bank_Transactions" nevű munkalap.');
 
   if (!Array.isArray(items) || items.length === 0) {
-    return { success: true, ok: 0, fail: 0, results: [] };
+    return {
+      success: true,
+      ok: 0,
+      fail: 0,
+      skipped: 0,
+      duplicates: 0,
+      matched: 0,
+      unmatched: 0,
+      unmatched_samples: [],
+      results: []
+    };
   }
 
-  const results = [];
-  const rowsToInsert = [];
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
 
-  for (let i = 0; i < items.length; i++) {
-    const p = items[i] || {};
+  try {
+    const data = sheet.getDataRange().getValues();
+    const header = (data[0] || []).map(h => String(h || "").trim());
 
-    // minimál validáció: a banki sor értelmezhető legyen
-    const txDate = (p.transaction_date || "").toString().trim();
-    const amount = (p.amount || "").toString().trim();
+    const col = (name, fallbackIndex) => {
+      const idx = header.indexOf(name);
+      return idx !== -1 ? idx : fallbackIndex;
+    };
 
-    if (!txDate || !amount) {
-      results.push({ index: i, success: false, error: "Hiányzó kötelező mező (transaction_date/amount)." });
-      continue;
+    const cId = col("id", 0);
+    const cMonth = col("month", 1);
+    const cTransactionDate = col("transaction_date", 2);
+    const cPostingDate = col("posting_date", 3);
+    const cType = col("type", 4);
+    const cDirection = col("direction", 5);
+    const cPartnerName = col("partner_name", 6);
+    const cPartnerAccount = col("partner_account", 7);
+    const cSpendCategory = col("spend_category", 8);
+    const cMemo = col("memo", 9);
+    const cAccountName = col("account_name", 10);
+    const cAccountNumber = col("account_number", 11);
+    const cAmount = col("amount", 12);
+    const cCurrency = col("currency", 13);
+    const cSourceFile = col("source_file", 14);
+    const cImportBatchId = col("import_batch_id", 15);
+    const cCreatedBy = col("created_by", 16);
+    const cCreatedAt = col("created_at", 17);
+
+    const tz = Session.getScriptTimeZone();
+
+    const normalizeDateForKey = (value) => {
+      if (value instanceof Date && !isNaN(value.getTime())) {
+        return Utilities.formatDate(value, tz, "yyyy-MM-dd");
+      }
+
+      const s = String(value || "").trim();
+      if (!s) return "";
+
+      const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+
+      const hu = s.match(/^(\d{4})\.(\d{2})\.(\d{2})\.?/);
+      if (hu) return `${hu[1]}-${hu[2]}-${hu[3]}`;
+
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? s : Utilities.formatDate(d, tz, "yyyy-MM-dd");
+    };
+
+    const normalizeAmountForKey = (value) => {
+      const s = String(value ?? "")
+        .trim()
+        .replace(/\s+/g, "")
+        .replace(/ft/ig, "")
+        .replace(",", ".");
+
+      const n = Number(s);
+      if (isNaN(n)) return "";
+
+      return String(Math.round(n * 100) / 100);
+    };
+
+    const normalizeTextForKey = (value) =>
+      String(value ?? "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .toLowerCase();
+
+    const makeDuplicateKeyFromValues = (values) => [
+      normalizeDateForKey(values.transaction_date),
+      normalizeDateForKey(values.posting_date),
+      normalizeAmountForKey(values.amount),
+      normalizeTextForKey(values.currency),
+      normalizeTextForKey(values.direction),
+      normalizeTextForKey(values.partner_name),
+      normalizeTextForKey(values.partner_account),
+      normalizeTextForKey(values.memo),
+      normalizeTextForKey(values.type),
+      normalizeTextForKey(values.spend_category),
+      normalizeTextForKey(values.account_name),
+      normalizeTextForKey(values.account_number),
+      normalizeTextForKey(values.source_file)
+    ].join("|");
+
+    const existingKeys = new Set();
+
+    if (data.length > 1) {
+      for (let r = 1; r < data.length; r++) {
+        const row = data[r] || [];
+
+        const existingKey = makeDuplicateKeyFromValues({
+          transaction_date: row[cTransactionDate],
+          posting_date: row[cPostingDate],
+          amount: row[cAmount],
+          currency: row[cCurrency],
+          direction: row[cDirection],
+          partner_name: row[cPartnerName],
+          partner_account: row[cPartnerAccount],
+          memo: row[cMemo],
+          type: row[cType],
+          spend_category: row[cSpendCategory],
+          account_name: row[cAccountName],
+          account_number: row[cAccountNumber],
+          source_file: row[cSourceFile]
+        });
+
+        if (existingKey) existingKeys.add(existingKey);
+      }
     }
 
-    const id = generatePrefixedId_("BT");
-    const created_at = new Date();
-    const created_by = Session.getActiveUser().getEmail() || "unknown";
+    const results = [];
+    const rowsToInsert = [];
+    const batchKeys = new Set();
 
-    // month: ha nem jön a front-endről, képezzük transaction_date-ből
-    const month = (p.month || "").toString().trim() || deriveMonthFromDate_(txDate);
+    let skipped = 0;
+    let duplicates = 0;
 
-    // A Bank_Transactions fejléc szerinti sorrend (amit most hoztál létre)
-    const row = [
-      id,                                 // id
-      month,                              // month
-      formatDateForStore_(txDate),        // transaction_date
-      formatDateForStore_(p.posting_date || ""), // posting_date
-      p.type || "",                       // type
-      p.direction || "",                  // direction
-      p.partner_name || "",               // partner_name
-      p.partner_account || "",            // partner_account
-      p.spend_category || "",             // spend_category
-      p.memo || "",                       // memo
-      p.account_name || "",               // account_name
-      p.account_number || "",             // account_number
-      p.amount || "",                     // amount
-      p.currency || "",                   // currency
-      p.source_file || "",                // source_file
-      p.import_batch_id || "",            // import_batch_id
-      created_by,                         // created_by
-      created_at                          // created_at
-    ];
+    for (let i = 0; i < items.length; i++) {
+      const p = items[i] || {};
 
-    rowsToInsert.push(row);
-    results.push({ index: i, success: true, id });
-  }
-  // --- INSERT new bank rows into Bank_Transactions sheet ---
-  if (rowsToInsert.length > 0) {
-    const startRow = sheet.getLastRow() + 1;
-    sheet.getRange(startRow, 1, rowsToInsert.length, rowsToInsert[0].length).setValues(rowsToInsert);
-  }
+      const txDate = String(p.transaction_date || "").trim();
+      const amount = String(p.amount || "").trim();
 
-  // --- APPLY updates (batch, contiguous chunks) ---
-  updates.sort((a, b) => a.rowIndex1Based - b.rowIndex1Based);
+      if (!txDate || !amount) {
+        results.push({
+          index: i,
+          success: false,
+          error: "Hiányzó kötelező mező (transaction_date/amount)."
+        });
+        continue;
+      }
 
-  let i = 0;
-  while (i < updates.length) {
-    const start = updates[i].rowIndex1Based;
-    let end = start;
+      const key = makeDuplicateKeyFromValues({
+        transaction_date: txDate,
+        posting_date: p.posting_date || "",
+        amount: p.amount || "",
+        currency: p.currency || "",
+        direction: p.direction || "",
+        partner_name: p.partner_name || "",
+        partner_account: p.partner_account || "",
+        memo: p.memo || "",
+        type: p.type || "",
+        spend_category: p.spend_category || "",
+        account_name: p.account_name || "",
+        account_number: p.account_number || "",
+        source_file: p.source_file || ""
+      });
 
-    const values = [[updates[i].value]];
-    i++;
+      if (existingKeys.has(key) || batchKeys.has(key)) {
+        skipped++;
+        duplicates++;
+        results.push({
+          index: i,
+          success: true,
+          skipped: true,
+          duplicate: true,
+          reason: "Duplikált banki tétel, beszúrás kihagyva."
+        });
+        continue;
+      }
 
-    // egymást követő sorok egy chunkba
-    while (i < updates.length && updates[i].rowIndex1Based === end + 1) {
-      end = updates[i].rowIndex1Based;
-      values.push([updates[i].value]);
-      i++;
+      batchKeys.add(key);
+
+      const id = generatePrefixedId_("BT");
+      const created_at = new Date();
+      const created_by = Session.getActiveUser().getEmail() || "unknown";
+      const month = String(p.month || "").trim() || deriveMonthFromDate_(txDate);
+
+      const row = new Array(Math.max(header.length, 18)).fill("");
+
+      row[cId] = id;
+      row[cMonth] = month;
+      row[cTransactionDate] = formatDateForStore_(txDate);
+      row[cPostingDate] = formatDateForStore_(p.posting_date || "");
+      row[cType] = p.type || "";
+      row[cDirection] = p.direction || "";
+      row[cPartnerName] = p.partner_name || "";
+      row[cPartnerAccount] = p.partner_account || "";
+      row[cSpendCategory] = p.spend_category || "";
+      row[cMemo] = p.memo || "";
+      row[cAccountName] = p.account_name || "";
+      row[cAccountNumber] = p.account_number || "";
+      row[cAmount] = p.amount || "";
+      row[cCurrency] = p.currency || "";
+      row[cSourceFile] = p.source_file || "";
+      row[cImportBatchId] = p.import_batch_id || "";
+      row[cCreatedBy] = created_by;
+      row[cCreatedAt] = created_at;
+
+      rowsToInsert.push(row);
+      results.push({ index: i, success: true, id });
     }
 
-    // statement_item egyetlen oszlop → width = 1
-    txSheet.getRange(start, cTxStatement + 1, (end - start + 1), 1).setValues(values);
+    if (rowsToInsert.length > 0) {
+      const startRow = sheet.getLastRow() + 1;
+      sheet
+        .getRange(startRow, 1, rowsToInsert.length, rowsToInsert[0].length)
+        .setValues(rowsToInsert);
+    }
+
+    const ok = rowsToInsert.length;
+    const fail = results.filter(x => !x.success).length;
+
+    return {
+      success: true,
+      ok,
+      fail,
+      skipped,
+      duplicates,
+      matched: 0,
+      unmatched: ok,
+      unmatched_samples: [],
+      results
+    };
+
+  } finally {
+    try {
+      lock.releaseLock();
+    } catch (e) {}
   }
-
-
-  const ok = results.filter(x => x.success).length;
-  const fail = results.length - ok;
-
-  return {
-    success: true,
-    ok,
-    fail,
-    matched: (typeof matched === "number" ? matched : (Array.isArray(updates) ? updates.length : 0)),
-    unmatched,
-    unmatched_samples: unmatchedSamples,
-    results
-  };
 }
 
 /**

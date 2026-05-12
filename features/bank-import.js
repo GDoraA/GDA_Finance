@@ -1020,26 +1020,26 @@ bankUploadBtn?.addEventListener("click", async () => {
             );
         }
 
-setBankStatus(
-    `Mentve. Új: ${ok}, Kihagyva: ${skipped}, Duplikált: ${duplicates}, Hiba: ${fail}, Párosítva: ${matched}, Nem párosítható: ${unmatched}`
-);
+        setBankStatus(
+            `Mentve. Új: ${ok}, Kihagyva: ${skipped}, Duplikált: ${duplicates}, Hiba: ${fail}, Párosítva: ${matched}, Nem párosítható: ${unmatched}`
+        );
 
-importCompleted = true;
-bankImportSelectedFile = null;
-bankImportBatchId = "";
-bankImportItems = [];
+        importCompleted = true;
+        bankImportSelectedFile = null;
+        bankImportBatchId = "";
+        bankImportItems = [];
 
-if (bankFileInput) {
-    bankFileInput.value = "";
-}
+        if (bankFileInput) {
+            bankFileInput.value = "";
+        }
 
-await loadBankTransactions();
+        await loadBankTransactions();
     } catch (err) {
         console.error("Hiba a banki import mentése során:", err);
         setBankStatus("Hiba a mentés során.");
-} finally {
-    if (bankUploadBtn) bankUploadBtn.disabled = importCompleted;
-}
+    } finally {
+        if (bankUploadBtn) bankUploadBtn.disabled = importCompleted;
+    }
 });
 document.getElementById("bankFirstPageBtn")?.addEventListener("click", () => {
     bankCurrentPage = 1;

@@ -40,13 +40,13 @@ function updatePaginationUI(cfg, page, totalPages, visibleCount, totalCount) {
         if (rc) rc.textContent = `Találatok: ${visibleCount} / ${totalCount} db`;
     }
     const firstBtn = cfg.firstBtnId ? document.getElementById(cfg.firstBtnId) : null;
-    const prevBtn  = cfg.prevBtnId  ? document.getElementById(cfg.prevBtnId)  : null;
-    const nextBtn  = cfg.nextBtnId  ? document.getElementById(cfg.nextBtnId)  : null;
-    const lastBtn  = cfg.lastBtnId  ? document.getElementById(cfg.lastBtnId)  : null;
+    const prevBtn = cfg.prevBtnId ? document.getElementById(cfg.prevBtnId) : null;
+    const nextBtn = cfg.nextBtnId ? document.getElementById(cfg.nextBtnId) : null;
+    const lastBtn = cfg.lastBtnId ? document.getElementById(cfg.lastBtnId) : null;
     const atFirst = (page <= 1);
-    const atLast  = (page >= totalPages);
+    const atLast = (page >= totalPages);
     if (firstBtn) firstBtn.disabled = atFirst;
-    if (prevBtn)  prevBtn.disabled  = atFirst;
-    if (nextBtn)  nextBtn.disabled  = atLast;
-    if (lastBtn)  lastBtn.disabled  = atLast;
+    if (prevBtn) prevBtn.disabled = atFirst;
+    if (nextBtn) nextBtn.disabled = atLast;
+    if (lastBtn) lastBtn.disabled = atLast;
 }

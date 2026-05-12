@@ -22,47 +22,47 @@ document.addEventListener("DOMContentLoaded", () => {
             applyDesktopState(saved);
         }
     }
-// Hamburger: mobilon open/close, desktopon collapsed toggle
-hamburger?.addEventListener("click", () => {
-    if (isMobile()) {
-        sidebar.classList.toggle("open");
-    } else {
-        applyDesktopState(!sidebar.classList.contains("collapsed"));
-    }
-});
-// Sidebar tetején lévő gomb: desktopon collapsed toggle (mobilon is működhet, de ott inkább a hamburger a UX)
-sidebarToggleBtn?.addEventListener("click", () => {
-    if (isMobile()) {
-        sidebar.classList.toggle("open");
-    } else {
-        applyDesktopState(!sidebar.classList.contains("collapsed"));
-    }
-});
-
-// Sidebar bezárása / összecsukása, ha a felhasználó a menün kívülre kattint
-document.addEventListener("click", (event) => {
-    const target = event.target;
-
-    const clickedInsideSidebar = sidebar.contains(target);
-    const clickedHamburger = hamburger?.contains(target);
-    const clickedSidebarToggle = sidebarToggleBtn?.contains(target);
-
-    if (clickedInsideSidebar || clickedHamburger || clickedSidebarToggle) return;
-
-    if (isMobile()) {
-        if (sidebar.classList.contains("open")) {
-            sidebar.classList.remove("open");
+    // Hamburger: mobilon open/close, desktopon collapsed toggle
+    hamburger?.addEventListener("click", () => {
+        if (isMobile()) {
+            sidebar.classList.toggle("open");
+        } else {
+            applyDesktopState(!sidebar.classList.contains("collapsed"));
         }
-        return;
-    }
+    });
+    // Sidebar tetején lévő gomb: desktopon collapsed toggle (mobilon is működhet, de ott inkább a hamburger a UX)
+    sidebarToggleBtn?.addEventListener("click", () => {
+        if (isMobile()) {
+            sidebar.classList.toggle("open");
+        } else {
+            applyDesktopState(!sidebar.classList.contains("collapsed"));
+        }
+    });
 
-    if (!sidebar.classList.contains("collapsed")) {
-        applyDesktopState(true);
-    }
-});
+    // Sidebar bezárása / összecsukása, ha a felhasználó a menün kívülre kattint
+    document.addEventListener("click", (event) => {
+        const target = event.target;
 
-// Ha átméretezed az ablakot, a logika ne “ragadjon be”
-window.addEventListener("resize", () => {
+        const clickedInsideSidebar = sidebar.contains(target);
+        const clickedHamburger = hamburger?.contains(target);
+        const clickedSidebarToggle = sidebarToggleBtn?.contains(target);
+
+        if (clickedInsideSidebar || clickedHamburger || clickedSidebarToggle) return;
+
+        if (isMobile()) {
+            if (sidebar.classList.contains("open")) {
+                sidebar.classList.remove("open");
+            }
+            return;
+        }
+
+        if (!sidebar.classList.contains("collapsed")) {
+            applyDesktopState(true);
+        }
+    });
+
+    // Ha átméretezed az ablakot, a logika ne “ragadjon be”
+    window.addEventListener("resize", () => {
         if (isMobile()) {
             // mobil: a collapsed desktop állapotot ne erőltesse
             document.body.classList.remove("sidebar-collapsed");

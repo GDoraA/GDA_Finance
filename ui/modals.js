@@ -37,9 +37,9 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedB
     const rawTxDate = String(tx?.date ?? "").trim();
     const txDateIso = rawTxDate.includes("T") ? rawTxDate.split("T")[0] : toInputDateLocal(rawTxDate);
     // 1) első kör: dátum + összeg alapján egyezők
-let matches = window.transactionsPageBridge?.getMatchingBankItems
-    ? window.transactionsPageBridge.getMatchingBankItems(tx, bankItems)
-    : getMatchingBankItems(tx, bankItems);  // 1/a) szűrés: ne jelenjen meg olyan banki tétel, ami már máshoz van társítva
+    let matches = window.transactionsPageBridge?.getMatchingBankItems
+        ? window.transactionsPageBridge.getMatchingBankItems(tx, bankItems)
+        : getMatchingBankItems(tx, bankItems);  // 1/a) szűrés: ne jelenjen meg olyan banki tétel, ami már máshoz van társítva
     matches = (matches || []).filter(b => {
         const bid = String(b?.id ?? "").trim();
         if (!bid) return false;
@@ -186,19 +186,19 @@ async function openTransactionEditor(tx) {
     if (picker && hidden) {
         try {
             // biztos legyen friss transactionsCache (kell a "már használt banki tételek" szűréshez)
-if (!Array.isArray(window.transactionsPageBridge?.getCache?.() || transactionsCache)) {
-    try {
-        if (window.transactionsPageBridge?.ensureCache) {
-            await window.transactionsPageBridge.ensureCache();
-        } else {
-            const r = await api.getTransactions();
-            if (!r || !r.success || !Array.isArray(r.data)) {
-                throw new Error(
-                    r?.error || r?.message || "Nem sikerült betölteni a tranzakciókat."
-                );
-            }
-            transactionsCache = r.data;
-        }
+            if (!Array.isArray(window.transactionsPageBridge?.getCache?.() || transactionsCache)) {
+                try {
+                    if (window.transactionsPageBridge?.ensureCache) {
+                        await window.transactionsPageBridge.ensureCache();
+                    } else {
+                        const r = await api.getTransactions();
+                        if (!r || !r.success || !Array.isArray(r.data)) {
+                            throw new Error(
+                                r?.error || r?.message || "Nem sikerült betölteni a tranzakciókat."
+                            );
+                        }
+                        transactionsCache = r.data;
+                    }
 
                     if (!r || !r.success) {
                         console.warn(
@@ -216,7 +216,7 @@ if (!Array.isArray(window.transactionsPageBridge?.getCache?.() || transactionsCa
             }
             const bankItems = await ensureBankTxCache();
             const txCache = window.transactionsPageBridge?.getCache?.() || transactionsCache || [];
-// már használt banki tételek (statement_item alapján)
+            // már használt banki tételek (statement_item alapján)
             // statement_item mostantól lehet: "12, 18, 25" (több banki tétel egy tranzakcióhoz)
             const usedBankIds = new Set(
                 (transactionsCache || [])

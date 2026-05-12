@@ -272,120 +272,120 @@ function renderBankMatchingPageFromCache() {
             || (bankId && bankMatchingIgnoredIds.has(bankId));
     });
 
-let visibleItems = currentView === "ignored"
-    ? ignoredItems
-    : openItems;
+    let visibleItems = currentView === "ignored"
+        ? ignoredItems
+        : openItems;
 
-const hideInternalTransfers =
-    document.getElementById("bankMatchingHideInternalTransfers")?.checked === true;
+    const hideInternalTransfers =
+        document.getElementById("bankMatchingHideInternalTransfers")?.checked === true;
 
-let hiddenInternalCount = 0;
+    let hiddenInternalCount = 0;
 
-if (hideInternalTransfers) {
-    const ownList = (typeof window !== "undefined" && Array.isArray(window.__ownAccountsCache))
-        ? window.__ownAccountsCache
-        : [];
+    if (hideInternalTransfers) {
+        const ownList = (typeof window !== "undefined" && Array.isArray(window.__ownAccountsCache))
+            ? window.__ownAccountsCache
+            : [];
 
-    const normAcc = (s) => String(s ?? "").replace(/\s+/g, "").trim().toLowerCase();
-    const ownSet = new Set(ownList.map(normAcc).filter(Boolean));
+        const normAcc = (s) => String(s ?? "").replace(/\s+/g, "").trim().toLowerCase();
+        const ownSet = new Set(ownList.map(normAcc).filter(Boolean));
 
-    const classifyDir = (dirRaw, amt) => {
-        const d = String(dirRaw ?? "").trim().toLowerCase();
+        const classifyDir = (dirRaw, amt) => {
+            const d = String(dirRaw ?? "").trim().toLowerCase();
 
-        if (d === "bejövő" || d === "bejövo") return "in";
-        if (d === "kimenő" || d === "kimeno") return "out";
+            if (d === "bejövő" || d === "bejövo") return "in";
+            if (d === "kimenő" || d === "kimeno") return "out";
 
-        if (d === "credit" || d === "cr" || d === "c") return "in";
-        if (d === "debit" || d === "dr" || d === "d") return "out";
+            if (d === "credit" || d === "cr" || d === "c") return "in";
+            if (d === "debit" || d === "dr" || d === "d") return "out";
 
-        if (typeof amt === "number") {
-            if (amt < 0) return "out";
-            if (amt > 0) return "in";
+            if (typeof amt === "number") {
+                if (amt < 0) return "out";
+                if (amt > 0) return "in";
+            }
+
+            return "";
+        };
+
+        const flagsByAbsAmount = new Map();
+
+        for (const item of visibleItems) {
+            const amt = normalizeAmount(item?.amount);
+            if (typeof amt !== "number") continue;
+
+            const acc1 = normAcc(item?.account_number);
+            const acc2 = normAcc(item?.partner_account);
+            const touchesOwn = ownSet.has(acc1) || ownSet.has(acc2);
+
+            if (!touchesOwn) continue;
+
+            const dirClass = classifyDir(item?.direction, amt);
+            if (!dirClass) continue;
+
+            const absAmt = Math.abs(amt);
+
+            if (!flagsByAbsAmount.has(absAmt)) {
+                flagsByAbsAmount.set(absAmt, { in: false, out: false });
+            }
+
+            const rec = flagsByAbsAmount.get(absAmt);
+
+            if (dirClass === "in") {
+                rec.in = true;
+            } else if (dirClass === "out") {
+                rec.out = true;
+            }
         }
 
-        return "";
-    };
+        const internalAbsAmounts = new Set(
+            Array.from(flagsByAbsAmount.entries())
+                .filter(([_, v]) => v.in && v.out)
+                .map(([amount]) => amount)
+        );
 
-    const flagsByAbsAmount = new Map();
+        visibleItems = visibleItems.filter((item) => {
+            const amt = normalizeAmount(item?.amount);
+            if (typeof amt !== "number") return true;
 
-    for (const item of visibleItems) {
-        const amt = normalizeAmount(item?.amount);
-        if (typeof amt !== "number") continue;
+            const acc1 = normAcc(item?.account_number);
+            const acc2 = normAcc(item?.partner_account);
+            const touchesOwn = ownSet.has(acc1) || ownSet.has(acc2);
 
-        const acc1 = normAcc(item?.account_number);
-        const acc2 = normAcc(item?.partner_account);
-        const touchesOwn = ownSet.has(acc1) || ownSet.has(acc2);
+            if (!touchesOwn) return true;
 
-        if (!touchesOwn) continue;
+            const isInternal = internalAbsAmounts.has(Math.abs(amt));
 
-        const dirClass = classifyDir(item?.direction, amt);
-        if (!dirClass) continue;
+            if (isInternal) {
+                hiddenInternalCount += 1;
+                return false;
+            }
 
-        const absAmt = Math.abs(amt);
-
-        if (!flagsByAbsAmount.has(absAmt)) {
-            flagsByAbsAmount.set(absAmt, { in: false, out: false });
-        }
-
-        const rec = flagsByAbsAmount.get(absAmt);
-
-        if (dirClass === "in") {
-            rec.in = true;
-        } else if (dirClass === "out") {
-            rec.out = true;
-        }
+            return true;
+        });
     }
 
-    const internalAbsAmounts = new Set(
-        Array.from(flagsByAbsAmount.entries())
-            .filter(([_, v]) => v.in && v.out)
-            .map(([amount]) => amount)
-    );
+    const hideInternalCb = document.getElementById("bankMatchingHideInternalTransfers");
+    const hideInternalLabel = hideInternalCb?.closest("label");
 
-    visibleItems = visibleItems.filter((item) => {
-        const amt = normalizeAmount(item?.amount);
-        if (typeof amt !== "number") return true;
+    if (hideInternalLabel) {
+        const baseText = "Saját számlák közti utalások elrejtése";
+        const newText =
+            hideInternalTransfers && hiddenInternalCount > 0
+                ? ` ${baseText} (${hiddenInternalCount} elrejtve)`
+                : ` ${baseText}`;
 
-        const acc1 = normAcc(item?.account_number);
-        const acc2 = normAcc(item?.partner_account);
-        const touchesOwn = ownSet.has(acc1) || ownSet.has(acc2);
+        Array.from(hideInternalLabel.childNodes).forEach((node) => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                hideInternalLabel.removeChild(node);
+            }
+        });
 
-        if (!touchesOwn) return true;
+        hideInternalLabel.appendChild(document.createTextNode(newText));
+    }
 
-        const isInternal = internalAbsAmounts.has(Math.abs(amt));
+    ensureBankMatchingPaginationControls();
 
-        if (isInternal) {
-            hiddenInternalCount += 1;
-            return false;
-        }
-
-        return true;
-    });
-}
-
-const hideInternalCb = document.getElementById("bankMatchingHideInternalTransfers");
-const hideInternalLabel = hideInternalCb?.closest("label");
-
-if (hideInternalLabel) {
-    const baseText = "Saját számlák közti utalások elrejtése";
-    const newText =
-        hideInternalTransfers && hiddenInternalCount > 0
-            ? ` ${baseText} (${hiddenInternalCount} elrejtve)`
-            : ` ${baseText}`;
-
-    Array.from(hideInternalLabel.childNodes).forEach((node) => {
-        if (node.nodeType === Node.TEXT_NODE) {
-            hideInternalLabel.removeChild(node);
-        }
-    });
-
-    hideInternalLabel.appendChild(document.createTextNode(newText));
-}
-
-ensureBankMatchingPaginationControls();
-
-const pageSize = getBankMatchingPageSize(visibleItems.length);
-const totalPages = Math.max(1, Math.ceil(visibleItems.length / pageSize));
+    const pageSize = getBankMatchingPageSize(visibleItems.length);
+    const totalPages = Math.max(1, Math.ceil(visibleItems.length / pageSize));
     bankMatchingCurrentPage = Math.min(
         Math.max(Number(bankMatchingCurrentPage) || 1, 1),
         totalPages
@@ -413,13 +413,13 @@ const totalPages = Math.max(1, Math.ceil(visibleItems.length / pageSize));
 </tr>
 `;
     } else {
-tableBody.innerHTML = pageItems.map((item) => {
-    const bankId = String(item?.id || "");
-    const memo = String(item?.memo || "");
-    const partnerName = String(item?.partner_name || "");
-    const statusLabel = currentView === "ignored" ? "Ignored" : "Open";
+        tableBody.innerHTML = pageItems.map((item) => {
+            const bankId = String(item?.id || "");
+            const memo = String(item?.memo || "");
+            const partnerName = String(item?.partner_name || "");
+            const statusLabel = currentView === "ignored" ? "Ignored" : "Open";
 
-    return `
+            return `
         <tr>
             <td>${escapeHtml(bankId)}</td>
             <td>${escapeHtml(String(item?.month || ""))}</td>
@@ -439,16 +439,16 @@ tableBody.innerHTML = pageItems.map((item) => {
             </td>
         </tr>
     `;
-}).join("");
+        }).join("");
     }
 
     bindBankMatchingRowActions(tableBody);
 
-setBankMatchingStatus(
-    currentView === "ignored"
-        ? `Ignored nézet betöltve. (${pageItems.length} / ${visibleItems.length} tétel)`
-        : `Open nézet betöltve. (${pageItems.length} / ${visibleItems.length} tétel)`
-);
+    setBankMatchingStatus(
+        currentView === "ignored"
+            ? `Ignored nézet betöltve. (${pageItems.length} / ${visibleItems.length} tétel)`
+            : `Open nézet betöltve. (${pageItems.length} / ${visibleItems.length} tétel)`
+    );
 }
 
 function bindBankMatchingRowActions(tableBody) {
@@ -519,14 +519,14 @@ async function loadBankMatchingPage(forceRefresh = false) {
 
     setBankMatchingStatus("Adatok betöltése...");
 
-try {
-    if (typeof window.ensureOwnAccountsCache === "function") {
-        await window.ensureOwnAccountsCache();
-    }
+    try {
+        if (typeof window.ensureOwnAccountsCache === "function") {
+            await window.ensureOwnAccountsCache();
+        }
 
-    await ensureBankMatchingItemsCache(forceRefresh);
-    renderBankMatchingPageFromCache();
-} catch (err) {
+        await ensureBankMatchingItemsCache(forceRefresh);
+        renderBankMatchingPageFromCache();
+    } catch (err) {
         console.error("Bank matching load error:", err);
 
         bankMatchingItemsCache = null;

@@ -102,10 +102,10 @@ function renderMonthlySummaryRows(rows) {
         monthlyBalance: 0
     });
 
-const displayRows = getMonthlySummarySortedRows(rows);
-const lastCumulativeBalance = getMonthlySummaryClosingCumulativeBalance(rows);
+    const displayRows = getMonthlySummarySortedRows(rows);
+    const lastCumulativeBalance = getMonthlySummaryClosingCumulativeBalance(rows);
 
-const bodyRowsHtml = displayRows.map((row) => `
+    const bodyRowsHtml = displayRows.map((row) => `
     <tr>
         <td>${escapeHtml(String(row.month || ""))}</td>
         <td class="text-right">${escapeHtml(formatAmount(row.income))} Ft</td>
@@ -320,14 +320,14 @@ async function loadMonthlySummaryPage() {
         return;
     }
 
-const rows = buildMonthlySummaryRows(transactions);
-monthlySummaryRowsCache = rows;
-renderMonthlySummaryRows(monthlySummaryRowsCache);
+    const rows = buildMonthlySummaryRows(transactions);
+    monthlySummaryRowsCache = rows;
+    renderMonthlySummaryRows(monthlySummaryRowsCache);
 
-if (!rows.length) {
-    renderMonthlySummaryStatus("Nincs megjeleníthető havi adat.");
-    return;
-}
+    if (!rows.length) {
+        renderMonthlySummaryStatus("Nincs megjeleníthető havi adat.");
+        return;
+    }
 
     renderMonthlySummaryStatus("A riport sikeresen betöltött.");
 }

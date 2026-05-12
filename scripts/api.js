@@ -12,47 +12,47 @@ function jsonp(action, params = {}) {
         const script = document.createElement("script");
         script.src = `${API_URL}?${urlParams.toString()}`;
 
-let settled = false;
+        let settled = false;
 
-const cleanup = ({ keepNoopCallback = false } = {}) => {
-    if (timeoutId) clearTimeout(timeoutId);
-    try { script.remove(); } catch (_) {}
+        const cleanup = ({ keepNoopCallback = false } = {}) => {
+            if (timeoutId) clearTimeout(timeoutId);
+            try { script.remove(); } catch (_) { }
 
-    if (keepNoopCallback) {
-        window[callbackName] = function () { };
-    } else {
-        try { delete window[callbackName]; } catch (_) {
-            window[callbackName] = undefined;
-        }
-    }
-};
+            if (keepNoopCallback) {
+                window[callbackName] = function () { };
+            } else {
+                try { delete window[callbackName]; } catch (_) {
+                    window[callbackName] = undefined;
+                }
+            }
+        };
 
-window[callbackName] = function (response) {
-    if (settled) return;
-    settled = true;
-    cleanup();
-    resolve(response);
-};
+        window[callbackName] = function (response) {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            resolve(response);
+        };
 
-script.onerror = () => {
-    if (settled) return;
-    settled = true;
-    cleanup();
-    reject(new Error("JSONP hiba (script betöltés sikertelen)"));
-};
+        script.onerror = () => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            reject(new Error("JSONP hiba (script betöltés sikertelen)"));
+        };
 
-const timeoutId = setTimeout(() => {
-    if (settled) return;
-    settled = true;
-    cleanup({ keepNoopCallback: true });
-    reject(new Error("JSONP timeout: a szerver nem válaszolt időben."));
+        const timeoutId = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            cleanup({ keepNoopCallback: true });
+            reject(new Error("JSONP timeout: a szerver nem válaszolt időben."));
 
-    setTimeout(() => {
-        try { delete window[callbackName]; } catch (_) {
-            window[callbackName] = undefined;
-        }
-    }, 60000);
-}, 30000);
+            setTimeout(() => {
+                try { delete window[callbackName]; } catch (_) {
+                    window[callbackName] = undefined;
+                }
+            }, 60000);
+        }, 30000);
 
         document.body.appendChild(script);
     });
@@ -88,8 +88,8 @@ const api = {
         return jsonp("getBankTransactions");
     },
     setBankTransactionMatchStatus(id, status) {
-    return jsonp("setBankTransactionMatchStatus", { id, status });
-},
+        return jsonp("setBankTransactionMatchStatus", { id, status });
+    },
     updateTransaction(data) {
         return jsonp("updateTransaction", data);
     },

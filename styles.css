@@ -70,9 +70,124 @@ h2 {
     margin-bottom: 8px;
 }
 
+.tx-money-flow-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 3px 0;
+}
+
+.tx-money-flow-row strong {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--primary);
+}
+
+.tx-money-flow-row span {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.tx-tooltip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    margin: 0;
+
+    border-radius: 50%;
+    background: var(--secondary);
+    color: #fff;
+    box-shadow: none;
+
+    font-size: 0.75rem;
+    line-height: 1;
+    cursor: help;
+}
+
+.tx-tooltip:hover,
+.tx-tooltip:focus {
+    transform: none;
+    box-shadow: var(--shadow-light);
+    outline: none;
+}
+
+.tx-tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 8px);
+    transform: translateX(-50%);
+
+    min-width: 180px;
+    max-width: 260px;
+    padding: 8px 10px;
+
+    border-radius: 10px;
+    background: var(--dark);
+    color: #fff;
+
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.25;
+    text-align: left;
+    white-space: normal;
+
+    opacity: 0;
+    pointer-events: none;
+    z-index: 20;
+}
+
+.tx-tooltip::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 2px);
+    transform: translateX(-50%);
+
+    border-width: 6px 6px 0 6px;
+    border-style: solid;
+    border-color: var(--dark) transparent transparent transparent;
+
+    opacity: 0;
+    pointer-events: none;
+    z-index: 21;
+}
+
+.tx-tooltip:hover::after,
+.tx-tooltip:focus::after,
+.tx-tooltip:hover::before,
+.tx-tooltip:focus::before {
+    opacity: 1;
+}
+
 @media (max-width: 600px) {
     .tx-money-flow-summary {
         grid-template-columns: 1fr;
+    }
+
+    .tx-money-flow-row {
+        align-items: flex-start;
+    }
+
+    .tx-tooltip::after {
+        left: auto;
+        right: 0;
+        transform: none;
+        max-width: min(260px, 70vw);
+    }
+
+    .tx-tooltip::before {
+        left: auto;
+        right: 6px;
+        transform: none;
     }
 }
 
@@ -792,6 +907,82 @@ button.secondary {
 
 }
 
+/* Havi összesítő – mezőnevek mobil kártyanézetben */
+@media (max-width: 600px) {
+    #monthlySummaryTable td:nth-child(1)::before {
+        content: "Hónap";
+    }
+
+    #monthlySummaryTable td:nth-child(2)::before {
+        content: "Bevétel";
+    }
+
+    #monthlySummaryTable td:nth-child(3)::before {
+        content: "Kiadás";
+    }
+
+    #monthlySummaryTable td:nth-child(4)::before {
+        content: "Megtakarítás";
+    }
+
+    #monthlySummaryTable td:nth-child(5)::before {
+        content: "Havi egyenleg";
+    }
+
+    #monthlySummaryTable td:nth-child(6)::before {
+        content: "Kumulált egyenleg";
+    }
+}
+/* ============================
+   VALUE SETS – MOBILE TABLE OVERRIDE
+   ============================ */
+
+@media (max-width: 600px) {
+    #valueSetsTable {
+        display: table;
+        width: 100%;
+        min-width: 0;
+        table-layout: fixed;
+    }
+
+    #valueSetsTable thead {
+        display: table-header-group;
+    }
+
+    #valueSetsTable tbody {
+        display: table-row-group;
+        width: auto;
+        max-width: none;
+        min-width: 0;
+    }
+
+    #valueSetsTable tr {
+        display: table-row;
+        width: auto;
+        max-width: none;
+        margin-bottom: 0;
+        padding: 0;
+        background: transparent;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    #valueSetsTable th,
+    #valueSetsTable td {
+        display: table-cell;
+        padding: 8px;
+        border-bottom: 1px solid #eee !important;
+        font-size: 0.9rem;
+        text-align: left;
+        vertical-align: middle;
+    }
+
+    #valueSetsTable td::before {
+        content: none;
+        display: none;
+    }
+}
+
 .hidden {
     display: none;
 }
@@ -1070,6 +1261,53 @@ body.sidebar-collapsed .hamburger-btn {
     box-shadow: var(--shadow);
 }
 
+/* ============================
+   BANK MATCHING – STATISTICS
+   ============================ */
+
+#page-bank-matching .bank-matching-stats-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-top: 10px;
+}
+
+#page-bank-matching .bank-matching-stats-list > div {
+    background: #fff;
+    border: 1px solid #eee;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-light);
+    padding: 12px;
+    min-height: 72px;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+}
+
+#page-bank-matching .bank-matching-stats-list strong {
+    color: var(--primary);
+    font-size: 0.85rem;
+}
+
+#page-bank-matching .bank-matching-stats-list span {
+    color: var(--dark);
+    font-size: 1.25rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+#page-bank-matching #bankMatchingRatio {
+    color: var(--accent);
+}
+
+@media (max-width: 600px) {
+    #page-bank-matching .bank-matching-stats-list {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* Transactions – típus szerinti egyenlegek: ugyanaz a szín, mint a label */
 #txTypeBalanceBox {
     color: var(--primary);
@@ -1098,7 +1336,81 @@ body.sidebar-collapsed .hamburger-btn {
     /* zöld – Zsolti tartozik */
     font-weight: bold;
 }
+/* ============================
+   BANK MATCHING – SECTION TITLES
+   ============================ */
 
+#page-bank-matching .card h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    margin: 0 0 14px 0;
+    padding-bottom: 8px;
+
+    border-bottom: 1px solid #eee;
+    color: var(--primary);
+
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+#page-bank-matching .card h3::before {
+    content: "";
+    display: inline-block;
+
+    width: 6px;
+    height: 22px;
+
+    border-radius: 999px;
+    background: var(--accent);
+    flex: 0 0 auto;
+}
+
+/* Párosítási statisztika – címkék és értékek finomítása */
+#page-bank-matching .bank-matching-stats-list strong {
+    display: block;
+
+    color: var(--secondary);
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1.1;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+#page-bank-matching .bank-matching-stats-list span {
+    display: block;
+
+    margin-top: 4px;
+
+    color: var(--dark);
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Az arány maradjon kiemelt, de illeszkedjen a többi stat kártyához */
+#page-bank-matching #bankMatchingRatio {
+    color: var(--accent);
+}
+
+@media (max-width: 600px) {
+    #page-bank-matching .card h3 {
+        font-size: 1rem;
+        margin-bottom: 12px;
+    }
+
+    #page-bank-matching .card h3::before {
+        height: 20px;
+    }
+
+    #page-bank-matching .bank-matching-stats-list span {
+        font-size: 1.2rem;
+    }
+}
 /* ============================
    SHARED EXPENSES – SETTLEMENT
    ============================ */

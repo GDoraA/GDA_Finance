@@ -65,31 +65,83 @@
                 <div><strong>Megtakarítás:</strong> <span id="txSavingTotal">0</span></div>
                 <div><strong>Egyenleg:</strong> <span id="txNetBalance">0</span></div>
 
-                <div class="tx-money-flow-summary">
-                    <div class="tx-money-flow-column">
-                        <div class="tx-money-flow-title">Készpénzes</div>
-                        <div><strong>Bevétel:</strong> <span id="txCashIncomeTotal">0</span></div>
-                        <div class="muted">Bevétel + B - Készpénz</div>
-                        <div><strong>Készpénzfelvétel:</strong> <span id="txCashWithdrawalTransferTotal">0</span></div>
-                        <div class="muted">Átvezetés + Készpénz felvétel</div>
-                        <div><strong>Készpénzbefizetés:</strong> <span id="txAccountDepositTransferTotal">0</span></div>
-                        <div class="muted">Átvezetés - Készpénzbefizetés</div>
-                        <div><strong>Kiadás:</strong> <span id="txCashExpenseTotal">0</span></div>
-                        <div><strong>Egyenleg:</strong> <span id="txCashBalanceTotal">0</span></div>
-                    </div>
+<div class="tx-money-flow-summary">
+    <div class="tx-money-flow-column">
+        <div class="tx-money-flow-title">Készpénzes</div>
 
-                    <div class="tx-money-flow-column">
-                        <div class="tx-money-flow-title">Számlás</div>
-                        <div><strong>Bevétel:</strong> <span id="txAccountIncomeTotal">0</span></div>
-                        <div class="muted">Bevétel + B - Bevétel</div>
-                        <div><strong>Készpénzfelvétel:</strong> <span id="txCashWithdrawalTransferTotal">0</span></div>
-                        <div class="muted">Átvezetés - Készpénz felvétel</div>
-                        <div><strong>Készpénzbefizetés:</strong> <span id="txAccountDepositTransferTotal">0</span></div>
-                        <div class="muted">Átvezetés + Készpénzbefizetés</div>
-                        <div><strong>Kiadás:</strong> <span id="txAccountExpenseTotal">0</span></div>
-                        <div><strong>Egyenleg:</strong> <span id="txAccountBalanceTotal">0</span></div>
-                    </div>
-                </div>
+        <div class="tx-money-flow-row">
+            <strong>
+                Bevétel:
+                <button type="button" class="tx-tooltip" data-tooltip="Bevétel + B - Készpénz" aria-label="Bevétel magyarázata">?</button>
+            </strong>
+            <span id="txCashIncomeTotal">0</span>
+        </div>
+
+        <div class="tx-money-flow-row">
+            <strong>
+                Készpénzfelvétel:
+                <button type="button" class="tx-tooltip" data-tooltip="Átvezetés + Készpénz felvétel" aria-label="Készpénzfelvétel magyarázata">?</button>
+            </strong>
+            <span id="txCashWithdrawalTransferTotal">0</span>
+        </div>
+
+        <div class="tx-money-flow-row">
+            <strong>
+                Készpénzbefizetés:
+                <button type="button" class="tx-tooltip" data-tooltip="Átvezetés - Készpénzbefizetés" aria-label="Készpénzbefizetés magyarázata">?</button>
+            </strong>
+            <span id="txAccountDepositTransferTotal">0</span>
+        </div>
+
+        <div class="tx-money-flow-row">
+            <strong>Kiadás:</strong>
+            <span id="txCashExpenseTotal">0</span>
+        </div>
+
+        <div class="tx-money-flow-row">
+            <strong>Egyenleg:</strong>
+            <span id="txCashBalanceTotal">0</span>
+        </div>
+    </div>
+
+    <div class="tx-money-flow-column">
+        <div class="tx-money-flow-title">Számlás</div>
+
+        <div class="tx-money-flow-row">
+            <strong>
+                Bevétel:
+                <button type="button" class="tx-tooltip" data-tooltip="Bevétel + B - Bevétel" aria-label="Számlás bevétel magyarázata">?</button>
+            </strong>
+            <span id="txAccountIncomeTotal">0</span>
+        </div>
+
+        <div class="tx-money-flow-row">
+            <strong>
+                Készpénzfelvétel:
+                <button type="button" class="tx-tooltip" data-tooltip="Átvezetés - Készpénz felvétel" aria-label="Számlás készpénzfelvétel magyarázata">?</button>
+            </strong>
+            <span id="txAccountCashWithdrawalTransferTotal">0</span>
+        </div>
+
+        <div class="tx-money-flow-row">
+            <strong>
+                Készpénzbefizetés:
+                <button type="button" class="tx-tooltip" data-tooltip="Átvezetés + Készpénzbefizetés" aria-label="Számlás készpénzbefizetés magyarázata">?</button>
+            </strong>
+            <span id="txAccountCashDepositTransferTotal">0</span>
+        </div>
+
+        <div class="tx-money-flow-row">
+            <strong>Kiadás:</strong>
+            <span id="txAccountExpenseTotal">0</span>
+        </div>
+
+        <div class="tx-money-flow-row">
+            <strong>Egyenleg:</strong>
+            <span id="txAccountBalanceTotal">0</span>
+        </div>
+    </div>
+</div>
             </div>
             <div class="container">
                 <!-- Tranzakciós gombsor -->
@@ -312,23 +364,23 @@
                 <div id="monthlySummaryStatus" class="result-count"></div>
 
                 <div class="table-wrapper">
-                    <table id="monthlySummaryTable" class="tx-table">
-                        <thead>
-                            <tr>
-                                <th>Hónap</th>
-                                <th>Bevétel</th>
-                                <th>Kiadás</th>
-                                <th>Megtakarítás</th>
-                                <th>Havi egyenleg</th>
-                                <th>Kumulált egyenleg</th>
-                            </tr>
-                        </thead>
-                        <tbody id="monthlySummaryBody">
-                            <tr>
-                                <td colspan="6">A riport még nem lett betöltve.</td>
-                            </tr>
-                        </tbody>
-                    </table>
+<table id="monthlySummaryTable" class="tx-table">
+    <thead>
+        <tr>
+            <th data-sort="month">Hónap</th>
+            <th data-sort="income">Bevétel</th>
+            <th data-sort="expenseDisplay">Kiadás</th>
+            <th data-sort="saving">Megtakarítás</th>
+            <th data-sort="monthlyBalance">Havi egyenleg</th>
+            <th data-sort="cumulativeBalance">Kumulált egyenleg</th>
+        </tr>
+    </thead>
+    <tbody id="monthlySummaryBody">
+        <tr>
+            <td colspan="6">A riport még nem lett betöltve.</td>
+        </tr>
+    </tbody>
+</table>
                 </div>
             </div>
         </section>

@@ -1,6 +1,10 @@
+let monthlySummarySortField = "month";
+let monthlySummarySortDirection = "desc"; // "asc" | "desc"
+let monthlySummaryRowsCache = [];
+
 window.reportsMonthlyPageBridge = window.reportsMonthlyPageBridge || {
     resetPage() {
-        // Ebben a release-ben még nincs külön page-state, ezért tudatos no-op.
+        // Rendezés megőrzése oldalváltáskor: tudatos no-op.
     },
     load() {
         return loadMonthlySummaryPage();
@@ -11,6 +15,65 @@ function renderMonthlySummaryStatus(message) {
     const statusEl = document.getElementById("monthlySummaryStatus");
     if (!statusEl) return;
     statusEl.textContent = String(message || "");
+}
+
+function updateMonthlySummarySortIcons() {
+    document.querySelectorAll("#monthlySummaryTable thead th[data-sort]").forEach(th => {
+        th.classList.remove("sort-asc", "sort-desc");
+
+        if (th.getAttribute("data-sort") === monthlySummarySortField) {
+            th.classList.add(
+                monthlySummarySortDirection === "asc" ? "sort-asc" : "sort-desc"
+            );
+        }
+    });
+}
+
+function getMonthlySummarySortedRows(rows) {
+    const safeRows = Array.isArray(rows) ? rows.slice() : [];
+    const field = String(monthlySummarySortField || "month");
+    const dir = monthlySummarySortDirection === "desc" ? -1 : 1;
+
+    const numericFields = new Set([
+        "income",
+        "expenseDisplay",
+        "saving",
+        "monthlyBalance",
+        "cumulativeBalance"
+    ]);
+
+    return safeRows.sort((a, b) => {
+        const va = a?.[field];
+        const vb = b?.[field];
+
+        if (va == null && vb == null) return 0;
+        if (va == null) return 1;
+        if (vb == null) return -1;
+
+        if (numericFields.has(field)) {
+            const na = Number(va);
+            const nb = Number(vb);
+
+            if (Number.isNaN(na) && Number.isNaN(nb)) return 0;
+            if (Number.isNaN(na)) return 1;
+            if (Number.isNaN(nb)) return -1;
+
+            return (na - nb) * dir;
+        }
+
+        return String(va).localeCompare(String(vb), "hu") * dir;
+    });
+}
+
+function getMonthlySummaryClosingCumulativeBalance(rows) {
+    const safeRows = Array.isArray(rows) ? rows : [];
+
+    const latestRow = safeRows
+        .slice()
+        .sort((a, b) => String(a?.month || "").localeCompare(String(b?.month || ""), "hu"))
+        .at(-1);
+
+    return Number(latestRow?.cumulativeBalance) || 0;
 }
 
 function renderMonthlySummaryRows(rows) {
@@ -39,22 +102,23 @@ function renderMonthlySummaryRows(rows) {
         monthlyBalance: 0
     });
 
-    const lastCumulativeBalance = Number(rows[rows.length - 1]?.cumulativeBalance) || 0;
+const displayRows = getMonthlySummarySortedRows(rows);
+const lastCumulativeBalance = getMonthlySummaryClosingCumulativeBalance(rows);
 
-    const bodyRowsHtml = rows.map((row) => `
-        <tr>
-            <td>${escapeHtml(String(row.month || ""))}</td>
-            <td class="text-right">${escapeHtml(formatAmount(row.income))} Ft</td>
-            <td class="text-right">${escapeHtml(formatAmount(row.expenseDisplay))} Ft</td>
-            <td class="text-right">${escapeHtml(formatAmount(row.saving))} Ft</td>
-            <td class="text-right ${row.monthlyBalance < 0 ? "amount-expense" : "amount-income"}">
-                ${escapeHtml(formatSignedAmount(row.monthlyBalance))} Ft
-            </td>
-            <td class="text-right ${row.cumulativeBalance < 0 ? "amount-expense" : "amount-income"}">
-                ${escapeHtml(formatSignedAmount(row.cumulativeBalance))} Ft
-            </td>
-        </tr>
-    `).join("");
+const bodyRowsHtml = displayRows.map((row) => `
+    <tr>
+        <td>${escapeHtml(String(row.month || ""))}</td>
+        <td class="text-right">${escapeHtml(formatAmount(row.income))} Ft</td>
+        <td class="text-right">${escapeHtml(formatAmount(row.expenseDisplay))} Ft</td>
+        <td class="text-right">${escapeHtml(formatAmount(row.saving))} Ft</td>
+        <td class="text-right ${row.monthlyBalance < 0 ? "amount-expense" : "amount-income"}">
+            ${escapeHtml(formatSignedAmount(row.monthlyBalance))} Ft
+        </td>
+        <td class="text-right ${row.cumulativeBalance < 0 ? "amount-expense" : "amount-income"}">
+            ${escapeHtml(formatSignedAmount(row.cumulativeBalance))} Ft
+        </td>
+    </tr>
+`).join("");
 
     const totalsRowHtml = `
         <tr class="monthly-summary-total-row">
@@ -186,7 +250,35 @@ async function getTransactionsForMonthlySummary() {
 
     return resp.data;
 }
+function initMonthlySummarySortHandlers() {
+    const table = document.getElementById("monthlySummaryTable");
+    if (!table || table.dataset.sortInitialized === "1") return;
+
+    table.querySelectorAll("thead th[data-sort]").forEach(th => {
+        th.addEventListener("click", () => {
+            const field = th.getAttribute("data-sort");
+            if (!field) return;
+
+            if (monthlySummarySortField === field) {
+                monthlySummarySortDirection =
+                    monthlySummarySortDirection === "asc" ? "desc" : "asc";
+            } else {
+                monthlySummarySortField = field;
+                monthlySummarySortDirection = "asc";
+            }
+
+            updateMonthlySummarySortIcons();
+            renderMonthlySummaryRows(monthlySummaryRowsCache);
+        });
+    });
+
+    table.dataset.sortInitialized = "1";
+}
+
 async function loadMonthlySummaryPage() {
+    initMonthlySummarySortHandlers();
+    updateMonthlySummarySortIcons();
+
     const tbody = document.getElementById("monthlySummaryBody");
     if (tbody) {
         tbody.innerHTML = `
@@ -228,13 +320,14 @@ async function loadMonthlySummaryPage() {
         return;
     }
 
-    const rows = buildMonthlySummaryRows(transactions);
-        renderMonthlySummaryRows(rows);
+const rows = buildMonthlySummaryRows(transactions);
+monthlySummaryRowsCache = rows;
+renderMonthlySummaryRows(monthlySummaryRowsCache);
 
-    if (!rows.length) {
-        renderMonthlySummaryStatus("Nincs megjeleníthető havi adat.");
-        return;
-    }
+if (!rows.length) {
+    renderMonthlySummaryStatus("Nincs megjeleníthető havi adat.");
+    return;
+}
 
     renderMonthlySummaryStatus("A riport sikeresen betöltött.");
 }

@@ -569,7 +569,9 @@ const cashWithdrawalTransferEl = document.getElementById("txCashWithdrawalTransf
 const cashExpenseEl = document.getElementById("txCashExpenseTotal");
 const cashBalanceEl = document.getElementById("txCashBalanceTotal");
 const accountIncomeEl = document.getElementById("txAccountIncomeTotal");
+const accountCashWithdrawalTransferEl = document.getElementById("txAccountCashWithdrawalTransferTotal");
 const accountDepositTransferEl = document.getElementById("txAccountDepositTransferTotal");
+const accountCashDepositTransferEl = document.getElementById("txAccountCashDepositTransferTotal");
 const accountExpenseEl = document.getElementById("txAccountExpenseTotal");
 const accountBalanceEl = document.getElementById("txAccountBalanceTotal");
 
@@ -583,7 +585,9 @@ if (cashBalanceEl) {
 }
 
 if (accountIncomeEl) accountIncomeEl.textContent = `${formatAmount(accountIncomeTotal)} Ft`;
+if (accountCashWithdrawalTransferEl) accountCashWithdrawalTransferEl.textContent = `${formatAmount(cashWithdrawalTransferTotal)} Ft`;
 if (accountDepositTransferEl) accountDepositTransferEl.textContent = `${formatAmount(accountDepositTransferTotal)} Ft`;
+if (accountCashDepositTransferEl) accountCashDepositTransferEl.textContent = `${formatAmount(accountDepositTransferTotal)} Ft`;
 if (accountExpenseEl) accountExpenseEl.textContent = `${formatAmount(accountExpenseTotal)} Ft`;
 
 if (accountBalanceEl) {

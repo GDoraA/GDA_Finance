@@ -9,6 +9,11 @@ document.addEventListener("DOMContentLoaded", () => {
 // DATALIST ÉRTÉKEK BETÖLTÉSE
 // ======================================================
 async function loadDropdownValues() {
+    const token = localStorage.getItem("gda_auth_token") || "";
+    if (!token) {
+        return;
+    }
+
     try {
         const result = await api.getValueSets();
         if (!result || !result.success) {

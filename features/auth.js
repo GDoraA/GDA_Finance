@@ -176,17 +176,23 @@ document.getElementById("loginForm")?.addEventListener("submit", async (e) => {
         // nem támogatott / nem secure context -> ignoráljuk
     }
 
-    showApp();
-    // Login után: sidebar kinyitása (ha korábban el volt csukva)
-    localStorage.setItem("sidebarCollapsed", "0");
-    document.body.classList.remove("sidebar-collapsed");
-    document.querySelector(".sidebar")?.classList.remove("collapsed");
-    document.querySelector(".content-wrapper")?.classList.remove("sidebar-collapsed");
+        showApp();
 
-    // eredeti init
-    await loadMyPermissions();
+        // Login után: datalist értékek betöltése már érvényes tokennel.
+        if (typeof loadDropdownValues === "function") {
+            await loadDropdownValues();
+        }
 
-    showPage(getLandingPage());
+        // Login után: sidebar kinyitása (ha korábban el volt csukva)
+        localStorage.setItem("sidebarCollapsed", "0");
+        document.body.classList.remove("sidebar-collapsed");
+        document.querySelector(".sidebar")?.classList.remove("collapsed");
+        document.querySelector(".content-wrapper")?.classList.remove("sidebar-collapsed");
+
+        // eredeti init
+        await loadMyPermissions();
+
+        showPage(getLandingPage());
 });
 
 // indulás

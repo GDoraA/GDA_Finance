@@ -318,9 +318,10 @@ async function loadTransactions(forceRefresh = false) {
     const rcTop = document.getElementById("transactions-result-count");
     const rcBottom = document.getElementById("transactions-result-count-bottom");
     // ===== Egyenlegek számítása típus alapján =====
-    let expenseTotal = 0;
-    let incomeTotal = 0;
-    let savingTotal = 0;
+let expenseTotal = 0;
+let incomeTotal = 0;
+let savingTotal = 0;
+let savingSpendTotal = 0;
 
     let cashIncomeTotal = 0;
     let cashWithdrawalTransferTotal = 0;
@@ -333,8 +334,17 @@ async function loadTransactions(forceRefresh = false) {
     let unclassifiedIncomeTransactions = [];
     let excludedTransferTransactions = [];
     let unclassifiedExpenseTransactions = [];
-    const normalizePaymentTypeForSummary = (value) =>
-        String(value || "").trim().toLowerCase();
+const normalizePaymentTypeForSummary = (value) =>
+    String(value || "").trim().toLowerCase();
+
+const normalizeTitleForSummary = (value) =>
+    String(value || "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s*-\s*/g, " - ")
+        .replace(/\s+/g, " ");
 
     const cashIncomePaymentTypes = new Set([
         "b - készpénz"
@@ -354,14 +364,16 @@ async function loadTransactions(forceRefresh = false) {
         "k - bankköltség"
     ]);
 
-    (data || []).forEach(tx => {
-        const t = String(tx.transaction_type || "").trim().toLowerCase();
-        const amount = Number(tx.amount) || 0;
-        const absAmount = Math.abs(amount);
-        const paymentType = normalizePaymentTypeForSummary(tx.payment_type);
-        const categoryText = String(tx.category || "").trim().toLowerCase();
+(data || []).forEach(tx => {
+    const t = String(tx.transaction_type || "").trim().toLowerCase();
+    const amount = Number(tx.amount) || 0;
+    const absAmount = Math.abs(amount);
+    const paymentType = normalizePaymentTypeForSummary(tx.payment_type);
+    const titleText = normalizeTitleForSummary(tx.title);
+    const categoryText = String(tx.category || "").trim().toLowerCase();
 
-        const isSaving = t === "megtakarítás" || t === "megtakaritas";
+    const isSavingSpendTitle = titleText === "megtakaritas - koltes";
+    const isSaving = t === "megtakarítás" || t === "megtakaritas";
         const isExpense = t === "kiadás" || t === "kiadas";
         const isIncome = t === "bevétel" || t === "bevetel";
 
@@ -403,10 +415,16 @@ async function loadTransactions(forceRefresh = false) {
             isCashExpense ||
             isAccountExpense;
 
-        if (isSaving) {
-            savingTotal += amount;
-            return;
-        }
+if (isSavingSpendTitle) {
+    savingTotal -= absAmount;
+    savingSpendTotal += absAmount;
+    return;
+}
+
+if (isSaving) {
+    savingTotal += amount;
+    return;
+}
         if (isCashWithdrawalTransfer) {
             cashWithdrawalTransferTotal += absAmount;
 
@@ -558,11 +576,12 @@ async function loadTransactions(forceRefresh = false) {
         - accountDepositTransferTotal
         - cashExpenseTotal;
 
-    const accountBalanceTotal =
-        accountIncomeTotal
-        - cashWithdrawalTransferTotal
-        + accountDepositTransferTotal
-        - accountExpenseTotal;
+const accountBalanceTotal =
+    accountIncomeTotal
+    - cashWithdrawalTransferTotal
+    + accountDepositTransferTotal
+    - accountExpenseTotal
+    + savingSpendTotal;
 
     const cashIncomeEl = document.getElementById("txCashIncomeTotal");
     const cashWithdrawalTransferEl = document.getElementById("txCashWithdrawalTransferTotal");
@@ -594,8 +613,8 @@ async function loadTransactions(forceRefresh = false) {
         accountBalanceEl.className = accountBalanceTotal < 0 ? "amount-expense" : "amount-income";
         accountBalanceEl.textContent = `${formatSignedAmount(accountBalanceTotal)} Ft`;
     }
-    // ===== Nettó egyenleg: Bevétel - Kiadás =====
-    const netBalance = incomeTotal - Math.abs(expenseTotal);
+// ===== Nettó egyenleg: Bevétel - Kiadás + Megtakarításból költés =====
+const netBalance = incomeTotal - Math.abs(expenseTotal) + savingSpendTotal;
     const nb = document.getElementById("txNetBalance");
     if (nb) {
         const signClass = netBalance < 0 ? "amount-expense" : "amount-income";

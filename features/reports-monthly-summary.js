@@ -149,6 +149,16 @@ function getMonthlySummaryMonthKey(tx) {
     return /^\d{6}$/.test(derived) ? derived : "";
 }
 
+function normalizeMonthlySummaryTitle(value) {
+    return String(value || "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s*-\s*/g, " - ")
+        .replace(/\s+/g, " ");
+}
+
 function classifyMonthlySummaryType(transactionType) {
     const t = String(transactionType || "").trim().toLowerCase();
 
@@ -169,15 +179,19 @@ function buildMonthlySummaryRows(transactions) {
         const amount = Number(tx?.amount);
         if (Number.isNaN(amount)) return;
 
+        const titleText = normalizeMonthlySummaryTitle(tx?.title);
+        const isSavingSpendTitle = titleText === "megtakaritas - koltes";
+
         const type = classifyMonthlySummaryType(tx?.transaction_type);
-        if (!type) return;
+        if (!type && !isSavingSpendTitle) return;
 
         if (!monthlyMap.has(monthKey)) {
             monthlyMap.set(monthKey, {
                 month: monthKey,
                 income: 0,
                 expenseRaw: 0,
-                saving: 0
+                saving: 0,
+                savingSpend: 0
             });
         }
 
@@ -193,9 +207,16 @@ function buildMonthlySummaryRows(transactions) {
             return;
         }
 
-        if (type === "saving") {
-            bucket.saving += amount;
-        }
+if (isSavingSpendTitle) {
+    const absAmount = Math.abs(amount);
+    bucket.saving -= absAmount;
+    bucket.savingSpend += absAmount;
+    return;
+}
+
+if (type === "saving") {
+    bucket.saving += amount;
+}
     });
 
     const sortedMonths = Array.from(monthlyMap.keys()).sort((a, b) => a.localeCompare(b, "hu"));
@@ -205,8 +226,7 @@ function buildMonthlySummaryRows(transactions) {
     return sortedMonths.map((monthKey) => {
         const bucket = monthlyMap.get(monthKey);
         const expenseDisplay = Math.abs(bucket.expenseRaw);
-        const monthlyBalance = bucket.income - Math.abs(bucket.expenseRaw);
-
+const monthlyBalance = bucket.income - Math.abs(bucket.expenseRaw) + bucket.savingSpend;
         cumulativeBalance += monthlyBalance;
 
         return {

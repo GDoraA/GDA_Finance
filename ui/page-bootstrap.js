@@ -78,6 +78,22 @@
             typeof loadMonthlySummaryPage === "function" && loadMonthlySummaryPage();
         });
 
+        registerPageEvent("page:reports-house-costs", () => {
+            // Elsődleges útvonal:
+            // sidebar -> page event -> reportsHouseCostsPageBridge.resetPage() -> reportsHouseCostsPageBridge.load()
+            if (window.reportsHouseCostsPageBridge) {
+                typeof window.reportsHouseCostsPageBridge.resetPage === "function" &&
+                    window.reportsHouseCostsPageBridge.resetPage();
+                typeof window.reportsHouseCostsPageBridge.load === "function" &&
+                    window.reportsHouseCostsPageBridge.load();
+                return;
+            }
+
+            // Legacy fallback részlegesen frissült állapotokra.
+            // Nem elsődleges page-enter ág.
+            typeof loadHouseCostsPage === "function" && loadHouseCostsPage();
+        });
+
         registerPageEvent("page:bank-matching", () => {
             // Elsődleges útvonal:
             // sidebar -> page event -> bankMatchingPageBridge.resetPage() -> bankMatchingPageBridge.load()

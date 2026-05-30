@@ -46,8 +46,8 @@
             <button id="showSharedExpensesBtn" class="sidebar-btn">Megosztott költségek</button>
             <button id="showBankImportBtn" class="sidebar-btn">Bank import</button>
             <button id="showReportsMonthlyBtn" class="sidebar-btn">Havi összesítő</button>
+            <button id="showReportsHouseCostsBtn" class="sidebar-btn">Házköltségek</button>
             <button id="showBankMatchingBtn" class="sidebar-btn">Párosítás riport</button>
-
             <button id="showValueSetsBtn" class="sidebar-btn">Értékkészletek</button> <button id="showAdminUsersBtn"
                 class="sidebar-btn">Admin</button>
             <button id="showAdminFunctionsBtn" class="sidebar-btn">Funkciók</button>
@@ -390,6 +390,48 @@
                 </div>
             </div>
         </section>
+
+        <section id="page-reports-house-costs" class="hidden">
+            <h2>Házköltségek</h2>
+            <p class="result-count">
+                Külön kimutatás a K01 - Ház költsége - Nagytétény kategóriájú tételekből.
+            </p>
+
+            <div class="card">
+                <div id="houseCostsStatus" class="result-count"></div>
+
+                <div class="bank-matching-stats-list">
+                    <div><strong>Tételek:</strong> <span id="houseCostsCount">0 db</span></div>
+                    <div><strong>Összesen:</strong> <span id="houseCostsTotal">0 Ft</span></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="table-wrapper">
+                    <table id="houseCostsTable" class="tx-table">
+                        <thead>
+                            <tr>
+                                <th>Hónap</th>
+                                <th>Dátum</th>
+                                <th>Összeg</th>
+                                <th>Jogcím</th>
+                                <th>Fizetési mód</th>
+                                <th>Típus</th>
+                                <th>Kivonat sor</th>
+                                <th>Tranzakció ID</th>
+                                <th>Frissítve</th>
+                            </tr>
+                        </thead>
+                        <tbody id="houseCostsBody">
+                            <tr>
+                                <td colspan="9">A riport még nem lett betöltve.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
         <section id="page-bank-matching" class="hidden">
             <h2>Bank párosítás riport</h2>
             <div id="bankMatchingStatus" class="result-count" data-bank-matching-status>
@@ -734,6 +776,7 @@
         <script src="features/value-sets.js"></script>
         <script src="features/admin.js"></script>
         <script src="features/reports-monthly-summary.js"></script>
+        <script src="features/reports-house-costs.js"></script>
         <script src="features/reports-bank-matching.js"></script>
         <script src="ui/page-bootstrap.js"></script>
         <script src="app.js"></script>

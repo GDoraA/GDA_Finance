@@ -591,6 +591,10 @@ function doGet(e) {
       requirePermission_(auth, "tx_read", "read");
       result = getTransactions_(p);
 
+    } else if (action === "getHouseCosts") {
+      requirePermission_(auth, "tx_read", "read");
+      result = getHouseCosts_(p);
+
 } else if (action === "getValueSets") {
   result = getValueSets_();
 
@@ -854,6 +858,19 @@ function addTransaction_(tx) {
     paid_by: tx.paid_by
   });
 
+  // --- házköltség automatikus szinkron ---
+  syncHouseCostForTransaction_({
+    id: id,
+    month: tx.month,
+    date: tx.date,
+    amount: tx.amount,
+    title: tx.title,
+    category: tx.category,
+    payment_type: tx.payment_type,
+    transaction_type: tx.transaction_type,
+    statement_item: tx.statement_item
+  });
+
   return { success: true, id: id };
 }
 function addTransactions_(items) {
@@ -1058,6 +1075,18 @@ function addTransactions_(items) {
         title: tx.title,
         is_shared: tx.is_shared,
         paid_by: tx.paid_by
+      });
+
+      syncHouseCostForTransaction_({
+        id: tx.id,
+        month: tx.month,
+        date: tx.date,
+        amount: tx.amount,
+        title: tx.title,
+        category: tx.category,
+        payment_type: tx.payment_type,
+        transaction_type: tx.transaction_type,
+        statement_item: tx.statement_item
       });
 
       delete r._tx; // ne küldjük vissza
@@ -1366,6 +1395,20 @@ function updateTransaction_(tx) {
     is_shared: tx.is_shared,
     paid_by: tx.paid_by
   });
+
+  // --- házköltség automatikus szinkron ---
+  syncHouseCostForTransaction_({
+    id: tx.id,
+    month: tx.month,
+    date: tx.date,
+    amount: tx.amount,
+    title: tx.title,
+    category: tx.category,
+    payment_type: tx.payment_type,
+    transaction_type: tx.transaction_type,
+    statement_item: tx.statement_item
+  });
+
   return { success: true, id: tx.id };
 }
 /**
@@ -1477,6 +1520,25 @@ function deleteTransaction_(id) {
         for (let r = seData.length - 1; r >= 1; r--) {
           if (String(seData[r][colTxId]).trim() === txId) {
             seSheet.deleteRow(r + 1); // sheet 1-indexelt
+          }
+        }
+      }
+    }
+  }
+
+  // 3) Kapcsolódó House_Costs sor törlése transaction_id alapján (ha van)
+  const hcSheet = SpreadsheetApp.getActive().getSheetByName("House_Costs");
+  if (hcSheet) {
+    const hcData = hcSheet.getDataRange().getValues();
+    if (hcData.length >= 2) {
+      const hcHeader = hcData[0].map(h => String(h || "").trim());
+      const colTxId = hcHeader.indexOf("transaction_id");
+
+      if (colTxId !== -1) {
+        // alulról felfelé törlünk, hogy ne csússzanak az indexek
+        for (let r = hcData.length - 1; r >= 1; r--) {
+          if (String(hcData[r][colTxId] || "").trim() === txId) {
+            hcSheet.deleteRow(r + 1); // sheet 1-indexelt
           }
         }
       }
@@ -1744,6 +1806,153 @@ function addValueToSet_(p) {
   sheet.getRange(insertRow, col + 1).setValue(value);
 
   return { success: true, message: "Érték hozzáadva." };
+}
+
+const HOUSE_COST_CATEGORY_NAGYTETENY_ = "K01 - Ház költsége - Nagytétény";
+
+function isHouseCostTransaction_(tx) {
+  return String(tx && tx.category ? tx.category : "").trim() === HOUSE_COST_CATEGORY_NAGYTETENY_;
+}
+
+/**
+ * Házköltség tranzakció szinkronizálása a House_Costs lapra.
+ *
+ * Szabály:
+ * - ha category = K01 - Ház költsége - Nagytétény: beszúr vagy frissít transaction_id alapján
+ * - ha már nem ez a kategória: törli a kapcsolódó House_Costs sort
+ */
+function syncHouseCostForTransaction_(tx) {
+  const txId = String(tx && tx.id ? tx.id : "").trim();
+  if (!txId) return { success: false, skipped: true, reason: "Hiányzó transaction id." };
+
+  const sheet = SpreadsheetApp.getActive().getSheetByName("House_Costs");
+  if (!sheet) {
+    throw new Error('Nem található a "House_Costs" munkalap.');
+  }
+
+  const data = sheet.getDataRange().getValues();
+  const header = (data[0] || []).map(h => String(h || "").trim());
+
+  const col = (name) => {
+    const idx = header.indexOf(name);
+    if (idx === -1) {
+      throw new Error('A "House_Costs" fejléc hibás. Hiányzó oszlop: ' + name);
+    }
+    return idx;
+  };
+
+  const cId = col("id");
+  const cTxId = col("transaction_id");
+  const cMonth = col("month");
+  const cDate = col("date");
+  const cTitle = col("title");
+  const cAmount = col("amount");
+  const cCategory = col("category");
+  const cPaymentType = col("payment_type");
+  const cTransactionType = col("transaction_type");
+  const cStatementItem = col("statement_item");
+  const cCreatedAt = col("created_at");
+  const cUpdatedAt = col("updated_at");
+
+  let rowIndex = -1;
+  let existingRow = null;
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][cTxId] || "").trim() === txId) {
+      rowIndex = i + 1;      // Google Sheets: 1-indexelt sor
+      existingRow = data[i]; // JS tömb: 0-indexelt
+      break;
+    }
+  }
+
+  const isHouseCost = isHouseCostTransaction_(tx);
+
+  if (!isHouseCost) {
+    if (rowIndex !== -1) {
+      sheet.deleteRow(rowIndex);
+      return { success: true, deleted: true, transaction_id: txId };
+    }
+
+    return { success: true, skipped: true, reason: "Nem házköltség kategória.", transaction_id: txId };
+  }
+
+  const now = new Date();
+  const row = rowIndex === -1
+    ? new Array(header.length).fill("")
+    : existingRow.slice();
+
+  if (rowIndex === -1 || !String(row[cId] || "").trim()) {
+    row[cId] = generatePrefixedId_("HC");
+  }
+
+  row[cTxId] = txId;
+  row[cMonth] = tx.month || "";
+  row[cDate] = formatDateForStore_(tx.date);
+  row[cTitle] = tx.title || "";
+  row[cAmount] = tx.amount || "";
+  row[cCategory] = tx.category || "";
+  row[cPaymentType] = tx.payment_type || "";
+  row[cTransactionType] = tx.transaction_type || "";
+  row[cStatementItem] = tx.statement_item || "";
+
+  if (rowIndex === -1 || !row[cCreatedAt]) {
+    row[cCreatedAt] = now;
+  }
+
+  row[cUpdatedAt] = now;
+
+  if (rowIndex === -1) {
+    sheet.appendRow(row);
+    return { success: true, created: true, transaction_id: txId, id: row[cId] };
+  }
+
+  sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
+  return { success: true, updated: true, transaction_id: txId, id: row[cId] };
+}
+
+/**
+ * House_Costs lap tartalmának lekérése.
+ *
+ * Első körben csak olvasás:
+ * - a House_Costs lap teljes tartalmát visszaadja
+ * - dátummezőket stabil yyyy-MM-dd / yyyy-MM-dd HH:mm:ss formátumban ad vissza
+ */
+function getHouseCosts_(p) {
+  const sheet = SpreadsheetApp.getActive().getSheetByName("House_Costs");
+  if (!sheet) {
+    return { success: false, error: 'Nem található a "House_Costs" munkalap.' };
+  }
+
+  const data = sheet.getDataRange().getValues();
+  if (!data || data.length < 2) {
+    return { success: true, data: [] };
+  }
+
+  const header = (data[0] || []).map(h => String(h || "").trim());
+  const tz = Session.getScriptTimeZone();
+
+  const rows = data.slice(1).map(row => {
+    const obj = {};
+
+    header.forEach((name, idx) => {
+      const cell = row[idx];
+
+      if (cell instanceof Date && !isNaN(cell.getTime())) {
+        const fmt =
+          name === "created_at" || name === "updated_at"
+            ? "yyyy-MM-dd HH:mm:ss"
+            : "yyyy-MM-dd";
+
+        obj[name] = Utilities.formatDate(cell, tz, fmt);
+      } else {
+        obj[name] = cell;
+      }
+    });
+
+    return obj;
+  });
+
+  return { success: true, data: rows };
 }
 
 /**
@@ -2336,3 +2545,4 @@ function setBankTransactionMatchStatus(id, status) {
 function testSetBankTransactionMatchStatus() {
   return setBankTransactionMatchStatus("BT-85401692A2", "ignored");
 }
+

@@ -34,11 +34,12 @@ function openBankItemModal(item) {
     const details = document.getElementById("bankItemDetails");
     const closeBtn = document.getElementById("bankItemCloseBtn");
     if (!modal || !overlay || !details) return;
-    const fields = [
-        ["id", "ID"],
-        ["matched_transaction_ids", "TR ID"],
-        ["month", "Hó"],
-        ["transaction_date", "Tr.dátum"],
+const fields = [
+    ["id", "ID"],
+    ["bank_reference", "Banki azonosító"],
+    ["matched_transaction_ids", "TR ID"],
+    ["month", "Hó"],
+    ["transaction_date", "Tr.dátum"],
         ["posting_date", "Könyvelés"],
         ["amount", "Összeg"],
         ["direction", "Irány"],

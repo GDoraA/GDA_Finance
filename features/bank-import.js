@@ -842,7 +842,7 @@ const parseBankImportFile = async (file) => {
         }
         return -1;
     };
-    const iTxDate = idx("transaction_date", "tranzakció dátum", "tranzakcio datum", "dátum", "datum", "value date", "transaction date");
+    const iTxDate = idx("transaction_date", "tranzakció dátum", "tranzakcio datum", "tranzakció", "tranzakcio", "dátum", "datum", "value date", "transaction date");
     const iPost = idx("posting_date", "könyvelés dátum", "konyveles datum", "posting date", "book date");
     const iAmt = idx("amount", "összeg", "osszeg", "sum", "érték", "amount (huf)");
     const iMemo = idx("memo", "közlemény", "kozlemeny", "megjegyzés", "megjegyzes", "comment", "note");

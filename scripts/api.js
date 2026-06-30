@@ -1,5 +1,5 @@
 // ----------- API KONFIG -------------
-const API_URL = "https://script.google.com/macros/s/AKfycbwMIXmqou3y69uTCSMp6S6V6MHc4fl--ozWP4T3D0lhxCvZ5RjMisXiN8KAxl8kAI8/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzry0MVBLC2EfDpYXYwtPxgv7WT8H1RuMgzSWA0bO2bj9c-1gzPC12opY7VVj2OrPg/exec";
 // ----------- JSONP HÍVÓ FUNKCIÓ -------------
 function jsonp(action, params = {}) {
     return new Promise((resolve, reject) => {

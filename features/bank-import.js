@@ -855,6 +855,7 @@ const parseBankImportFile = async (file) => {
     const iAccName = idx("account_name", "számla neve", "szamla neve", "account name");
     const iAccNumber = idx("account_number", "számlaszám", "szamlaszam", "account number");
     const iCurrency = idx("currency", "deviza", "pénznem", "penznem", "ccy");
+    const iBankReference = idx("bank_reference", "banki azonosító", "banki azonosito", "banki id", "bank id");
     const getCell = (row, i) => (i >= 0 ? String(row[i] ?? "").trim() : "");
     const items = [];
     for (let r = 1; r < rows.length; r++) {

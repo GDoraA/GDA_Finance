@@ -362,6 +362,8 @@ function addUser_(name, email) {
 
 }
 function getFunctions_() {
+  ensureHouseCostsPermission_();
+
   const sheet = SpreadsheetApp.getActive().getSheetByName("Functions");
   if (!sheet) throw new Error('Nem található a "Functions" munkalap.');
 
@@ -395,6 +397,8 @@ function getFunctions_() {
   return { success: true, functions };
 }
 function getPermissions_() {
+  ensureHouseCostsPermission_();
+
   const sheet = SpreadsheetApp.getActive().getSheetByName("Permissions");
   if (!sheet) throw new Error('Nem található a "Permissions" munkalap.');
 
@@ -508,6 +512,89 @@ function setPermission_(email, function_key, access) {
   sheet.appendRow([em, fk, acc]);
   return { success: true, created: true };
 }
+
+/**
+ * Idempotens séma-kiegészítés a Házköltségek riport külön jogosultságához.
+ * A Functions sorát és a meglévő felhasználók hiányzó Permissions sorait
+ * hozza létre. Meglévő jogosultsági értéket nem ír felül.
+ */
+function ensureHouseCostsPermission_() {
+  const functionKey = "reports_house_costs";
+  const ss = SpreadsheetApp.getActive();
+  const fnSheet = ss.getSheetByName("Functions");
+  const permSheet = ss.getSheetByName("Permissions");
+  const usersSheet = ss.getSheetByName("Users");
+
+  if (!fnSheet) throw new Error('Nem található a "Functions" munkalap.');
+  if (!permSheet) throw new Error('Nem található a "Permissions" munkalap.');
+  if (!usersSheet) throw new Error('Nem található a "Users" munkalap.');
+
+  const fnData = fnSheet.getDataRange().getValues();
+  const fnHeader = (fnData[0] || []).map(h => String(h || "").trim());
+  const fnKeyCol = fnHeader.indexOf("function_key");
+  const fnNameCol = fnHeader.indexOf("name");
+  const fnDescCol = fnHeader.indexOf("description");
+
+  if (fnKeyCol === -1 || fnNameCol === -1 || fnDescCol === -1) {
+    throw new Error('A "Functions" fejléc hibás. Elvárt oszlopok: function_key, name, description');
+  }
+
+  const functionExists = fnData.slice(1).some(row =>
+    String(row[fnKeyCol] || "").trim().toLowerCase() === functionKey
+  );
+
+  if (!functionExists) {
+    const fnRow = new Array(fnHeader.length).fill("");
+    fnRow[fnKeyCol] = functionKey;
+    fnRow[fnNameCol] = "Házköltségek riport";
+    fnRow[fnDescCol] = "A Házköltségek riport megtekintése.";
+    fnSheet.appendRow(fnRow);
+  }
+
+  const permData = permSheet.getDataRange().getValues();
+  const permHeader = (permData[0] || []).map(h => String(h || "").trim());
+  const permEmailCol = permHeader.indexOf("email");
+  const permKeyCol = permHeader.indexOf("function_key");
+  const permAccessCol = permHeader.indexOf("access");
+
+  if (permEmailCol === -1 || permKeyCol === -1 || permAccessCol === -1) {
+    throw new Error('A "Permissions" fejléc hibás. Elvárt oszlopok: email, function_key, access');
+  }
+
+  const existingEmails = {};
+  permData.slice(1).forEach(row => {
+    const key = String(row[permKeyCol] || "").trim().toLowerCase();
+    const email = String(row[permEmailCol] || "").trim().toLowerCase();
+    if (key === functionKey && email) existingEmails[email] = true;
+  });
+
+  const usersData = usersSheet.getDataRange().getValues();
+  const usersHeader = (usersData[0] || []).map(h => String(h || "").trim());
+  const usersEmailCol = usersHeader.indexOf("email");
+  if (usersEmailCol === -1) {
+    throw new Error('A "Users" fejlécből hiányzik az "email" oszlop.');
+  }
+
+  const newPermissionRows = [];
+  usersData.slice(1).forEach(row => {
+    const email = String(row[usersEmailCol] || "").trim().toLowerCase();
+    if (!email || existingEmails[email]) return;
+
+    const permRow = new Array(permHeader.length).fill("");
+    permRow[permEmailCol] = email;
+    permRow[permKeyCol] = functionKey;
+    permRow[permAccessCol] = "none";
+    newPermissionRows.push(permRow);
+    existingEmails[email] = true;
+  });
+
+  if (newPermissionRows.length) {
+    permSheet
+      .getRange(permSheet.getLastRow() + 1, 1, newPermissionRows.length, permHeader.length)
+      .setValues(newPermissionRows);
+  }
+}
+
 function requirePermission_(auth, function_key, level) {
   // level: "read" | "write"
   const need = String(level || "").trim().toLowerCase();
@@ -592,7 +679,7 @@ function doGet(e) {
       result = getTransactions_(p);
 
     } else if (action === "getHouseCosts") {
-      requirePermission_(auth, "tx_read", "read");
+      requirePermission_(auth, "reports_house_costs", "read");
       result = getHouseCosts_(p);
 
 } else if (action === "getValueSets") {

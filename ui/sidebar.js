@@ -135,19 +135,11 @@ function showPage(page) {
         return !!v && String(v).toLowerCase() !== "none";
     };
 
-    const requiredPagePermission = {
-        "reports-house-costs": "reports_house_costs",
-        "value-sets": "value_sets_read"
-    };
-    const requiredPermission = requiredPagePermission[page];
-
-    if (requiredPermission && !hasAccess(requiredPermission)) {
+    if (page === "value-sets" && !hasAccess("value_sets_read")) {
         if (hasAccess("tx_read")) {
             page = "transactions";
         } else if (hasAccess("se_read")) {
             page = "shared";
-        } else if (hasAccess("reports_house_costs")) {
-            page = "reports-house-costs";
         } else if (hasAccess("admin_users")) {
             page = "admin-users";
         } else if (hasAccess("admin_functions")) {
@@ -258,7 +250,7 @@ function applySidebarPermissions() {
     // Bank import: ugyanahhoz a jogosultsághoz kötjük, mint a tranzakció importot
     if (!hasAccess("tx_import") && bankImportBtn) bankImportBtn.style.display = "none";
     if (!hasAccess("tx_read") && reportsMonthlyBtn) reportsMonthlyBtn.style.display = "none";
-    if (!hasAccess("reports_house_costs") && reportsHouseCostsBtn) reportsHouseCostsBtn.style.display = "none";
+    if (!hasAccess("tx_read") && reportsHouseCostsBtn) reportsHouseCostsBtn.style.display = "none";
     // Admin menüpontok – kizárólag saját admin jog alapján
     if (!hasAccess("admin_users") && adminUsersBtn) adminUsersBtn.style.display = "none";
     if (!hasAccess("admin_functions") && adminFunctionsBtn) adminFunctionsBtn.style.display = "none";

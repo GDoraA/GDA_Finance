@@ -63,7 +63,6 @@ function getLandingPage() {
 
     if (hasAccess("tx_read")) return "transactions";
     if (hasAccess("se_read")) return "shared";
-    if (hasAccess("reports_house_costs")) return "reports-house-costs";
     if (hasAccess("value_sets_read")) return "value-sets";
 
     // admin oldalak – első elérhető

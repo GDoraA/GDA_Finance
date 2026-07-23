@@ -727,6 +727,7 @@ const netBalance = incomeTotal - Math.abs(expenseTotal) + savingSpendTotal;
             sel.innerHTML = buildStatementItemOptions(tx, bankItems);
             const current = String(tx?.statement_item ?? "").trim();
             if (current) sel.value = current;
+            sel.disabled = !hasPermission("tx_update", "write");
             // Ne nyissa meg a szerkesztő modalt, ha a dropdownra kattintasz
             sel.addEventListener("click", (e) => e.stopPropagation());
             sel.addEventListener("change", async (e) => {
@@ -764,6 +765,8 @@ const netBalance = incomeTotal - Math.abs(expenseTotal) + savingSpendTotal;
     const rowsElements = document.querySelectorAll("#transactionsBody tr");
     rowsElements.forEach(row => {
         row.addEventListener("click", () => {
+            if (!hasPermission("tx_update", "write")) return;
+
             const id = row.getAttribute("data-id");
             // A teljes rekordot megkeressük a betöltött adatok között
             const tx = data.find(item => String(item.id) === String(id));
@@ -956,6 +959,14 @@ document.getElementById("txForm")?.addEventListener("submit", async e => {
     if (submitBtn) submitBtn.disabled = true;
     // Ha van edit ID, akkor módosítunk – ha nincs, új rekord jön létre
     const editId = e.target.getAttribute("data-edit-id");
+    const requiredPermission = editId ? "tx_update" : "tx_create";
+    if (!hasPermission(requiredPermission, "write")) {
+        er.textContent = "Nincs jogosultság a művelethez.";
+        er.style.display = "block";
+        if (submitBtn) submitBtn.disabled = false;
+        return;
+    }
+
     console.log("EDIT MODE?", { editId });
     let result;
     try {

@@ -76,6 +76,7 @@ const fields = [
 
     const isAlreadyMatched = matchedIds !== "";
     const isIgnored = matchStatus === "ignored";
+    const canCreateTransaction = hasPermission("tx_create", "write");
 
     const isAtmCashWithdrawalType =
         typeText === "atm készpénz felvétel" ||
@@ -96,12 +97,14 @@ const fields = [
         isAtmCashDepositType;
 
     const createCashTxDisabled =
-        (!bankId || isAlreadyMatched || isIgnored || !isCashWithdrawal) ? "disabled" : "";
+        (!canCreateTransaction || !bankId || isAlreadyMatched || isIgnored || !isCashWithdrawal) ? "disabled" : "";
 
     const createCashDepositTxDisabled =
-        (!bankId || isAlreadyMatched || isIgnored || !isCashDeposit) ? "disabled" : "";
+        (!canCreateTransaction || !bankId || isAlreadyMatched || isIgnored || !isCashDeposit) ? "disabled" : "";
 
-    const createCashTxHint = !bankId
+    const createCashTxHint = !canCreateTransaction
+        ? "Nincs jogosultság tranzakció létrehozására."
+        : !bankId
         ? "Hiányzó banki tétel ID."
         : isAlreadyMatched
             ? "Ehhez a banki tételhez már tartozik tranzakció."
@@ -111,7 +114,9 @@ const fields = [
                     ? "Ez a banki tétel nem tűnik készpénzfelvételnek."
                     : "A tranzakció létrehozása a következő lépésben történik.";
 
-    const createCashDepositTxHint = !bankId
+    const createCashDepositTxHint = !canCreateTransaction
+        ? "Nincs jogosultság tranzakció létrehozására."
+        : !bankId
         ? "Hiányzó banki tétel ID."
         : isAlreadyMatched
             ? "Ehhez a banki tételhez már tartozik tranzakció."
@@ -939,6 +944,7 @@ bankFileInput?.addEventListener("change", async (e) => {
     setBankStatus(`Beolvasva: ${bankImportItems.length} sor. Mentéshez kattints az Import gombra.`);
 });
 bankUploadBtn?.addEventListener("click", async () => {
+    if (!hasPermission("tx_import", "write")) return;
     if (bankUploadBtn?.disabled) return;
 
     let importCompleted = false;

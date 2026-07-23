@@ -11,6 +11,8 @@ function hideTxModalMessages() {
 }
 if (openBtn && modal && overlay) {
     openBtn.addEventListener("click", () => {
+        if (!hasPermission("tx_create", "write")) return;
+
         const form = document.getElementById("txForm");
         if (form) {
             form.reset();
@@ -164,6 +166,8 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedB
     });
 }
 async function openTransactionEditor(tx) {
+    if (!hasPermission("tx_update", "write")) return;
+
     const modal = document.getElementById("txModal");
     const overlay = document.getElementById("modalOverlay");
     // mezők kitöltése
@@ -237,14 +241,16 @@ async function openTransactionEditor(tx) {
     // Szerkesztés módban a Törlés + Másolás gomb látszódjon
     const delBtn = document.getElementById("txDeleteBtn");
     const copyBtn = document.getElementById("txCopyBtn");
-    if (delBtn) delBtn.style.display = "inline-block";
-    if (copyBtn) copyBtn.style.display = "inline-block";
+    if (delBtn) delBtn.style.display = hasPermission("tx_delete", "write") ? "inline-block" : "none";
+    if (copyBtn) copyBtn.style.display = hasPermission("tx_create", "write") ? "inline-block" : "none";
     // modal megnyitása
     modal.classList.add("open");
     overlay.classList.add("open");
 }
 // Tranzakció törlése modalból
 document.getElementById("txDeleteBtn")?.addEventListener("click", async (event) => {
+    if (!hasPermission("tx_delete", "write")) return;
+
     const deleteBtn = event.currentTarget;
     const form = document.getElementById("txForm");
     const txId = form?.getAttribute("data-edit-id");
@@ -281,6 +287,8 @@ document.getElementById("txDeleteBtn")?.addEventListener("click", async (event) 
 });
 // Tranzakció másolása (date + month nélkül)
 document.getElementById("txCopyBtn")?.addEventListener("click", () => {
+    if (!hasPermission("tx_create", "write")) return;
+
     const form = document.getElementById("txForm");
     if (!form) return;
     // Csak a dátum + hónap ürül, minden más marad
@@ -297,7 +305,7 @@ document.getElementById("txCopyBtn")?.addEventListener("click", () => {
     if (delBtn) delBtn.style.display = "none";
     // Másolás gomb maradhat elérhető (ha egymás után több másolat kell)
     const copyBtn = document.getElementById("txCopyBtn");
-    if (copyBtn) copyBtn.style.display = "inline-block";
+    if (copyBtn) copyBtn.style.display = hasPermission("tx_create", "write") ? "inline-block" : "none";
     // Fókusz az új dátum mezőre
     if (dateEl) {
         dateEl.focus();

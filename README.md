@@ -159,6 +159,21 @@ Több fájlt érintő módosításnál kerülni kell az olyan átállást, amely
 
 A projekt jelenlegi formájában elsősorban kézi, böngészős ellenőrzéssel tesztelhető. Automatizált tesztfuttató vagy build folyamat nincs dokumentálva a projektben.
 
+### Jogosultsági tesztek
+
+A jogosultsági modell statikus ellenőrzése:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\permissions-static.ps1
+```
+
+A `tests/permissions.test.html` fájl böngészőben megnyitva ellenőrzi a
+`none`, `read`, `write`, admin és oldalválasztási szabályokat. Sikeres futásnál
+az oldal alján `ALL TESTS PASSED` jelenik meg.
+
+Az Apps Script és a Google Sheets adatokkal végzett teljes integrációs tesztet
+mindig külön táblamásolaton és külön teszt deploymenten kell futtatni.
+
 ### Alap indítási ellenőrzés
 
 1. Nyisd meg az `index.html` fájlt HTTP/HTTPS környezetben.

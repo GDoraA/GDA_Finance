@@ -804,10 +804,13 @@ function doGet(e) {
       // egy hitelesített, de jogosulatlan felhasználó cache-találatnál adatot kapna.
       requirePermission_(auth, "tx_import", "read");
 
+<<<<<<< HEAD
       // A Bank_Transactions.TR_ID fizikai oszlopát is naprakészen tartjuk.
       // Ez a korábban létrejött összerendeléseket is visszatölti.
       syncBankTransactionIds_();
 
+=======
+>>>>>>> 1607a5f3df52940f8b7a8f635bfdfb44154d3b31
       const cache = CacheService.getScriptCache();
       const cached = cache.get("bank_transactions_list");
 

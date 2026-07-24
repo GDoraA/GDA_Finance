@@ -56,22 +56,9 @@ const ensureAuth = async () => {
     }
 };
 function getLandingPage() {
-    const hasAccess = (key) => {
-        const v = myPermissions?.[key];
-        return !!v && String(v).toLowerCase() !== "none";
-    };
-
-    if (hasAccess("tx_read")) return "transactions";
-    if (hasAccess("se_read")) return "shared";
-    if (hasAccess("value_sets_read")) return "value-sets";
-
-    // admin oldalak – első elérhető
-    if (hasAccess("admin_users")) return "admin-users";
-    if (hasAccess("admin_functions")) return "admin-functions";
-    if (hasAccess("admin_permissions")) return "admin-permissions";
-
-    // ha semmi sincs, maradjon a shared
-    return "shared";
+    return typeof getFirstAccessiblePage === "function"
+        ? getFirstAccessiblePage()
+        : null;
 }
 
 
@@ -79,8 +66,14 @@ const loadMyPermissions = async () => {
     try {
         const resp = await api.getMyPermissions();
         myPermissions = (resp && resp.success && resp.permissions) ? resp.permissions : {};
+        myIsAdmin = !!(resp && resp.success && resp.is_admin === true);
+        window.myPermissions = myPermissions;
+        window.myIsAdmin = myIsAdmin;
     } catch (e) {
         myPermissions = {};
+        myIsAdmin = false;
+        window.myPermissions = myPermissions;
+        window.myIsAdmin = myIsAdmin;
     }
 };
 

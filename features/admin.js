@@ -26,6 +26,13 @@ function renderAdminLoadError(tbody, colspan, respOrError, fallbackMessage) {
         tbody.innerHTML = `<tr><td colspan="${colspan}">${escapeHtml(message)}</td></tr>`;
     }
 }
+function applyAdminWritePermissions() {
+    const canAddUsers = hasPermission("admin_users", "write");
+    const userForm = document.getElementById("adminUserForm");
+    userForm?.querySelectorAll("input, button").forEach(control => {
+        control.disabled = !canAddUsers;
+    });
+}
 async function loadAdminUsers() {
     const tbody = document.getElementById("adminUsersBody");
     if (!tbody) return;
@@ -66,6 +73,8 @@ async function loadAdminUsers() {
         `;
         tbody.appendChild(tr);
     }
+
+    applyAdminWritePermissions();
 }
 async function loadAdminFunctions() {
     const tbody = document.getElementById("adminFunctionsBody");
@@ -159,28 +168,41 @@ async function loadAdminPermissions() {
             </td>
         `;
 
-        tbody.querySelectorAll("select.perm-access").forEach(sel => {
-            sel.addEventListener("change", async () => {
-                const email = sel.getAttribute("data-email");
-                const function_key = sel.getAttribute("data-function");
-                const access = sel.value;
-
-                try {
-                    const resp = await api.setPermission(email, function_key, access);
-                    if (!resp || !resp.success) {
-                        alert("Nem sikerült menteni a jogosultságot.");
-                    }
-                } catch (e) {
-                    alert("Hiba a jogosultság mentésekor.");
-                }
-            });
-        });
-
         tbody.appendChild(tr);
+
+        const sel = tr.querySelector("select.perm-access");
+        if (!sel) continue;
+
+        sel.disabled = !hasPermission("admin_permissions", "write");
+        sel.dataset.savedValue = val;
+        sel.addEventListener("change", async () => {
+            const email = sel.getAttribute("data-email");
+            const function_key = sel.getAttribute("data-function");
+            const access = sel.value;
+            const previousValue = sel.dataset.savedValue || "none";
+
+            sel.disabled = true;
+            try {
+                const saveResp = await api.setPermission(email, function_key, access);
+                if (!saveResp || !saveResp.success) {
+                    sel.value = previousValue;
+                    alert(saveResp?.error || saveResp?.message || "Nem sikerült menteni a jogosultságot.");
+                    return;
+                }
+                sel.dataset.savedValue = access;
+            } catch (e) {
+                sel.value = previousValue;
+                alert("Hiba a jogosultság mentésekor.");
+            } finally {
+                sel.disabled = !hasPermission("admin_permissions", "write");
+            }
+        });
     }
 }
 document.getElementById("adminUserForm")?.addEventListener("submit", async (e) => {
     e.preventDefault();
+
+    if (!hasPermission("admin_users", "write")) return;
 
     const name = document.getElementById("adminUserName")?.value?.trim() || "";
     const email = document.getElementById("adminUserEmail")?.value?.trim() || "";

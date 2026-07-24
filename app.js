@@ -55,7 +55,8 @@ let bankSortField = "transaction_date";
 let bankSortDirection = "desc";
 let bankFilterTextDebounce = null;
 // ===== Bank_Transactions cache (Transactions modal dropdownhoz) =====
-let myPermissions = {};
+var myPermissions = window.myPermissions || {};
+var myIsAdmin = window.myIsAdmin === true;
 function buildStatementItemOptions(tx, bankItems) {
     const rawTxDate = String(tx?.date ?? "").trim();
     const txDateIso = rawTxDate.includes("T") ? rawTxDate.split("T")[0] : toInputDateLocal(rawTxDate);

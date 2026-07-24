@@ -337,12 +337,18 @@ function closeSeModal() {
     document.getElementById("seModal")?.classList.remove("open");
     document.getElementById("seModalOverlay")?.classList.remove("open");
 }
-document.getElementById("addSharedExpenseBtn").addEventListener("click", () => openSeModal(false));
+document.getElementById("addSharedExpenseBtn").addEventListener("click", () => {
+    if (hasPermission("se_create", "write")) openSeModal(false);
+});
 document.getElementById("addSettlementInlineBtn")
-    .addEventListener("click", () => openSeModal(true));
+    .addEventListener("click", () => {
+        if (hasPermission("se_settlement_create", "write")) openSeModal(true);
+    });
 document.getElementById("seCloseBtn")?.addEventListener("click", closeSeModal);
 // Megosztott / törlesztés tétel törlése modalból (csak törlesztés vagy paid_by=Zsolti)
 document.getElementById("seDeleteBtn")?.addEventListener("click", async () => {
+    if (!hasPermission("se_delete", "write")) return;
+
     const form = document.getElementById("seForm");
     const seId = form?.getAttribute("data-edit-id");
     if (!seId) return;
@@ -415,6 +421,14 @@ document.getElementById("seForm")?.addEventListener("submit", async (e) => {
         if (seModalIsSettlement) payload.settlement = "x";
 
         const editId = document.getElementById("seForm")?.getAttribute("data-edit-id");
+        const requiredPermission = editId
+            ? "se_inline_update"
+            : (seModalIsSettlement ? "se_settlement_create" : "se_create");
+        if (!hasPermission(requiredPermission, "write")) {
+            alert("Nincs jogosultság a művelethez.");
+            return;
+        }
+
         let response;
 
         try {
@@ -452,6 +466,7 @@ document.getElementById("sharedExpensesBody").addEventListener("click", (e) => {
     if (!rowId) return;
     const row = seRowsById.get(String(rowId));
     if (!row) return;
+    if (!hasPermission("se_inline_update", "write")) return;
     // törlesztés felismerés ugyanazzal a logikával, mint rendernél
     const isSettlement = String(row.title || "").trim().toLowerCase().includes("törleszt");
     // modal megnyitása (resetel, beállítja a settlement UI-t)
@@ -479,11 +494,22 @@ document.getElementById("sharedExpensesBody").addEventListener("click", (e) => {
     // modal cím felülírása szerkesztésre
     const titleEl = document.getElementById("seModalTitle");
     if (titleEl) titleEl.textContent = isSettlement ? "Törlesztés szerkesztése" : "Megosztott tétel szerkesztése";
+
+    const deleteBtn = document.getElementById("seDeleteBtn");
+    const paidBy = String(row.paid_by || "").trim().toLowerCase();
+    const canDeleteRow = isSettlement || paidBy === "zsolti";
+    if (deleteBtn) {
+        deleteBtn.style.display =
+            hasPermission("se_delete", "write") && canDeleteRow
+                ? "inline-block"
+                : "none";
+    }
 });
 // ===== Shared Expenses – Event Delegation =====
 document.getElementById("sharedExpensesBody").addEventListener("change", async (e) => {
     const target = e.target;
     const rowId = target?.getAttribute("data-id") || "";
+    if (rowId && !hasPermission("se_update", "write")) return;
     // --- CSAK a szám mezők (Zsolti/Dóri része) formázása ezres tagolással ---
     // Ne formázzunk title/paid_by/notes mezőt, mert abból "0" lesz (Number("") -> 0).
     if (
@@ -520,7 +546,7 @@ document.getElementById("sharedExpensesBody").addEventListener("change", async (
             const valueSets = await api.getValueSets();
             const existing = (valueSets?.sets?.paid_by || []).map(v => String(v).toLowerCase());
 
-            if (!existing.includes(value.toLowerCase())) {
+            if (!existing.includes(value.toLowerCase()) && hasPermission("value_sets_write", "write")) {
                 const addValueResp = await api.addValueToSet("paid_by", value);
                 if (!addValueResp || !addValueResp.success) {
                     alert(addValueResp?.error || addValueResp?.message || "Nem sikerült frissíteni a fizető felek listáját.");

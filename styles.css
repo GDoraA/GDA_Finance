@@ -835,7 +835,7 @@ button.secondary {
 #bankMatchingTable td:nth-child(10)::before { content: "Művelet"; }
 /* Bank import (banki tételek) – mezőnevek oszlopsorrend alapján */
 #bankImportPreviewTable td:nth-child(1)::before { content: "ID"; }
-#bankImportPreviewTable td:nth-child(2)::before { content: "Rendelt tranzakció ID-k"; }
+#bankImportPreviewTable td:nth-child(2)::before { content: "Kapcsolt tranzakció ID"; }
 #bankImportPreviewTable td:nth-child(3)::before { content: "Hónap"; }
 #bankImportPreviewTable td:nth-child(4)::before { content: "Tranzakció dátum"; }
 #bankImportPreviewTable td:nth-child(5)::before { content: "Könyvelés dátum"; }

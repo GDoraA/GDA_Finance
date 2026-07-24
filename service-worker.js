@@ -1,4 +1,4 @@
-const CACHE_NAME = "gda-finance-cache-v28";
+const CACHE_NAME = "gda-finance-cache-v29";
 const ASSETS = [
   "./",
   "./index.html",
@@ -7,6 +7,7 @@ const ASSETS = [
   "./scripts/api.js",
   "./utils/helpers.js",
   "./utils/pagination.js",
+  "./utils/permissions.js",
   "./ui/sidebar.js",
   "./ui/modals.js",
   "./ui/page-bootstrap.js",
@@ -18,6 +19,7 @@ const ASSETS = [
   "./features/admin.js",
   "./features/reports-monthly-summary.js",
   "./features/reports-house-costs.js",
+  "./features/reports-bank-matching.js",
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png"

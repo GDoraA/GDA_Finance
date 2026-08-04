@@ -9,12 +9,36 @@ function hideTxModalMessages() {
     if (s) s.style.display = "none";
     if (e) e.style.display = "none";
 }
+
+function resetStatementItemPicker() {
+    const hidden = document.getElementById("statementItemValue");
+    const picker = document.getElementById("statementItemPicker");
+    const selectedSum = document.getElementById("statementItemSelectedSum");
+
+    if (hidden) hidden.value = "";
+    if (picker) picker.innerHTML = `<div class="muted">— válassz banki tételt —</div>`;
+    if (selectedSum) selectedSum.textContent = "0";
+}
+
+function resetTransactionModalState(form = document.getElementById("txForm")) {
+    if (form) {
+        form.reset();
+        form.removeAttribute("data-edit-id");
+        delete form._activityOriginalTransaction;
+    }
+
+    // A picker checkboxai dinamikusan jönnek létre. A form.reset() a checked
+    // attribútummal renderelt elemeket újra kijelölné, ezért külön ürítjük őket.
+    resetStatementItemPicker();
+}
+
 if (openBtn && modal && overlay) {
     openBtn.addEventListener("click", () => {
+        if (!hasPermission("tx_create", "write")) return;
+
         const form = document.getElementById("txForm");
+        resetTransactionModalState(form);
         if (form) {
-            form.reset();
-            form.removeAttribute("data-edit-id");
             const delBtn = document.getElementById("txDeleteBtn");
             const copyBtn = document.getElementById("txCopyBtn");
             if (delBtn) delBtn.style.display = "none";
@@ -28,6 +52,7 @@ if (closeBtn && modal && overlay) {
     closeBtn.addEventListener("click", () => {
         modal.classList.remove("open");
         overlay.classList.remove("open");
+        resetTransactionModalState();
     });
 }
 function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedBankIds = new Set()) {
@@ -164,6 +189,8 @@ function renderStatementItemPicker(tx, bankItems, pickerEl, hiddenInputEl, usedB
     });
 }
 async function openTransactionEditor(tx) {
+    if (!hasPermission("tx_update", "write")) return;
+
     const modal = document.getElementById("txModal");
     const overlay = document.getElementById("modalOverlay");
     // mezők kitöltése
@@ -233,18 +260,22 @@ async function openTransactionEditor(tx) {
         }
     }
     // a szerkesztendő ID-t eltároljuk a formban (nem látszik, de szükséges)
-    document.getElementById("txForm").setAttribute("data-edit-id", tx.id);
+    const txForm = document.getElementById("txForm");
+    txForm.setAttribute("data-edit-id", tx.id);
+    txForm._activityOriginalTransaction = { ...tx };
     // Szerkesztés módban a Törlés + Másolás gomb látszódjon
     const delBtn = document.getElementById("txDeleteBtn");
     const copyBtn = document.getElementById("txCopyBtn");
-    if (delBtn) delBtn.style.display = "inline-block";
-    if (copyBtn) copyBtn.style.display = "inline-block";
+    if (delBtn) delBtn.style.display = hasPermission("tx_delete", "write") ? "inline-block" : "none";
+    if (copyBtn) copyBtn.style.display = hasPermission("tx_create", "write") ? "inline-block" : "none";
     // modal megnyitása
     modal.classList.add("open");
     overlay.classList.add("open");
 }
 // Tranzakció törlése modalból
 document.getElementById("txDeleteBtn")?.addEventListener("click", async (event) => {
+    if (!hasPermission("tx_delete", "write")) return;
+
     const deleteBtn = event.currentTarget;
     const form = document.getElementById("txForm");
     const txId = form?.getAttribute("data-edit-id");
@@ -281,15 +312,20 @@ document.getElementById("txDeleteBtn")?.addEventListener("click", async (event) 
 });
 // Tranzakció másolása (date + month nélkül)
 document.getElementById("txCopyBtn")?.addEventListener("click", () => {
+    if (!hasPermission("tx_create", "write")) return;
+
     const form = document.getElementById("txForm");
     if (!form) return;
-    // Csak a dátum + hónap ürül, minden más marad
+    // A dátum + hónap ürül, a banki kapcsolat viszont nem másolható át:
+    // ugyanaz a banki tétel nem tartozhat két külön tranzakcióhoz.
     const dateEl = form.querySelector("input[name='date']");
     const monthEl = form.querySelector("input[name='month']");
     if (dateEl) dateEl.value = "";
     if (monthEl) monthEl.value = "";
+    resetStatementItemPicker();
     // ÚJ rekord lesz (ne módosítson)
     form.removeAttribute("data-edit-id");
+    delete form._activityOriginalTransaction;
     const submitBtn = form.querySelector("button[type='submit'], #txSubmitBtn");
     if (submitBtn) submitBtn.textContent = "Mentés";
     // Törlés gomb ne látszódjon új rekordnál
@@ -297,7 +333,7 @@ document.getElementById("txCopyBtn")?.addEventListener("click", () => {
     if (delBtn) delBtn.style.display = "none";
     // Másolás gomb maradhat elérhető (ha egymás után több másolat kell)
     const copyBtn = document.getElementById("txCopyBtn");
-    if (copyBtn) copyBtn.style.display = "inline-block";
+    if (copyBtn) copyBtn.style.display = hasPermission("tx_create", "write") ? "inline-block" : "none";
     // Fókusz az új dátum mezőre
     if (dateEl) {
         dateEl.focus();

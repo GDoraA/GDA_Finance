@@ -56,6 +56,22 @@
         </nav>
     </aside>
     <div class="content-wrapper">
+        <button id="globalActivityLogToggle" class="global-activity-log-toggle" type="button"
+            aria-controls="globalActivityLogPanel" aria-expanded="false">
+            Változásnapló <span id="globalActivityLogBadge" class="global-activity-log-badge hidden">0</span>
+        </button>
+        <aside id="globalActivityLogPanel" class="global-activity-log-panel hidden" aria-label="Változásnapló">
+            <div class="global-activity-log-header">
+                <h3>Változásnapló</h3>
+                <button id="globalActivityLogClose" class="btn-secondary" type="button">Bezárás</button>
+            </div>
+            <p class="result-count">Minden módosítás, frissítés és hiba valamennyi oldalról.</p>
+            <pre id="globalActivityLogOutput" class="global-activity-log-output" aria-live="polite">Még nem történt változás.</pre>
+            <div class="global-activity-log-actions">
+                <button id="globalActivityLogCopy" class="btn-secondary" type="button">Másolás</button>
+                <button id="globalActivityLogClear" class="btn-secondary" type="button">Napló törlése</button>
+            </div>
+        </aside>
         <!-- Tranzakció lista -->
         <section id="page-transactions">
             <h2>Tranzakciók</h2>
@@ -157,6 +173,7 @@
                         <button id="bulkMatchBtn">Csoportos párosítás</button>
                         <button id="importCsvBtn">Import</button>
                         <button id="toggleFiltersBtn">Szűrők</button>
+                        <button id="openCategoryChartBtn" type="button">Kategória diagram</button>
                     </div>
                     <div class="tx-toolbar-right">
                         <button id="csvHelpBtn" type="button" class="secondary">
@@ -270,6 +287,27 @@
                         <datalist id="transactionTypesList"></datalist>
                         <datalist id="paidByList"></datalist>
                         <datalist id="sharedTitlesList"></datalist>
+                    </div>
+                </div>
+                <div id="categoryChartOverlay" class="modal-overlay"></div>
+                <div id="categoryChartModal" class="modal category-chart-modal" role="dialog"
+                    aria-modal="true" aria-labelledby="categoryChartTitle">
+                    <div class="modal-content">
+                        <div class="category-chart-header">
+                            <div>
+                                <h2 id="categoryChartTitle">Tranzakciók kategóriánként</h2>
+                                <div id="categoryChartSummary" class="result-count"></div>
+                            </div>
+                            <button id="closeCategoryChartBtn" type="button" class="secondary">Bezárás</button>
+                        </div>
+                        <div id="categoryChartEmpty" class="result-count hidden">
+                            Az aktuális szűrésben nincs diagramon megjeleníthető összeg.
+                        </div>
+                        <div id="categoryChartContent" class="category-chart-content">
+                            <div id="categoryPieChart" class="category-pie-chart" role="group"
+                                aria-label="Kategóriánkénti tortadiagram"></div>
+                            <div id="categoryChartLegend" class="category-chart-legend"></div>
+                        </div>
                     </div>
                 </div>
                 <!-- Bulk Match Modal -->
@@ -396,6 +434,9 @@
             <p class="result-count">
                 Külön kimutatás a K01 - Ház költsége - Nagytétény kategóriájú tételekből.
             </p>
+            <button id="refreshHouseCostsBtn" class="btn-secondary" type="button">
+                Frissítés
+            </button>
 
             <div class="card">
                 <div id="houseCostsStatus" class="result-count"></div>
@@ -403,6 +444,9 @@
                 <div class="bank-matching-stats-list">
                     <div><strong>Tételek:</strong> <span id="houseCostsCount">0 db</span></div>
                     <div><strong>Összesen:</strong> <span id="houseCostsTotal">0 Ft</span></div>
+                    <div><strong>Nem rendezett, Dóri fizette:</strong> <span id="houseCostsDoriPaid">0 Ft</span></div>
+                    <div><strong>Nem rendezett, Zsolti fizette:</strong> <span id="houseCostsZsoltiPaid">0 Ft</span></div>
+                    <div><strong>Elszámolási egyenleg:</strong> <span id="houseCostsSettlementBalance">Nincs tartozás</span></div>
                 </div>
             </div>
 
@@ -415,16 +459,21 @@
                                 <th>Dátum</th>
                                 <th>Összeg</th>
                                 <th>Jogcím</th>
+                                <th>Fizette</th>
+                                <th>Zsolti egyenlege</th>
+                                <th>Dóri egyenlege</th>
+                                <th>Rendezve</th>
                                 <th>Fizetési mód</th>
                                 <th>Típus</th>
                                 <th>Kivonat sor</th>
                                 <th>Tranzakció ID</th>
+                                <th>Forrás</th>
                                 <th>Frissítve</th>
                             </tr>
                         </thead>
                         <tbody id="houseCostsBody">
                             <tr>
-                                <td colspan="9">A riport még nem lett betöltve.</td>
+                                <td colspan="14">A riport még nem lett betöltve.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -572,6 +621,10 @@
             <button id="addSettlementInlineBtn" class="btn-secondary">
                 + Törlesztés
             </button>
+            <button id="refreshSharedExpensesBtn" class="btn-secondary" type="button">
+                Frissítés
+            </button>
+            <span id="sharedExpensesRefreshStatus" class="result-count" aria-live="polite"></span>
             <!-- Shared Expenses Modal háttér -->
             <div id="seModalOverlay" class="modal-overlay"></div>
             <!-- Shared Expenses Modal -->
@@ -582,6 +635,7 @@
                         <input type="date" id="seDate" name="date" placeholder="Dátum">
                         <input id="seMonth" name="month" placeholder="Hónap (YYYYMM)" readonly>
                         <input id="seTitle" name="title" list="titlesList" placeholder="Megnevezés">
+                        <input id="seCategory" name="category" list="categoriesList" placeholder="Kategória">
                         <input id="seAmount" name="amount" inputmode="decimal" placeholder="Összeg">
                         <input id="sePaidBy" name="paid_by" list="paidByList" placeholder="Fizette (Dóri/Zsolti)">
                         <!-- Megosztott bontás – törlesztésnél majd elrejtjük -->
@@ -618,6 +672,7 @@
                             <th data-sort="month">Hónap</th>
                             <th data-sort="date">Dátum</th>
                             <th data-sort="title">Megnevezés</th>
+                            <th data-sort="category">Kategória</th>
                             <th data-sort="amount">Összeg</th>
                             <th data-sort="paid_by">Fizette</th>
                             <th data-sort="Zsolti_amount">Zsolti része</th>
@@ -766,10 +821,13 @@
         </section>
         <script src="utils/helpers.js"></script>
         <script src="utils/pagination.js"></script>
+        <script src="utils/permissions.js"></script>
+        <script src="scripts/activity-log.js"></script>
         <script src="scripts/api.js"></script>
         <script src="ui/sidebar.js"></script>
         <script src="ui/modals.js"></script>
         <script src="features/transactions.js"></script>
+        <script src="features/transactions-category-chart.js"></script>
         <script src="features/bank-import.js"></script>
         <script src="features/auth.js"></script>
         <script src="features/sharedExp.js"></script>

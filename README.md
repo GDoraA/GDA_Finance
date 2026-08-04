@@ -159,6 +159,21 @@ Több fájlt érintő módosításnál kerülni kell az olyan átállást, amely
 
 A projekt jelenlegi formájában elsősorban kézi, böngészős ellenőrzéssel tesztelhető. Automatizált tesztfuttató vagy build folyamat nincs dokumentálva a projektben.
 
+### Jogosultsági tesztek
+
+A jogosultsági modell statikus ellenőrzése:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\permissions-static.ps1
+```
+
+A `tests/permissions.test.html` fájl böngészőben megnyitva ellenőrzi a
+`none`, `read`, `write`, admin és oldalválasztási szabályokat. Sikeres futásnál
+az oldal alján `ALL TESTS PASSED` jelenik meg.
+
+Az Apps Script és a Google Sheets adatokkal végzett teljes integrációs tesztet
+mindig külön táblamásolaton és külön teszt deploymenten kell futtatni.
+
 ### Alap indítási ellenőrzés
 
 1. Nyisd meg az `index.html` fájlt HTTP/HTTPS környezetben.
@@ -208,12 +223,32 @@ A projekt jelenlegi formájában elsősorban kézi, böngészős ellenőrzéssel
 5. Hozz létre új törlesztés tételt.
 6. Ellenőrizd, hogy a lista újratöltés után is konzisztens.
 7. Ellenőrizd, hogy csak a megengedett tételek törölhetők.
+8. Egy megosztott tranzakción állíts be kategóriát, majd kattints a `Frissítés` gombra.
+9. Ellenőrizd, hogy a kapcsolt megosztott költség kategóriája megegyezik a tranzakció kategóriájával.
 
 Érintett fájlok:
 
 - `features/sharedExp.js`
 - `scripts/api.js`
 - `Finance_codegs.txt`
+
+### Házköltségek ellenőrzése
+
+1. Állíts be egy tranzakción `K01 - Ház költsége - Nagytétény` kategóriát.
+2. Hozz létre egy kézi megosztott költséget ugyanezzel a kategóriával.
+3. A Megosztott költségek oldalon kattints a `Frissítés` gombra.
+4. A Házköltségek oldalon kattints a `Frissítés` gombra.
+5. Ellenőrizd, hogy a közvetlen tranzakció és a kézi megosztott költség is pontosan egyszer látható.
+6. Ellenőrizd, hogy a tranzakcióból létrejött megosztott pár nem jelenik meg másodszor.
+7. Módosítsd a kézi megosztott költség összegét vagy megnevezését, majd frissítsd újra a riportot.
+8. Ellenőrizd a módosítás megjelenését és a frissítési összesítőt.
+9. Változtasd meg a rekord kategóriáját K01-ről más értékre, majd ellenőrizd, hogy a következő frissítés eltávolítja a riportból.
+
+Automatizált ellenőrzések:
+
+- `tests/shared-expense-category-static.ps1`
+- `tests/house-cost-refresh-static.ps1`
+- `tests/house-cost-refresh.logic.test.mjs`
 
 ### Bank import ellenőrzése
 

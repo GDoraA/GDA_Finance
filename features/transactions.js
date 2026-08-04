@@ -29,6 +29,9 @@ window.transactionsPageBridge = window.transactionsPageBridge || {
     },
     getCache() {
         return transactionsCache;
+    },
+    getFiltered() {
+        return filteredTransactions;
     }
 };
 function renderTransactionsLoadError(tbody, errorLike, fallbackMessage) {
@@ -727,6 +730,7 @@ const netBalance = incomeTotal - Math.abs(expenseTotal) + savingSpendTotal;
             sel.innerHTML = buildStatementItemOptions(tx, bankItems);
             const current = String(tx?.statement_item ?? "").trim();
             if (current) sel.value = current;
+            sel.disabled = !hasPermission("tx_update", "write");
             // Ne nyissa meg a szerkesztő modalt, ha a dropdownra kattintasz
             sel.addEventListener("click", (e) => e.stopPropagation());
             sel.addEventListener("change", async (e) => {
@@ -748,7 +752,7 @@ const netBalance = incomeTotal - Math.abs(expenseTotal) + savingSpendTotal;
                     is_shared: (tx?.is_shared === "x" || tx?.is_shared === true || tx?.is_shared === "true") ? "x" : "",
                     statement_item: newValue
                 };
-                const resp = await api.updateTransaction(payload);
+                const resp = await api.updateTransaction(payload, tx);
                 if (resp && resp.success) {
                     // frontenden is frissítsük a memóriában, hogy ne villanjon vissza
                     tx.statement_item = newValue;
@@ -764,6 +768,8 @@ const netBalance = incomeTotal - Math.abs(expenseTotal) + savingSpendTotal;
     const rowsElements = document.querySelectorAll("#transactionsBody tr");
     rowsElements.forEach(row => {
         row.addEventListener("click", () => {
+            if (!hasPermission("tx_update", "write")) return;
+
             const id = row.getAttribute("data-id");
             // A teljes rekordot megkeressük a betöltött adatok között
             const tx = data.find(item => String(item.id) === String(id));
@@ -956,15 +962,27 @@ document.getElementById("txForm")?.addEventListener("submit", async e => {
     if (submitBtn) submitBtn.disabled = true;
     // Ha van edit ID, akkor módosítunk – ha nincs, új rekord jön létre
     const editId = e.target.getAttribute("data-edit-id");
+    const requiredPermission = editId ? "tx_update" : "tx_create";
+    if (!hasPermission(requiredPermission, "write")) {
+        er.textContent = "Nincs jogosultság a művelethez.";
+        er.style.display = "block";
+        if (submitBtn) submitBtn.disabled = false;
+        return;
+    }
+
     console.log("EDIT MODE?", { editId });
     let result;
     try {
         if (editId) {
             // ===== MÓDOSÍTÁS =====
             formData.id = editId;
+            const previousTransaction = e.target._activityOriginalTransaction ||
+                (transactionsCache || []).find(
+                    tx => String(tx?.id ?? "") === String(editId)
+                ) || null;
             console.log("FORMDATA OBJECT CONTENTS:", JSON.stringify(formData, null, 2));
             console.log("CALL updateTransaction WITH:", formData);
-            result = await api.updateTransaction(formData);
+            result = await api.updateTransaction(formData, previousTransaction);
             console.log("UPDATE RESULT RAW:", result);
             console.log("UPDATE SUCCESS:", result?.success);
             console.log("UPDATE MESSAGE:", result?.message);
@@ -988,11 +1006,8 @@ document.getElementById("txForm")?.addEventListener("submit", async e => {
         s.style.display = "block";
         setTimeout(() => { s.style.display = "none"; }, 1500);
 
-        // form ürítése
-        e.target.reset();
-
-        // szerkesztési mód kikapcsolása
-        e.target.removeAttribute("data-edit-id");
+        // Form és a dinamikus banki tételválasztó ürítése.
+        resetTransactionModalState(e.target);
 
         // datalist frissítése
         await loadDropdownValues();

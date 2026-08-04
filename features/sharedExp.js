@@ -43,7 +43,7 @@ async function loadSharedExpenses() {
         } catch (err) {
             renderSharedLoadError(
                 tbody,
-                12,
+                13,
                 err,
                 "Hiba a megosztott költségek betöltésekor."
             );
@@ -56,7 +56,7 @@ async function loadSharedExpenses() {
         } catch (err) {
             renderSharedLoadError(
                 tbody,
-                12,
+                13,
                 err,
                 "Hiba a segédlisták betöltésekor."
             );
@@ -66,7 +66,7 @@ async function loadSharedExpenses() {
         if (!result || !result.success) {
             renderSharedLoadError(
                 tbody,
-                12,
+                13,
                 result,
                 "Hiba a megosztott költségek betöltésekor."
             );
@@ -76,7 +76,7 @@ async function loadSharedExpenses() {
         if (!valueSetsResponse || !valueSetsResponse.success) {
             renderSharedLoadError(
                 tbody,
-                12,
+                13,
                 valueSetsResponse,
                 "Hiba a segédlisták betöltésekor."
             );
@@ -194,6 +194,7 @@ async function loadSharedExpenses() {
                 <td>${row.month || ""}</td>
                 <td>${formatDateForList(row.date)}</td>
                 <td>${row.title || "Törlesztés"}</td>
+                <td>${row.category || ""}</td>
                 <td class="se-amount">${formatAmount(row.amount)}</td>
                 <td>${row.paid_by || ""}</td>
                 <!-- Megosztott mezők elrejtése -->
@@ -216,6 +217,7 @@ async function loadSharedExpenses() {
             <td>${row.month || ""}</td>
             <td>${formatDateForList(row.date)}</td>
             <td>${row.title || ""}</td>
+            <td>${row.category || ""}</td>
             <td class="text-right">${formatAmount(row.amount)}</td>
             <td>${row.paid_by || ""}</td>
             <td class="text-right">
@@ -280,6 +282,35 @@ async function loadSharedExpenses() {
     }
 }
 window.loadSharedExpenses = loadSharedExpenses;
+
+document.getElementById("refreshSharedExpensesBtn")?.addEventListener("click", async () => {
+    if (!hasPermission("se_update", "write")) return;
+
+    const button = document.getElementById("refreshSharedExpensesBtn");
+    const status = document.getElementById("sharedExpensesRefreshStatus");
+    if (button) button.disabled = true;
+    if (status) status.textContent = "Frissítés...";
+
+    try {
+        const response = await api.refreshSharedExpenses();
+        if (!response || response.success !== true) {
+            throw new Error(response?.error || response?.message || "A frissítés nem sikerült.");
+        }
+
+        await loadSharedExpenses();
+        if (status) {
+            status.textContent =
+                `Új: ${response.created || 0}, módosítva: ${response.updated || 0}, ` +
+                `eltávolítva: ${response.deleted || 0}, változatlan: ${response.unchanged || 0}.`;
+        }
+    } catch (err) {
+        console.error("Shared expenses refresh error:", err);
+        if (status) status.textContent = err?.message || "A frissítés nem sikerült.";
+    } finally {
+        if (button) button.disabled = false;
+    }
+});
+
 // ===== SHARED EXPENSES – FEJLÉCRE KATTINTVA RENDEZÉS (CSAK STATE) =====
 document.querySelectorAll("#sharedExpensesTable thead th[data-sort]").forEach(th => {
     th.style.cursor = "pointer";
@@ -337,12 +368,18 @@ function closeSeModal() {
     document.getElementById("seModal")?.classList.remove("open");
     document.getElementById("seModalOverlay")?.classList.remove("open");
 }
-document.getElementById("addSharedExpenseBtn").addEventListener("click", () => openSeModal(false));
+document.getElementById("addSharedExpenseBtn").addEventListener("click", () => {
+    if (hasPermission("se_create", "write")) openSeModal(false);
+});
 document.getElementById("addSettlementInlineBtn")
-    .addEventListener("click", () => openSeModal(true));
+    .addEventListener("click", () => {
+        if (hasPermission("se_settlement_create", "write")) openSeModal(true);
+    });
 document.getElementById("seCloseBtn")?.addEventListener("click", closeSeModal);
 // Megosztott / törlesztés tétel törlése modalból (csak törlesztés vagy paid_by=Zsolti)
 document.getElementById("seDeleteBtn")?.addEventListener("click", async () => {
+    if (!hasPermission("se_delete", "write")) return;
+
     const form = document.getElementById("seForm");
     const seId = form?.getAttribute("data-edit-id");
     if (!seId) return;
@@ -386,6 +423,7 @@ document.getElementById("seForm")?.addEventListener("submit", async (e) => {
     hideSeModalMessages();
     const date = (document.getElementById("seDate")?.value || "").trim();
     const title = (document.getElementById("seTitle")?.value || "").trim();
+    const category = (document.getElementById("seCategory")?.value || "").trim();
     const paidBy = (document.getElementById("sePaidBy")?.value || "").trim();
     const notes = (document.getElementById("seNotes")?.value || "").trim();
     // Fontos: parseHuNumber kezeli a "2 000" és "2,5" formátumot is
@@ -405,6 +443,7 @@ document.getElementById("seForm")?.addEventListener("submit", async (e) => {
             month,
             date,
             title,
+            category,
             amount,
             paid_by: paidBy,
             Zsolti_amount: zsoltiAmount,
@@ -415,6 +454,14 @@ document.getElementById("seForm")?.addEventListener("submit", async (e) => {
         if (seModalIsSettlement) payload.settlement = "x";
 
         const editId = document.getElementById("seForm")?.getAttribute("data-edit-id");
+        const requiredPermission = editId
+            ? "se_inline_update"
+            : (seModalIsSettlement ? "se_settlement_create" : "se_create");
+        if (!hasPermission(requiredPermission, "write")) {
+            alert("Nincs jogosultság a művelethez.");
+            return;
+        }
+
         let response;
 
         try {
@@ -452,6 +499,7 @@ document.getElementById("sharedExpensesBody").addEventListener("click", (e) => {
     if (!rowId) return;
     const row = seRowsById.get(String(rowId));
     if (!row) return;
+    if (!hasPermission("se_inline_update", "write")) return;
     // törlesztés felismerés ugyanazzal a logikával, mint rendernél
     const isSettlement = String(row.title || "").trim().toLowerCase().includes("törleszt");
     // modal megnyitása (resetel, beállítja a settlement UI-t)
@@ -464,6 +512,7 @@ document.getElementById("sharedExpensesBody").addEventListener("click", (e) => {
     document.getElementById("seDate").value = dateOnly || "";
     document.getElementById("seMonth").value = row.month || (dateOnly ? deriveMonth(dateOnly) : "");
     document.getElementById("seTitle").value = row.title || "";
+    document.getElementById("seCategory").value = row.category || "";
     document.getElementById("seAmount").value = Math.abs(Number(row.amount) || 0);
     document.getElementById("sePaidBy").value = row.paid_by || "";
     // bontás mezők (törlesztésnél úgyis rejtve vannak, de értéket adhatunk)
@@ -479,11 +528,22 @@ document.getElementById("sharedExpensesBody").addEventListener("click", (e) => {
     // modal cím felülírása szerkesztésre
     const titleEl = document.getElementById("seModalTitle");
     if (titleEl) titleEl.textContent = isSettlement ? "Törlesztés szerkesztése" : "Megosztott tétel szerkesztése";
+
+    const deleteBtn = document.getElementById("seDeleteBtn");
+    const paidBy = String(row.paid_by || "").trim().toLowerCase();
+    const canDeleteRow = isSettlement || paidBy === "zsolti";
+    if (deleteBtn) {
+        deleteBtn.style.display =
+            hasPermission("se_delete", "write") && canDeleteRow
+                ? "inline-block"
+                : "none";
+    }
 });
 // ===== Shared Expenses – Event Delegation =====
 document.getElementById("sharedExpensesBody").addEventListener("change", async (e) => {
     const target = e.target;
     const rowId = target?.getAttribute("data-id") || "";
+    if (rowId && !hasPermission("se_update", "write")) return;
     // --- CSAK a szám mezők (Zsolti/Dóri része) formázása ezres tagolással ---
     // Ne formázzunk title/paid_by/notes mezőt, mert abból "0" lesz (Number("") -> 0).
     if (
@@ -520,7 +580,7 @@ document.getElementById("sharedExpensesBody").addEventListener("change", async (
             const valueSets = await api.getValueSets();
             const existing = (valueSets?.sets?.paid_by || []).map(v => String(v).toLowerCase());
 
-            if (!existing.includes(value.toLowerCase())) {
+            if (!existing.includes(value.toLowerCase()) && hasPermission("value_sets_write", "write")) {
                 const addValueResp = await api.addValueToSet("paid_by", value);
                 if (!addValueResp || !addValueResp.success) {
                     alert(addValueResp?.error || addValueResp?.message || "Nem sikerült frissíteni a fizető felek listáját.");
@@ -605,11 +665,11 @@ document.getElementById("sharedExpensesBody").addEventListener("input", (e) => {
     }
     const tr = target.closest("tr");
     if (!tr) return;
-    // amount a 4. oszlopban (index 3) van: "12 345 Ft"
-    const amountText = (tr.children[3]?.textContent || "").replace(/\s/g, "");
+    // amount az 5. oszlopban (index 4) van: "12 345 Ft"
+    const amountText = (tr.children[4]?.textContent || "").replace(/\s/g, "");
     const amount = Math.abs(Number(amountText.replace("Ft", "").replace(",", ".")) || 0);
-    // paid_by az 5. oszlopban (index 4)
-    const paidBy = (tr.children[4]?.textContent || "").trim().toLowerCase();
+    // paid_by a 6. oszlopban (index 5)
+    const paidBy = (tr.children[5]?.textContent || "").trim().toLowerCase();
     const zInput = tr.querySelector(".se-zsolti-amount");
     const dInput = tr.querySelector(".se-dori-amount");
     // gépelés közben üres lehet: ilyenkor 0-val számolunk csak preview-hoz
@@ -643,6 +703,7 @@ function createInlineSharedExpenseRow() {
     tr.innerHTML = `
         <td><input type="date" class="se-new-date"></td>
         <td><input list="titlesList" class="se-new-title" placeholder="Megnevezés"></td>
+        <td><input list="categoriesList" class="se-new-category" placeholder="Kategória"></td>
         <td>
             <input 
                 type="number"
@@ -697,6 +758,7 @@ async function saveNewSharedExpense() {
     if (!tr) return;
     const date = tr.querySelector(".se-new-date").value;
     const title = tr.querySelector(".se-new-title").value.trim();
+    const category = tr.querySelector(".se-new-category").value.trim();
     const amount = Math.abs(Number(tr.querySelector(".se-new-amount").value));
     const paidBy = (tr.querySelector(".se-new-paidby")?.value || tr.querySelector(".se-new-paidby")?.textContent || "Zsolti").trim();
     const zsoltiAmount = Math.abs(Number(tr.querySelector(".se-new-zsoltiamount").value || 0));
@@ -714,6 +776,7 @@ async function saveNewSharedExpense() {
             month,
             date,
             title,                 // ne legyen fix "Törlesztés"
+            category,
             amount,
             paid_by: paidBy,
             Zsolti_amount: zsoltiAmount,

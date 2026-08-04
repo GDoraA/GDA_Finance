@@ -2067,6 +2067,7 @@ display: grid;
     align-items: center;
     gap: 6px;
 }
+<<<<<<< HEAD
 .house-cost-settled-row {
     opacity: 0.62;
 }
@@ -2153,3 +2154,5 @@ html.api-loading,
 html.api-loading * {
     cursor: wait !important;
 }
+=======
+>>>>>>> 43c6d2ba86eccf22ff73d2db53c63f9b2b05d8ef

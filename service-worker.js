@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 const CACHE_NAME = "gda-finance-cache-v42";
+=======
+const CACHE_NAME = "gda-finance-cache-v29";
+>>>>>>> 43c6d2ba86eccf22ff73d2db53c63f9b2b05d8ef
 const ASSETS = [
   "./",
   "./index.html",

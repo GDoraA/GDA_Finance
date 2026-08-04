@@ -219,7 +219,11 @@ function applySidebarPermissions() {
     // különben “beragad” és hiába kap jogot, nem jelenik meg.
     [txBtn, seBtn, bankImportBtn, reportsMonthlyBtn, reportsHouseCostsBtn, bankMatchingBtn, valueSetsBtn,
         adminUsersBtn, adminFunctionsBtn, adminPermissionsBtn, txCreateBtn, txBulkMatchBtn, txImportBtn,
+<<<<<<< HEAD
         bankImportPickBtn, bankImportUploadBtn, seCreateBtn, seSettleBtn, seRefreshBtn].forEach((b) => {
+=======
+        bankImportPickBtn, bankImportUploadBtn, seCreateBtn, seSettleBtn].forEach((b) => {
+>>>>>>> 43c6d2ba86eccf22ff73d2db53c63f9b2b05d8ef
             if (b) b.style.display = "";
         });
 
@@ -247,5 +251,8 @@ function applySidebarPermissions() {
     setBtnVisible(bankImportUploadBtn, hasPermission("tx_import", "write"));
     setBtnVisible(seCreateBtn, hasPermission("se_create", "write"));
     setBtnVisible(seSettleBtn, hasPermission("se_settlement_create", "write"));
+<<<<<<< HEAD
     setBtnVisible(seRefreshBtn, hasPermission("se_update", "write"));
+=======
+>>>>>>> 43c6d2ba86eccf22ff73d2db53c63f9b2b05d8ef
 }

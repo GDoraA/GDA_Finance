@@ -1,4 +1,5 @@
 // ----------- API KONFIG -------------
+<<<<<<< HEAD
 const API_URL = "https://script.google.com/macros/s/AKfycby6qZO6ocn_F4uY4F1smS_xqtrbo3lmO5MJik0WQAqohqhy298lUJVYxjnPly-4phs/exec";
 let activeApiRequestCount = 0;
 
@@ -6,6 +7,9 @@ function setApiLoadingState(isLoading) {
     activeApiRequestCount = Math.max(0, activeApiRequestCount + (isLoading ? 1 : -1));
     document.documentElement.classList.toggle("api-loading", activeApiRequestCount > 0);
 }
+=======
+const API_URL = "https://script.google.com/macros/s/AKfycbw7gaqWSaujWZwQ8Luj6qdYVU7v9703-JAs2gRADM7-l-gsxKw5meoQCznBDZcwlKA/exec";
+>>>>>>> 43c6d2ba86eccf22ff73d2db53c63f9b2b05d8ef
 
 // ----------- JSONP HÍVÓ FUNKCIÓ -------------
 function jsonp(action, params = {}, activityDetails = null) {

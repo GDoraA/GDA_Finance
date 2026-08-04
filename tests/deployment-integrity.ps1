@@ -22,7 +22,8 @@ if (-not $assetsBlock.Success) {
 $assetPaths = [regex]::Matches($assetsBlock.Groups["items"].Value, '"\./(?<path>[^"]+)"') |
     ForEach-Object { $_.Groups["path"].Value }
 foreach ($assetPath in $assetPaths) {
-    $localPath = Join-Path $root ($assetPath -replace '/', [IO.Path]::DirectorySeparatorChar)
+    $filePath = ($assetPath -split '\?')[0]
+    $localPath = Join-Path $root ($filePath -replace '/', [IO.Path]::DirectorySeparatorChar)
     if (-not (Test-Path -LiteralPath $localPath)) {
         throw "A service worker nem létező fájlt próbál cache-elni: $assetPath"
     }

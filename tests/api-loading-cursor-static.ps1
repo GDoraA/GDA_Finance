@@ -35,8 +35,12 @@ Assert-True (
     $styles.Contains('cursor: wait !important;')
 ) "Töltés közben az egész alkalmazás várakozó kurzort jelenít meg."
 
+$cacheVersionMatch = [regex]::Match($serviceWorker, 'gda-finance-cache-v(?<version>\d+)')
 Assert-True (
-    $serviceWorker.Contains('gda-finance-cache-v40')
-) "A service worker új cache-verzióval tölti le a módosított API- és CSS-fájlt."
+    $cacheVersionMatch.Success -and
+    [int]$cacheVersionMatch.Groups['version'].Value -ge 40 -and
+    $serviceWorker -match '"\./scripts/api\.js(?:\?v=\d+)?"' -and
+    $serviceWorker -match '"\./styles\.css(?:\?v=\d+)?"'
+) "A service worker verziózott cache-be tölti a módosított API- és CSS-fájlt."
 
 Write-Output "ALL API LOADING CURSOR TESTS PASSED"

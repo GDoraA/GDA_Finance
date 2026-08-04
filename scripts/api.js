@@ -1,5 +1,5 @@
 // ----------- API KONFIG -------------
-const API_URL = "https://script.google.com/macros/s/AKfycbz435ovKP86X6zbSZYphDoDsUfAE7fEm3aMiJC0XJ7y4WejCq6YNF-mKDsfeXlRWE3-vg/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwv7ytKBOG-am8fHUGtJevyUh0PijlLel-s-YCVY6XFotpof_K5Zw3VLlgH8M8Wqw/exec";
 let activeApiRequestCount = 0;
 
 function setApiLoadingState(isLoading) {

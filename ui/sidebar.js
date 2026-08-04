@@ -220,10 +220,7 @@ function applySidebarPermissions() {
     [txBtn, seBtn, bankImportBtn, reportsMonthlyBtn, reportsHouseCostsBtn, bankMatchingBtn, valueSetsBtn,
         adminUsersBtn, adminFunctionsBtn, adminPermissionsBtn, txCreateBtn, txBulkMatchBtn, txImportBtn,
         bankImportPickBtn, bankImportUploadBtn, seCreateBtn, seSettleBtn, seRefreshBtn].forEach((b) => {
-<<<<<<< HEAD
-=======
->>>>>>> 3538c377f62f3e8fc1a80f9ae4d9c74eecb89afa
->>>>>>> c9e09cb5ba651e0a76d4e51dba4780edd9c634b3
+
             if (b) b.style.display = "";
         });
 
@@ -252,8 +249,4 @@ function applySidebarPermissions() {
     setBtnVisible(seCreateBtn, hasPermission("se_create", "write"));
     setBtnVisible(seSettleBtn, hasPermission("se_settlement_create", "write"));
     setBtnVisible(seRefreshBtn, hasPermission("se_update", "write"));
-<<<<<<< HEAD
-=======
->>>>>>> 3538c377f62f3e8fc1a80f9ae4d9c74eecb89afa
->>>>>>> c9e09cb5ba651e0a76d4e51dba4780edd9c634b3
 }

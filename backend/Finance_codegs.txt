@@ -362,6 +362,8 @@ function addUser_(name, email) {
 
 }
 function getFunctions_() {
+  ensureHouseCostsPermission_();
+
   const sheet = SpreadsheetApp.getActive().getSheetByName("Functions");
   if (!sheet) throw new Error('Nem található a "Functions" munkalap.');
 
@@ -395,6 +397,8 @@ function getFunctions_() {
   return { success: true, functions };
 }
 function getPermissions_() {
+  ensureHouseCostsPermission_();
+
   const sheet = SpreadsheetApp.getActive().getSheetByName("Permissions");
   if (!sheet) throw new Error('Nem található a "Permissions" munkalap.');
 
@@ -505,9 +509,96 @@ function setPermission_(email, function_key, access) {
   }
 
   // Ha nincs meg, új sor
-  sheet.appendRow([em, fk, acc]);
+  const newRow = new Array(header.length).fill("");
+  newRow[cEmail] = em;
+  newRow[cKey] = fk;
+  newRow[cAcc] = acc;
+  sheet.appendRow(newRow);
   return { success: true, created: true };
 }
+
+/**
+ * Idempotens séma-kiegészítés a Házköltségek riport külön jogosultságához.
+ * A Functions sorát és a meglévő felhasználók hiányzó Permissions sorait
+ * hozza létre. Meglévő jogosultsági értéket nem ír felül.
+ */
+function ensureHouseCostsPermission_() {
+  const functionKey = "reports_house_costs";
+  const ss = SpreadsheetApp.getActive();
+  const fnSheet = ss.getSheetByName("Functions");
+  const permSheet = ss.getSheetByName("Permissions");
+  const usersSheet = ss.getSheetByName("Users");
+
+  if (!fnSheet) throw new Error('Nem található a "Functions" munkalap.');
+  if (!permSheet) throw new Error('Nem található a "Permissions" munkalap.');
+  if (!usersSheet) throw new Error('Nem található a "Users" munkalap.');
+
+  const fnData = fnSheet.getDataRange().getValues();
+  const fnHeader = (fnData[0] || []).map(h => String(h || "").trim());
+  const fnKeyCol = fnHeader.indexOf("function_key");
+  const fnNameCol = fnHeader.indexOf("name");
+  const fnDescCol = fnHeader.indexOf("description");
+
+  if (fnKeyCol === -1 || fnNameCol === -1 || fnDescCol === -1) {
+    throw new Error('A "Functions" fejléc hibás. Elvárt oszlopok: function_key, name, description');
+  }
+
+  const functionExists = fnData.slice(1).some(row =>
+    String(row[fnKeyCol] || "").trim().toLowerCase() === functionKey
+  );
+
+  if (!functionExists) {
+    const fnRow = new Array(fnHeader.length).fill("");
+    fnRow[fnKeyCol] = functionKey;
+    fnRow[fnNameCol] = "Házköltségek riport";
+    fnRow[fnDescCol] = "A Házköltségek riport megtekintése.";
+    fnSheet.appendRow(fnRow);
+  }
+
+  const permData = permSheet.getDataRange().getValues();
+  const permHeader = (permData[0] || []).map(h => String(h || "").trim());
+  const permEmailCol = permHeader.indexOf("email");
+  const permKeyCol = permHeader.indexOf("function_key");
+  const permAccessCol = permHeader.indexOf("access");
+
+  if (permEmailCol === -1 || permKeyCol === -1 || permAccessCol === -1) {
+    throw new Error('A "Permissions" fejléc hibás. Elvárt oszlopok: email, function_key, access');
+  }
+
+  const existingEmails = {};
+  permData.slice(1).forEach(row => {
+    const key = String(row[permKeyCol] || "").trim().toLowerCase();
+    const email = String(row[permEmailCol] || "").trim().toLowerCase();
+    if (key === functionKey && email) existingEmails[email] = true;
+  });
+
+  const usersData = usersSheet.getDataRange().getValues();
+  const usersHeader = (usersData[0] || []).map(h => String(h || "").trim());
+  const usersEmailCol = usersHeader.indexOf("email");
+  if (usersEmailCol === -1) {
+    throw new Error('A "Users" fejlécből hiányzik az "email" oszlop.');
+  }
+
+  const newPermissionRows = [];
+  usersData.slice(1).forEach(row => {
+    const email = String(row[usersEmailCol] || "").trim().toLowerCase();
+    if (!email || existingEmails[email]) return;
+
+    const permRow = new Array(permHeader.length).fill("");
+    permRow[permEmailCol] = email;
+    permRow[permKeyCol] = functionKey;
+    permRow[permAccessCol] = "none";
+    newPermissionRows.push(permRow);
+    existingEmails[email] = true;
+  });
+
+  if (newPermissionRows.length) {
+    permSheet
+      .getRange(permSheet.getLastRow() + 1, 1, newPermissionRows.length, permHeader.length)
+      .setValues(newPermissionRows);
+  }
+}
+
 function requirePermission_(auth, function_key, level) {
   // level: "read" | "write"
   const need = String(level || "").trim().toLowerCase();
@@ -592,8 +683,16 @@ function doGet(e) {
       result = getTransactions_(p);
 
     } else if (action === "getHouseCosts") {
-      requirePermission_(auth, "tx_read", "read");
+      requirePermission_(auth, "reports_house_costs", "read");
       result = getHouseCosts_(p);
+
+    } else if (action === "refreshHouseCosts") {
+      requirePermission_(auth, "reports_house_costs", "read");
+      result = refreshHouseCosts_();
+
+    } else if (action === "updateHouseCostSettled") {
+      requirePermission_(auth, "reports_house_costs", "write");
+      result = updateHouseCostSettled_(p.id || "", p.settled || "");
 
 } else if (action === "getValueSets") {
   result = getValueSets_();
@@ -659,6 +758,10 @@ function doGet(e) {
       requirePermission_(auth, "se_read", "read");
       result = getSharedExpenses_(p);
 
+    } else if (action === "refreshSharedExpenses") {
+      requirePermission_(auth, "se_update", "write");
+      result = refreshSharedExpensesFromTransactions_();
+
 
     } else if (action === "updateSharedExpense") {
       requirePermission_(auth, "se_update", "write");
@@ -674,7 +777,12 @@ function doGet(e) {
 
 
     } else if (action === "addSharedExpense") {
-      requirePermission_(auth, "se_create", "write");
+      const isSettlement = String(p.settlement || "").trim().toLowerCase();
+      const permissionKey =
+        (isSettlement === "x" || isSettlement === "1" || isSettlement === "true")
+          ? "se_settlement_create"
+          : "se_create";
+      requirePermission_(auth, permissionKey, "write");
       result = addSharedExpense_(p);
     } else if (action === "addTransactions") {
       requirePermission_(auth, "tx_import", "write");
@@ -704,7 +812,15 @@ function doGet(e) {
 
       result = addBankTransactions_(items);
     } else if (action === "getBankTransactions") {
-            const cache = CacheService.getScriptCache();
+      // A jogosultságot a cache olvasása előtt kell ellenőrizni, különben
+      // egy hitelesített, de jogosulatlan felhasználó cache-találatnál adatot kapna.
+      requirePermission_(auth, "tx_import", "read");
+
+      // A Bank_Transactions.TR_ID fizikai oszlopát is naprakészen tartjuk.
+      // Ez a korábban létrejött összerendeléseket is visszatölti.
+      syncBankTransactionIds_();
+
+      const cache = CacheService.getScriptCache();
       const cached = cache.get("bank_transactions_list");
 
       if (cached) {
@@ -712,9 +828,6 @@ function doGet(e) {
           return createJsonOrJsonpResponse_(JSON.parse(cached), callback);
         } catch (e) {}
       }
-
-      // jogosultság: egyelőre ugyanahhoz kötjük, mint az importot (write -> read is ok)
-      requirePermission_(auth, "tx_import", "read");
 
       const sheet = SpreadsheetApp.getActive().getSheetByName("Bank_Transactions");
       if (!sheet) throw new Error('Nem található a "Bank_Transactions" nevű munkalap.');
@@ -770,9 +883,11 @@ if (cell instanceof Date && !isNaN(cell.getTime())) {
   obj[name] = cell;
 }
         });
-                // ÚJ: a banki tételhez rendelt tranzakció ID-k (csak kijelzéshez)
+        // A fizikai TR_ID oszlop és a frontend-kompatibilis mező ugyanazt kapja.
         const btId = String(obj.id || "").trim();
-        obj.matched_transaction_ids = (btToTxIds.get(btId) || []).join(", ");
+        const matchedTransactionIds = (btToTxIds.get(btId) || []).join(", ");
+        obj.TR_ID = matchedTransactionIds;
+        obj.matched_transaction_ids = matchedTransactionIds;
         return obj;
       });
 
@@ -792,6 +907,11 @@ if (cell instanceof Date && !isNaN(cell.getTime())) {
       // Frontend nem küld email paramétert, ezért a session-ből vesszük
       // Ha nálad getMyPermissions_ emailt vár (ahogy most írtad), ez így kompatibilis:
       result = getMyPermissions_(auth.email);
+      result.is_admin = false;
+      try {
+        requireAdmin_(auth);
+        result.is_admin = true;
+      } catch (_) { }
 
     } else if (action === "logout") {
       result = logout_(p.token || "");
@@ -854,6 +974,7 @@ function addTransaction_(tx) {
     date: tx.date,
     amount: tx.amount,
     title: tx.title,
+    category: tx.category,
     is_shared: tx.is_shared,
     paid_by: tx.paid_by
   });
@@ -870,6 +991,8 @@ function addTransaction_(tx) {
     transaction_type: tx.transaction_type,
     statement_item: tx.statement_item
   });
+
+  syncBankTransactionIds_();
 
   return { success: true, id: id };
 }
@@ -1073,6 +1196,7 @@ function addTransactions_(items) {
         date: tx.date,
         amount: tx.amount,
         title: tx.title,
+        category: tx.category,
         is_shared: tx.is_shared,
         paid_by: tx.paid_by
       });
@@ -1095,6 +1219,8 @@ function addTransactions_(items) {
 
   const ok = results.filter(x => x.success).length;
   const fail = results.length - ok;
+
+  syncBankTransactionIds_();
 
   return { success: true, ok, fail, matched: (typeof matched === "number" ? matched : 0), results };
 }
@@ -1316,6 +1442,8 @@ function addBankTransactions_(items) {
       sheet
         .getRange(startRow, 1, rowsToInsert.length, rowsToInsert[0].length)
         .setValues(rowsToInsert);
+
+      syncBankTransactionIds_();
     }
 
     const ok = rowsToInsert.length;
@@ -1392,6 +1520,7 @@ function updateTransaction_(tx) {
     date: tx.date,
     amount: tx.amount,
     title: tx.title,
+    category: tx.category,
     is_shared: tx.is_shared,
     paid_by: tx.paid_by
   });
@@ -1408,6 +1537,8 @@ function updateTransaction_(tx) {
     transaction_type: tx.transaction_type,
     statement_item: tx.statement_item
   });
+
+  syncBankTransactionIds_();
 
   return { success: true, id: tx.id };
 }
@@ -1481,6 +1612,8 @@ function bulkMatchTransactions_(items) {
     }
   }
 
+  syncBankTransactionIds_();
+
   return { success: true, ok, fail, results };
 }
 function deleteTransaction_(id) {
@@ -1545,7 +1678,101 @@ function deleteTransaction_(id) {
     }
   }
 
+  syncBankTransactionIds_();
+
   return { success: true, id: txId };
+}
+
+/**
+ * A Transactions.statement_item kapcsolatokból újraépíti a
+ * Bank_Transactions.TR_ID oszlopot.
+ *
+ * Egy banki tételhez több tranzakció ID is tartozhat; ezek vesszővel
+ * elválasztva kerülnek a cellába. Csak akkor ír a munkalapra, ha az
+ * oszlop tartalma ténylegesen változott.
+ */
+function syncBankTransactionIds_() {
+  const ss = SpreadsheetApp.getActive();
+  const bankSheet = ss.getSheetByName("Bank_Transactions");
+  const txSheet = ss.getSheetByName("Transactions");
+
+  if (!bankSheet || !txSheet) {
+    return { success: true, skipped: true, updated: 0 };
+  }
+
+  const bankData = bankSheet.getDataRange().getValues();
+  const txData = txSheet.getDataRange().getValues();
+
+  if (!bankData || bankData.length === 0) {
+    return { success: true, skipped: true, updated: 0 };
+  }
+
+  const bankHeader = (bankData[0] || []).map(h => String(h || "").trim());
+  const txHeader = (txData[0] || []).map(h => String(h || "").trim());
+  const cBankId = bankHeader.indexOf("id");
+  const cBankTrId = bankHeader.findIndex(h => h.toUpperCase() === "TR_ID");
+  const cTxId = txHeader.indexOf("id");
+  const cTxStatement = txHeader.indexOf("statement_item");
+
+  if (cBankId === -1 || cBankTrId === -1) {
+    throw new Error('A "Bank_Transactions" fejlécből hiányzik az "id" vagy "TR_ID" oszlop.');
+  }
+
+  if (cTxId === -1 || cTxStatement === -1) {
+    throw new Error('A "Transactions" fejlécből hiányzik az "id" vagy "statement_item" oszlop.');
+  }
+
+  const transactionIdsByBankId = new Map();
+
+  for (let r = 1; r < txData.length; r++) {
+    const transactionId = String(txData[r][cTxId] || "").trim();
+    const statementItem = String(txData[r][cTxStatement] || "").trim();
+    if (!transactionId || !statementItem) continue;
+
+    const bankIds = statementItem
+      .split(",")
+      .map(value => value.trim())
+      .filter(Boolean);
+
+    for (const bankId of bankIds) {
+      if (!transactionIdsByBankId.has(bankId)) {
+        transactionIdsByBankId.set(bankId, []);
+      }
+
+      const ids = transactionIdsByBankId.get(bankId);
+      if (ids.indexOf(transactionId) === -1) {
+        ids.push(transactionId);
+      }
+    }
+  }
+
+  const trIdValues = [];
+  let changed = false;
+  let updated = 0;
+
+  for (let r = 1; r < bankData.length; r++) {
+    const bankId = String(bankData[r][cBankId] || "").trim();
+    const nextValue = bankId
+      ? (transactionIdsByBankId.get(bankId) || []).join(", ")
+      : "";
+    const currentValue = String(bankData[r][cBankTrId] || "").trim();
+
+    if (currentValue !== nextValue) {
+      changed = true;
+      updated++;
+    }
+
+    trIdValues.push([nextValue]);
+  }
+
+  if (changed && trIdValues.length > 0) {
+    bankSheet
+      .getRange(2, cBankTrId + 1, trIdValues.length, 1)
+      .setValues(trIdValues);
+    CacheService.getScriptCache().remove("bank_transactions_list");
+  }
+
+  return { success: true, updated };
 }
 
 function getTransactions_() {
@@ -1808,10 +2035,87 @@ function addValueToSet_(p) {
   return { success: true, message: "Érték hozzáadva." };
 }
 
+/**
+ * A megadott oszlopokat a munkalap végén, idempotensen hozza létre.
+ * Meglévő oszlopot vagy adatot nem ír felül.
+ */
+function ensureSheetColumns_(sheet, requiredColumns) {
+  const lastColumn = sheet.getLastColumn();
+  const header = lastColumn > 0
+    ? sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(h => String(h || "").trim())
+    : [];
+  const missing = (requiredColumns || []).filter(name => header.indexOf(name) === -1);
+
+  if (missing.length > 0) {
+    sheet.getRange(1, header.length + 1, 1, missing.length).setValues([missing]);
+  }
+
+  return header.concat(missing);
+}
+
+function syncValuesEqual_(left, right) {
+  const normalize = value => {
+    if (value instanceof Date && !isNaN(value.getTime())) {
+      return Utilities.formatDate(value, Session.getScriptTimeZone(), "yyyy-MM-dd");
+    }
+    const text = String(value == null ? "" : value).trim();
+    const storedDate = text.match(/^(\d{4})\.(\d{2})\.(\d{2})\.?$/);
+    return storedDate
+      ? `${storedDate[1]}-${storedDate[2]}-${storedDate[3]}`
+      : text;
+  };
+
+  return normalize(left) === normalize(right);
+}
+
 const HOUSE_COST_CATEGORY_NAGYTETENY_ = "K01 - Ház költsége - Nagytétény";
+const HOUSE_COST_SYNC_COLUMNS_ = [
+  "shared_expense_id",
+  "paid_by",
+  "Zsolti_balance",
+  "Dori_balance",
+  "settled"
+];
 
 function isHouseCostTransaction_(tx) {
   return String(tx && tx.category ? tx.category : "").trim() === HOUSE_COST_CATEGORY_NAGYTETENY_;
+}
+
+function getSharedExpenseForTransaction_(transactionId) {
+  const txId = String(transactionId || "").trim();
+  if (!txId) return null;
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Shared_Expenses");
+  if (!sheet) return null;
+
+  ensureSheetColumns_(sheet, ["category"]);
+  const data = sheet.getDataRange().getValues();
+  if (!data || data.length < 2) return null;
+  const header = (data[0] || []).map(h => String(h || "").trim());
+  const cTxId = header.indexOf("transaction_id");
+  if (cTxId === -1) return null;
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][cTxId] || "").trim() !== txId) continue;
+    const result = {};
+    header.forEach((name, idx) => { result[name] = data[i][idx]; });
+    return result;
+  }
+  return null;
+}
+
+function resolveHouseCostBalances_(amount, sharedExpense, paidByOverride) {
+  const halfAmount = Math.abs(Number(amount) || 0) / 2;
+  const paidBy = String(
+    paidByOverride || (sharedExpense && sharedExpense.paid_by) || ""
+  ).trim().toLowerCase();
+
+  if (paidBy === "dóri" || paidBy === "dori") {
+    return { zsolti: -halfAmount, dori: halfAmount };
+  }
+  if (paidBy === "zsolti") {
+    return { zsolti: halfAmount, dori: -halfAmount };
+  }
+  return { zsolti: 0, dori: 0 };
 }
 
 /**
@@ -1830,6 +2134,7 @@ function syncHouseCostForTransaction_(tx) {
     throw new Error('Nem található a "House_Costs" munkalap.');
   }
 
+  ensureSheetColumns_(sheet, HOUSE_COST_SYNC_COLUMNS_);
   const data = sheet.getDataRange().getValues();
   const header = (data[0] || []).map(h => String(h || "").trim());
 
@@ -1843,6 +2148,10 @@ function syncHouseCostForTransaction_(tx) {
 
   const cId = col("id");
   const cTxId = col("transaction_id");
+  const cSharedExpenseId = col("shared_expense_id");
+  const cPaidBy = col("paid_by");
+  const cZsoltiBalance = col("Zsolti_balance");
+  const cDoriBalance = col("Dori_balance");
   const cMonth = col("month");
   const cDate = col("date");
   const cTitle = col("title");
@@ -1858,7 +2167,9 @@ function syncHouseCostForTransaction_(tx) {
   let existingRow = null;
 
   for (let i = 1; i < data.length; i++) {
-    if (String(data[i][cTxId] || "").trim() === txId) {
+    const rowTransactionId = String(data[i][cTxId] || "").trim();
+    const rowSharedExpenseId = String(data[i][cSharedExpenseId] || "").trim();
+    if (rowTransactionId === txId && !rowSharedExpenseId) {
       rowIndex = i + 1;      // Google Sheets: 1-indexelt sor
       existingRow = data[i]; // JS tömb: 0-indexelt
       break;
@@ -1877,6 +2188,8 @@ function syncHouseCostForTransaction_(tx) {
   }
 
   const now = new Date();
+  const linkedSharedExpense = getSharedExpenseForTransaction_(txId);
+  const balances = resolveHouseCostBalances_(tx.amount, linkedSharedExpense, "Dóri");
   const row = rowIndex === -1
     ? new Array(header.length).fill("")
     : existingRow.slice();
@@ -1886,6 +2199,7 @@ function syncHouseCostForTransaction_(tx) {
   }
 
   row[cTxId] = txId;
+  row[cSharedExpenseId] = "";
   row[cMonth] = tx.month || "";
   row[cDate] = formatDateForStore_(tx.date);
   row[cTitle] = tx.title || "";
@@ -1894,20 +2208,418 @@ function syncHouseCostForTransaction_(tx) {
   row[cPaymentType] = tx.payment_type || "";
   row[cTransactionType] = tx.transaction_type || "";
   row[cStatementItem] = tx.statement_item || "";
+  row[cPaidBy] = "Dóri";
+  row[cZsoltiBalance] = balances.zsolti;
+  row[cDoriBalance] = balances.dori;
 
   if (rowIndex === -1 || !row[cCreatedAt]) {
     row[cCreatedAt] = now;
   }
 
-  row[cUpdatedAt] = now;
+  const changed = row.some((value, idx) => {
+    if (idx === cUpdatedAt) return false;
+    return !syncValuesEqual_(value, existingRow ? existingRow[idx] : "");
+  });
+  row[cUpdatedAt] = changed || rowIndex === -1
+    ? now
+    : existingRow[cUpdatedAt];
 
   if (rowIndex === -1) {
     sheet.appendRow(row);
     return { success: true, created: true, transaction_id: txId, id: row[cId] };
   }
 
-  sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
-  return { success: true, updated: true, transaction_id: txId, id: row[cId] };
+  if (changed) {
+    sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
+    return { success: true, updated: true, transaction_id: txId, id: row[cId] };
+  }
+  return { success: true, unchanged: true, transaction_id: txId, id: row[cId] };
+}
+
+/**
+ * K01 kategóriájú megosztott költség szinkronizálása a House_Costs lapra.
+ * Ha a forrástranzakció már közvetlenül bekerült, a megosztott rekordot
+ * nem vesszük át még egyszer.
+ */
+function syncHouseCostForSharedExpense_(sharedExpense, directTransactionIds) {
+  const sharedExpenseId = String(sharedExpense && sharedExpense.id ? sharedExpense.id : "").trim();
+  if (!sharedExpenseId) {
+    return { success: false, skipped: true, reason: "Hiányzó shared expense id." };
+  }
+
+  const sheet = SpreadsheetApp.getActive().getSheetByName("House_Costs");
+  if (!sheet) {
+    throw new Error('Nem található a "House_Costs" munkalap.');
+  }
+
+  ensureSheetColumns_(sheet, HOUSE_COST_SYNC_COLUMNS_);
+  const data = sheet.getDataRange().getValues();
+  const header = (data[0] || []).map(h => String(h || "").trim());
+  const col = name => {
+    const idx = header.indexOf(name);
+    if (idx === -1) {
+      throw new Error('A "House_Costs" fejléc hibás. Hiányzó oszlop: ' + name);
+    }
+    return idx;
+  };
+
+  const cId = col("id");
+  const cTxId = col("transaction_id");
+  const cSharedExpenseId = col("shared_expense_id");
+  const cPaidBy = col("paid_by");
+  const cZsoltiBalance = col("Zsolti_balance");
+  const cDoriBalance = col("Dori_balance");
+  const cMonth = col("month");
+  const cDate = col("date");
+  const cTitle = col("title");
+  const cAmount = col("amount");
+  const cCategory = col("category");
+  const cPaymentType = col("payment_type");
+  const cTransactionType = col("transaction_type");
+  const cStatementItem = col("statement_item");
+  const cCreatedAt = col("created_at");
+  const cUpdatedAt = col("updated_at");
+
+  let rowIndex = -1;
+  let existingRow = null;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][cSharedExpenseId] || "").trim() === sharedExpenseId) {
+      rowIndex = i + 1;
+      existingRow = data[i];
+      break;
+    }
+  }
+
+  const transactionId = String(sharedExpense.transaction_id || "").trim();
+  const alreadyImportedFromTransactions =
+    transactionId && directTransactionIds && directTransactionIds.has(transactionId);
+  const isHouseCost =
+    String(sharedExpense.category || "").trim() === HOUSE_COST_CATEGORY_NAGYTETENY_;
+
+  if (!isHouseCost || alreadyImportedFromTransactions) {
+    if (rowIndex !== -1) {
+      sheet.deleteRow(rowIndex);
+      return {
+        success: true,
+        deleted: true,
+        shared_expense_id: sharedExpenseId,
+        duplicate: !!alreadyImportedFromTransactions
+      };
+    }
+
+    return {
+      success: true,
+      skipped: true,
+      shared_expense_id: sharedExpenseId,
+      duplicate: !!alreadyImportedFromTransactions
+    };
+  }
+
+  const now = new Date();
+  const balances = resolveHouseCostBalances_(sharedExpense.amount, sharedExpense, sharedExpense.paid_by);
+  const row = rowIndex === -1
+    ? new Array(header.length).fill("")
+    : existingRow.slice();
+
+  if (rowIndex === -1 || !String(row[cId] || "").trim()) {
+    row[cId] = generatePrefixedId_("HC");
+  }
+
+  row[cTxId] = transactionId;
+  row[cSharedExpenseId] = sharedExpenseId;
+  row[cMonth] = sharedExpense.month || "";
+  row[cDate] = formatDateForStore_(sharedExpense.date);
+  row[cTitle] = sharedExpense.title || "";
+  row[cAmount] = sharedExpense.amount || "";
+  row[cCategory] = sharedExpense.category || "";
+  row[cPaymentType] = "";
+  row[cTransactionType] = "";
+  row[cStatementItem] = "";
+
+  row[cPaidBy] = sharedExpense ? (sharedExpense.paid_by || "") : "";
+  row[cZsoltiBalance] = balances.zsolti;
+  row[cDoriBalance] = balances.dori;
+
+  if (rowIndex === -1 || !row[cCreatedAt]) {
+    row[cCreatedAt] = now;
+  }
+
+  const changed = row.some((value, idx) => {
+    if (idx === cUpdatedAt) return false;
+    return !syncValuesEqual_(value, existingRow ? existingRow[idx] : "");
+  });
+  row[cUpdatedAt] = changed || rowIndex === -1
+    ? now
+    : existingRow[cUpdatedAt];
+
+  if (rowIndex === -1) {
+    sheet.appendRow(row);
+    return { success: true, created: true, shared_expense_id: sharedExpenseId, id: row[cId] };
+  }
+
+  if (changed) {
+    sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
+    return { success: true, updated: true, shared_expense_id: sharedExpenseId, id: row[cId] };
+  }
+
+  return { success: true, unchanged: true, shared_expense_id: sharedExpenseId, id: row[cId] };
+}
+
+function rowsAsObjects_(sheet, requiredColumns) {
+  const data = sheet.getDataRange().getValues();
+  if (!data || data.length === 0) return [];
+
+  const header = data[0].map(h => String(h || "").trim());
+  const missing = (requiredColumns || []).filter(name => header.indexOf(name) === -1);
+  if (missing.length > 0) {
+    throw new Error(
+      'A "' + sheet.getName() + '" fejléc hibás. Hiányzó oszlopok: ' + missing.join(", ")
+    );
+  }
+
+  return data.slice(1).map(row => {
+    const obj = {};
+    header.forEach((name, idx) => { obj[name] = row[idx]; });
+    return obj;
+  });
+}
+
+function replaceSheetDataRows_(sheet, header, rows) {
+  const oldRowCount = Math.max(sheet.getLastRow() - 1, 0);
+  const newRows = rows || [];
+
+  if (newRows.length > 0) {
+    sheet.getRange(2, 1, newRows.length, header.length).setValues(newRows);
+  }
+
+  if (oldRowCount > newRows.length) {
+    sheet
+      .getRange(2 + newRows.length, 1, oldRowCount - newRows.length, header.length)
+      .clearContent();
+  }
+}
+
+/**
+ * Teljes Házköltségek-frissítés:
+ * 1. közvetlen K01 tranzakciók szinkronja;
+ * 2. K01 megosztott költségek szinkronja, a közvetlen tranzakciók kizárásával;
+ * 3. már nem létező forrásokhoz tartozó riportrekordok eltávolítása.
+ */
+function refreshHouseCosts_() {
+  const refreshStartedAt = Date.now();
+  const refreshLog = [];
+  const logRefresh = message => {
+    refreshLog.push("[+" + (Date.now() - refreshStartedAt) + " ms] " + message);
+  };
+  logRefresh("A házköltség-frissítés elindult.");
+  const ss = SpreadsheetApp.getActive();
+  const txSheet = ss.getSheetByName("Transactions");
+  const sharedSheet = ss.getSheetByName("Shared_Expenses");
+  const houseSheet = ss.getSheetByName("House_Costs");
+
+  if (!txSheet) return { success: false, error: 'Nem található a "Transactions" munkalap.' };
+  if (!sharedSheet) return { success: false, error: 'Nem található a "Shared_Expenses" munkalap.' };
+  if (!houseSheet) return { success: false, error: 'Nem található a "House_Costs" munkalap.' };
+
+  ensureSheetColumns_(sharedSheet, ["category"]);
+  ensureSheetColumns_(houseSheet, HOUSE_COST_SYNC_COLUMNS_);
+
+  const transactions = rowsAsObjects_(
+    txSheet,
+    ["id", "month", "date", "amount", "title", "category", "payment_type",
+      "transaction_type", "statement_item"]
+  );
+  const sharedExpenses = rowsAsObjects_(
+    sharedSheet,
+    ["id", "transaction_id", "month", "date", "amount", "title", "category",
+      "paid_by", "Zsolti_balance", "Dori_balance"]
+  );
+  logRefresh(
+    "Források beolvasva: " + transactions.length + " tranzakció, " +
+    sharedExpenses.length + " megosztott költség, " + Math.max(houseSheet.getLastRow() - 1, 0) +
+    " meglévő házköltség."
+  );
+  const sharedByTransactionId = new Map();
+  sharedExpenses.forEach(item => {
+    const txId = String(item.transaction_id || "").trim();
+    if (txId && !sharedByTransactionId.has(txId)) sharedByTransactionId.set(txId, item);
+  });
+
+  const houseData = houseSheet.getDataRange().getValues();
+  const houseHeader = (houseData[0] || []).map(h => String(h || "").trim());
+  const col = name => {
+    const idx = houseHeader.indexOf(name);
+    if (idx === -1) {
+      throw new Error('A "House_Costs" fejléc hibás. Hiányzó oszlop: ' + name);
+    }
+    return idx;
+  };
+  const cId = col("id");
+  const cTxId = col("transaction_id");
+  const cSharedExpenseId = col("shared_expense_id");
+  const cPaidBy = col("paid_by");
+  const cZsoltiBalance = col("Zsolti_balance");
+  const cDoriBalance = col("Dori_balance");
+  const cMonth = col("month");
+  const cDate = col("date");
+  const cTitle = col("title");
+  const cAmount = col("amount");
+  const cCategory = col("category");
+  const cPaymentType = col("payment_type");
+  const cTransactionType = col("transaction_type");
+  const cStatementItem = col("statement_item");
+  const cCreatedAt = col("created_at");
+  const cUpdatedAt = col("updated_at");
+
+  const existingRows = houseData.slice(1).map(row => {
+    const normalized = new Array(houseHeader.length).fill("");
+    row.forEach((value, idx) => {
+      if (idx < normalized.length) normalized[idx] = value;
+    });
+    return normalized;
+  });
+  const existingDirect = new Map();
+  const existingShared = new Map();
+  const existingSharedByTransactionId = new Map();
+  const preservedRows = [];
+
+  existingRows.forEach((row, index) => {
+    const txId = String(row[cTxId] || "").trim();
+    const sharedExpenseId = String(row[cSharedExpenseId] || "").trim();
+    const entry = { row, index };
+    if (sharedExpenseId && !existingShared.has(sharedExpenseId)) {
+      existingShared.set(sharedExpenseId, entry);
+      if (txId && !existingSharedByTransactionId.has(txId)) {
+        existingSharedByTransactionId.set(txId, entry);
+      }
+    } else if (txId && !sharedExpenseId && !existingDirect.has(txId)) {
+      existingDirect.set(txId, entry);
+    } else if (!txId && !sharedExpenseId && row.some(value => String(value || "").trim() !== "")) {
+      preservedRows.push(row);
+    }
+  });
+
+  const directTransactions = transactions.filter(isHouseCostTransaction_);
+  const directTransactionIds = new Set(
+    directTransactions.map(tx => String(tx.id || "").trim()).filter(Boolean)
+  );
+  const counts = { created: 0, updated: 0, deleted: 0, unchanged: 0, duplicates: 0 };
+  const consumedExistingIndexes = new Set();
+  const outputRows = preservedRows.slice();
+
+  const addDesiredRow = (existingEntry, values, sourceLabel) => {
+    const existingRow = existingEntry ? existingEntry.row : null;
+    const row = existingRow
+      ? existingRow.slice()
+      : new Array(houseHeader.length).fill("");
+    const now = new Date();
+
+    if (!String(row[cId] || "").trim()) row[cId] = generatePrefixedId_("HC");
+    if (!row[cCreatedAt]) row[cCreatedAt] = now;
+    Object.keys(values).forEach(key => { row[Number(key)] = values[key]; });
+
+    const changedFields = [];
+    if (existingRow) {
+      row.forEach((value, idx) => {
+        if (idx !== cUpdatedAt && !syncValuesEqual_(value, existingRow[idx])) {
+          changedFields.push(houseHeader[idx] || ("oszlop_" + idx));
+        }
+      });
+    }
+    const changed = !existingRow || changedFields.length > 0;
+    row[cUpdatedAt] = changed ? now : existingRow[cUpdatedAt];
+
+    if (!existingRow) {
+      counts.created++;
+      logRefresh("LÉTREHOZVA: " + sourceLabel);
+    } else if (changed) {
+      counts.updated++;
+      logRefresh("FRISSÍTVE: " + sourceLabel + "; módosult mezők: " + changedFields.join(", "));
+    } else {
+      counts.unchanged++;
+      logRefresh("VÁLTOZATLAN: " + sourceLabel);
+    }
+    if (existingEntry) consumedExistingIndexes.add(existingEntry.index);
+    outputRows.push(row);
+  };
+
+  directTransactions.forEach(tx => {
+    const txId = String(tx.id || "").trim();
+    if (!txId) return;
+    const linkedSharedExpense = sharedByTransactionId.get(txId) || null;
+    const balances = resolveHouseCostBalances_(tx.amount, linkedSharedExpense, "Dóri");
+    addDesiredRow(existingDirect.get(txId) || existingSharedByTransactionId.get(txId), {
+      [cTxId]: txId,
+      [cSharedExpenseId]: "",
+      [cMonth]: tx.month || "",
+      [cDate]: formatDateForStore_(tx.date),
+      [cTitle]: tx.title || "",
+      [cAmount]: tx.amount || "",
+      [cCategory]: tx.category || "",
+      [cPaymentType]: tx.payment_type || "",
+      [cTransactionType]: tx.transaction_type || "",
+      [cStatementItem]: tx.statement_item || "",
+      [cPaidBy]: "Dóri",
+      [cZsoltiBalance]: balances.zsolti,
+      [cDoriBalance]: balances.dori
+    }, "Tranzakció " + txId + " – " + String(tx.title || "(név nélkül)"));
+  });
+
+  sharedExpenses.forEach(sharedExpense => {
+    const sharedExpenseId = String(sharedExpense.id || "").trim();
+    const transactionId = String(sharedExpense.transaction_id || "").trim();
+    if (!sharedExpenseId || String(sharedExpense.category || "").trim() !== HOUSE_COST_CATEGORY_NAGYTETENY_) {
+      return;
+    }
+    if (transactionId && directTransactionIds.has(transactionId)) {
+      counts.duplicates++;
+      logRefresh(
+        "KIHAGYVA (duplikáció): megosztott költség " + sharedExpenseId +
+        " már szerepel a " + transactionId + " tranzakcióból."
+      );
+      return;
+    }
+    const balances = resolveHouseCostBalances_(sharedExpense.amount, sharedExpense, sharedExpense.paid_by);
+
+    addDesiredRow(existingShared.get(sharedExpenseId), {
+      [cTxId]: transactionId,
+      [cSharedExpenseId]: sharedExpenseId,
+      [cMonth]: sharedExpense.month || "",
+      [cDate]: formatDateForStore_(sharedExpense.date),
+      [cTitle]: sharedExpense.title || "",
+      [cAmount]: sharedExpense.amount || "",
+      [cCategory]: sharedExpense.category || "",
+      [cPaymentType]: "",
+      [cTransactionType]: "",
+      [cStatementItem]: "",
+      [cPaidBy]: sharedExpense.paid_by || "",
+      [cZsoltiBalance]: balances.zsolti,
+      [cDoriBalance]: balances.dori
+    }, "Megosztott költség " + sharedExpenseId + " – " + String(sharedExpense.title || "(név nélkül)"));
+  });
+
+  counts.deleted = existingRows.reduce((total, row, index) => {
+    const isSourced = String(row[cTxId] || "").trim() || String(row[cSharedExpenseId] || "").trim();
+    const deleted = isSourced && !consumedExistingIndexes.has(index);
+    if (deleted) {
+      logRefresh(
+        "TÖRÖLVE: " + (String(row[cSharedExpenseId] || "").trim()
+          ? "megosztott költség " + String(row[cSharedExpenseId]).trim()
+          : "tranzakció " + String(row[cTxId]).trim()) +
+        " – " + String(row[cTitle] || "(név nélkül)")
+      );
+    }
+    return total + (deleted ? 1 : 0);
+  }, 0);
+
+  replaceSheetDataRows_(houseSheet, houseHeader, outputRows);
+  logRefresh(
+    "Frissítés kész. Új: " + counts.created + ", módosítva: " + counts.updated +
+    ", változatlan: " + counts.unchanged + ", törölve: " + counts.deleted +
+    ", duplikáció miatt kihagyva: " + counts.duplicates + "."
+  );
+
+  return Object.assign({ success: true, log: refreshLog, duration_ms: Date.now() - refreshStartedAt }, counts);
 }
 
 /**
@@ -1923,6 +2635,7 @@ function getHouseCosts_(p) {
     return { success: false, error: 'Nem található a "House_Costs" munkalap.' };
   }
 
+  ensureSheetColumns_(sheet, HOUSE_COST_SYNC_COLUMNS_);
   const data = sheet.getDataRange().getValues();
   if (!data || data.length < 2) {
     return { success: true, data: [] };
@@ -1955,6 +2668,40 @@ function getHouseCosts_(p) {
   return { success: true, data: rows };
 }
 
+function updateHouseCostSettled_(id, settled) {
+  const houseCostId = String(id || "").trim();
+  if (!houseCostId) return { success: false, error: "Hiányzó házköltség ID." };
+
+  const sheet = SpreadsheetApp.getActive().getSheetByName("House_Costs");
+  if (!sheet) return { success: false, error: 'Nem található a "House_Costs" munkalap.' };
+
+  ensureSheetColumns_(sheet, HOUSE_COST_SYNC_COLUMNS_);
+  const data = sheet.getDataRange().getValues();
+  const header = (data[0] || []).map(h => String(h || "").trim());
+  const cId = header.indexOf("id");
+  const cSettled = header.indexOf("settled");
+  const cUpdatedAt = header.indexOf("updated_at");
+  if (cId === -1 || cSettled === -1) {
+    return { success: false, error: 'A "House_Costs" fejlécből hiányzik az id vagy settled oszlop.' };
+  }
+
+  let rowIndex = -1;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][cId] || "").trim() === houseCostId) {
+      rowIndex = i + 1;
+      break;
+    }
+  }
+  if (rowIndex === -1) return { success: false, error: "Nincs ilyen házköltség ID: " + houseCostId };
+
+  const normalized = String(settled || "").trim().toLowerCase();
+  const storedValue = (normalized === "x" || normalized === "1" || normalized === "true") ? "x" : "";
+  sheet.getRange(rowIndex, cSettled + 1).setValue(storedValue);
+  if (cUpdatedAt !== -1) sheet.getRange(rowIndex, cUpdatedAt + 1).setValue(new Date());
+
+  return { success: true, id: houseCostId, settled: storedValue };
+}
+
 /**
  * Shared_Expenses lap tartalmának lekérése
  */
@@ -1964,6 +2711,7 @@ function getSharedExpenses_(p) {
     return { success: false, error: 'Nem található a "Shared_Expenses" munkalap.' };
   }
 
+  ensureSheetColumns_(sheet, ["category"]);
   const data = sheet.getDataRange().getValues();
   if (data.length < 2) {
     return { success: true, data: [] };
@@ -1985,8 +2733,9 @@ function getSharedExpenses_(p) {
  */
 function syncSharedExpenseForTransaction_(tx) {
   const sheet = SpreadsheetApp.getActive().getSheetByName("Shared_Expenses");
-  if (!sheet) return;
+  if (!sheet) return { success: false, skipped: true, reason: "Hiányzó Shared_Expenses munkalap." };
 
+  ensureSheetColumns_(sheet, ["category"]);
   const data = sheet.getDataRange().getValues();
   const header = data[0];
 
@@ -1998,6 +2747,7 @@ function syncSharedExpenseForTransaction_(tx) {
   const colDate = header.indexOf("date");
   const colTitle = header.indexOf("title");
   const colAmount = header.indexOf("amount");
+  const colCategory = header.indexOf("category");
   const colPaidBy = header.indexOf("paid_by");
 
   const colZsoltiAmount = header.indexOf("Zsolti_amount");
@@ -2024,8 +2774,11 @@ function syncSharedExpenseForTransaction_(tx) {
   // Ha nem megosztott: töröljük a hozzá tartozó Shared_Expenses sort (ha van)
   const isShared = String(tx.is_shared || "").trim().toLowerCase() === "x";
   if (!isShared) {
-    if (rowIndex !== -1) sheet.deleteRow(rowIndex);
-    return;
+    if (rowIndex !== -1) {
+      sheet.deleteRow(rowIndex);
+      return { success: true, deleted: true, transaction_id: tx.id };
+    }
+    return { success: true, skipped: true, transaction_id: tx.id };
   }
 
   // Shared_Expenses lapon az amount mindig pozitív legyen
@@ -2070,6 +2823,7 @@ function syncSharedExpenseForTransaction_(tx) {
     if (colDate !== -1) newRow[colDate] = formatDateForStore_(tx.date);
     if (colTitle !== -1) newRow[colTitle] = tx.title;
     if (colAmount !== -1) newRow[colAmount] = amountAbs;
+    if (colCategory !== -1) newRow[colCategory] = tx.category || "";
     if (colPaidBy !== -1) newRow[colPaidBy] = fallbackPaidBy;
 
     if (colZsoltiAmount !== -1) newRow[colZsoltiAmount] = 0;
@@ -2082,6 +2836,7 @@ function syncSharedExpenseForTransaction_(tx) {
 
     // notes-t nem töltünk automatikusan, maradhat üres
     sheet.appendRow(newRow);
+    return { success: true, created: true, transaction_id: tx.id };
 
   } else {
     // Meglévő sor frissítése (paid_by-t nem írjuk felül)
@@ -2091,6 +2846,7 @@ function syncSharedExpenseForTransaction_(tx) {
     if (colDate !== -1) row[colDate] = formatDateForStore_(tx.date);
     if (colTitle !== -1) row[colTitle] = tx.title;
     if (colAmount !== -1) row[colAmount] = amountAbs;
+    if (colCategory !== -1) row[colCategory] = tx.category || "";
 
     // Alap megosztási mezők importált tételnél 0-ra
     if (colZsoltiAmount !== -1) row[colZsoltiAmount] = 0;
@@ -2102,8 +2858,160 @@ function syncSharedExpenseForTransaction_(tx) {
     if (colDoriBal !== -1) row[colDoriBal] = doriBal;
     if (colBalanceImpact !== -1) row[colBalanceImpact] = balanceImpact;
 
-    sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
+    const changed = row.some((value, idx) => !syncValuesEqual_(value, existingRow[idx]));
+    if (changed) {
+      sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
+      return { success: true, updated: true, transaction_id: tx.id };
+    }
+    return { success: true, unchanged: true, transaction_id: tx.id };
   }
+}
+
+/**
+ * A Transactions teljes állományából újraszinkronizálja a kapcsolt
+ * Shared_Expenses rekordokat. Elsősorban a korábbi sorok category
+ * mezőjének visszatöltésére szolgál.
+ */
+function refreshSharedExpensesFromTransactions_() {
+  const ss = SpreadsheetApp.getActive();
+  const txSheet = ss.getSheetByName("Transactions");
+  const sharedSheet = ss.getSheetByName("Shared_Expenses");
+  if (!txSheet) {
+    return { success: false, error: 'Nem található a "Transactions" munkalap.' };
+  }
+  if (!sharedSheet) {
+    return { success: false, error: 'Nem található a "Shared_Expenses" munkalap.' };
+  }
+
+  const data = txSheet.getDataRange().getValues();
+  const header = (data[0] || []).map(h => String(h || "").trim());
+  const required = ["id", "month", "date", "amount", "title", "category", "is_shared"];
+  const missing = required.filter(name => header.indexOf(name) === -1);
+  if (missing.length > 0) {
+    return {
+      success: false,
+      error: 'A "Transactions" fejléc hibás. Hiányzó oszlopok: ' + missing.join(", ")
+    };
+  }
+
+  ensureSheetColumns_(sharedSheet, ["category"]);
+  const sharedData = sharedSheet.getDataRange().getValues();
+  const sharedHeader = (sharedData[0] || []).map(h => String(h || "").trim());
+  const sharedCol = name => sharedHeader.indexOf(name);
+  const cId = sharedCol("id");
+  const cCreatedAt = sharedCol("created_at");
+  const cTxId = sharedCol("transaction_id");
+  const cMonth = sharedCol("month");
+  const cDate = sharedCol("date");
+  const cTitle = sharedCol("title");
+  const cAmount = sharedCol("amount");
+  const cCategory = sharedCol("category");
+  const cPaidBy = sharedCol("paid_by");
+  const cZsoltiAmount = sharedCol("Zsolti_amount");
+  const cDoriAmount = sharedCol("Dori_amount");
+  const cRemaining = sharedCol("remaining_amount");
+  const cZsoltiBal = sharedCol("Zsolti_balance");
+  const cDoriBal = sharedCol("Dori_balance");
+  const cBalanceImpact = sharedCol("balance_impact");
+  const requiredSharedColumns = {
+    id: cId,
+    transaction_id: cTxId,
+    month: cMonth,
+    date: cDate,
+    title: cTitle,
+    amount: cAmount,
+    category: cCategory,
+    paid_by: cPaidBy
+  };
+  const missingShared = Object.keys(requiredSharedColumns)
+    .filter(name => requiredSharedColumns[name] === -1);
+  if (missingShared.length > 0) {
+    return {
+      success: false,
+      error: 'A "Shared_Expenses" fejléc hibás. Hiányzó oszlopok: ' + missingShared.join(", ")
+    };
+  }
+
+  const existingRows = sharedData.slice(1).map(row => {
+    const normalized = new Array(sharedHeader.length).fill("");
+    row.forEach((value, idx) => {
+      if (idx < normalized.length) normalized[idx] = value;
+    });
+    return normalized;
+  });
+  const existingByTransactionId = new Map();
+  const manualRows = [];
+  existingRows.forEach((row, index) => {
+    const txId = String(row[cTxId] || "").trim();
+    if (txId && !existingByTransactionId.has(txId)) {
+      existingByTransactionId.set(txId, { row, index });
+    } else if (!txId && row.some(value => String(value || "").trim() !== "")) {
+      manualRows.push(row);
+    }
+  });
+
+  const counts = { created: 0, updated: 0, deleted: 0, unchanged: 0 };
+  const consumedExistingIndexes = new Set();
+  const outputRows = manualRows.slice();
+
+  for (let i = 1; i < data.length; i++) {
+    const sourceRow = data[i];
+    const tx = {};
+    header.forEach((name, idx) => { tx[name] = sourceRow[idx]; });
+    const txId = String(tx.id || "").trim();
+    const isShared = String(tx.is_shared || "").trim().toLowerCase() === "x";
+    if (!txId || !isShared) continue;
+
+    const existingEntry = existingByTransactionId.get(txId);
+    const existingRow = existingEntry ? existingEntry.row : null;
+    const row = existingRow
+      ? existingRow.slice()
+      : new Array(sharedHeader.length).fill("");
+    const amountAbs = Math.abs(Number(tx.amount) || 0);
+    const fallbackPaidBy = String(tx.paid_by || "").trim() || "Dóri";
+    const paidBy = existingRow
+      ? (String(existingRow[cPaidBy] || "").trim() || fallbackPaidBy)
+      : fallbackPaidBy;
+    const half = amountAbs / 2;
+    const paidByNorm = paidBy.toLowerCase();
+    const balanceImpact = (paidByNorm === "dóri" || paidByNorm === "dori" || paidByNorm === "zsolti")
+      ? half
+      : 0;
+
+    if (!String(row[cId] || "").trim()) row[cId] = generatePrefixedId_("SE");
+    if (cCreatedAt !== -1 && !row[cCreatedAt]) row[cCreatedAt] = new Date();
+    row[cTxId] = txId;
+    row[cMonth] = tx.month || "";
+    row[cDate] = formatDateForStore_(tx.date);
+    row[cTitle] = tx.title || "";
+    row[cAmount] = amountAbs;
+    row[cCategory] = tx.category || "";
+    row[cPaidBy] = paidBy;
+    if (cZsoltiAmount !== -1) row[cZsoltiAmount] = 0;
+    if (cDoriAmount !== -1) row[cDoriAmount] = 0;
+    if (cRemaining !== -1) row[cRemaining] = amountAbs;
+    if (cZsoltiBal !== -1) row[cZsoltiBal] = half;
+    if (cDoriBal !== -1) row[cDoriBal] = half;
+    if (cBalanceImpact !== -1) row[cBalanceImpact] = balanceImpact;
+
+    const changed = !existingRow || row.some((value, idx) =>
+      !syncValuesEqual_(value, existingRow[idx])
+    );
+    if (!existingRow) counts.created++;
+    else if (changed) counts.updated++;
+    else counts.unchanged++;
+    if (existingEntry) consumedExistingIndexes.add(existingEntry.index);
+    outputRows.push(row);
+  }
+
+  counts.deleted = existingRows.reduce((total, row, index) => {
+    const txId = String(row[cTxId] || "").trim();
+    return total + (txId && !consumedExistingIndexes.has(index) ? 1 : 0);
+  }, 0);
+
+  replaceSheetDataRows_(sharedSheet, sharedHeader, outputRows);
+
+  return Object.assign({ success: true }, counts);
 }
 
 /**
@@ -2229,6 +3137,7 @@ function addSharedExpense_(p) {
     return { success: false, error: 'Nem található a "Shared_Expenses" munkalap.' };
   }
 
+  ensureSheetColumns_(sheet, ["category"]);
   const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
 
   const colId = header.indexOf("id");
@@ -2238,6 +3147,7 @@ function addSharedExpense_(p) {
   const colDate = header.indexOf("date");
   const colTitle = header.indexOf("title");
   const colAmount = header.indexOf("amount");
+  const colCategory = header.indexOf("category");
   const colPaidBy = header.indexOf("paid_by");
   const colZsoltiAmount = header.indexOf("Zsolti_amount");
   const colDoriAmount = header.indexOf("Dori_amount");
@@ -2306,6 +3216,7 @@ function addSharedExpense_(p) {
   if (colDate !== -1) newRow[colDate] = formatDateForStore_(dateRaw);
   if (colTitle !== -1) newRow[colTitle] = title;
   if (colAmount !== -1) newRow[colAmount] = amountAbs;
+  if (colCategory !== -1) newRow[colCategory] = p.category || "";
   if (colPaidBy !== -1) newRow[colPaidBy] = paidBy;
   if (colZsoltiAmount !== -1) newRow[colZsoltiAmount] = zAbs;
   if (colDoriAmount !== -1) newRow[colDoriAmount] = dAbs;
@@ -2325,6 +3236,7 @@ function updateSharedExpenseRow_(p) {
     return { success: false, error: 'Nem található a "Shared_Expenses" munkalap.' };
   }
 
+  ensureSheetColumns_(sheet, ["category"]);
   const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
 
   const colId = header.indexOf("id");
@@ -2332,6 +3244,7 @@ function updateSharedExpenseRow_(p) {
   const colDate = header.indexOf("date");
   const colTitle = header.indexOf("title");
   const colAmount = header.indexOf("amount");
+  const colCategory = header.indexOf("category");
   const colPaidBy = header.indexOf("paid_by");
   const colZsoltiAmount = header.indexOf("Zsolti_amount");
   const colDoriAmount = header.indexOf("Dori_amount");
@@ -2401,6 +3314,7 @@ function updateSharedExpenseRow_(p) {
   if (colDate !== -1) sheet.getRange(rowIndex, colDate + 1).setValue(formatDateForStore_(dateRaw));
   if (colTitle !== -1) sheet.getRange(rowIndex, colTitle + 1).setValue(title);
   if (colAmount !== -1) sheet.getRange(rowIndex, colAmount + 1).setValue(amountAbs);
+  if (colCategory !== -1) sheet.getRange(rowIndex, colCategory + 1).setValue(p.category || "");
   if (colPaidBy !== -1) sheet.getRange(rowIndex, colPaidBy + 1).setValue(paidByRaw);
   if (colZsoltiAmount !== -1) sheet.getRange(rowIndex, colZsoltiAmount + 1).setValue(zAbs);
   if (colDoriAmount !== -1) sheet.getRange(rowIndex, colDoriAmount + 1).setValue(dAbs);

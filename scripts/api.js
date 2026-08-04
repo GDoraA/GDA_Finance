@@ -1,7 +1,16 @@
 // ----------- API KONFIG -------------
-const API_URL = "https://script.google.com/macros/s/AKfycbzry0MVBLC2EfDpYXYwtPxgv7WT8H1RuMgzSWA0bO2bj9c-1gzPC12opY7VVj2OrPg/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbz435ovKP86X6zbSZYphDoDsUfAE7fEm3aMiJC0XJ7y4WejCq6YNF-mKDsfeXlRWE3-vg/exec";
+let activeApiRequestCount = 0;
+
+function setApiLoadingState(isLoading) {
+    activeApiRequestCount = Math.max(0, activeApiRequestCount + (isLoading ? 1 : -1));
+    document.documentElement.classList.toggle("api-loading", activeApiRequestCount > 0);
+}
+
 // ----------- JSONP HÍVÓ FUNKCIÓ -------------
-function jsonp(action, params = {}) {
+function jsonp(action, params = {}, activityDetails = null) {
+    const activityContext = window.activityLog?.start(action, params, activityDetails) || null;
+    setApiLoadingState(true);
     return new Promise((resolve, reject) => {
         const callbackName = "cb_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
         const token = localStorage.getItem("gda_auth_token") || "";
@@ -13,10 +22,16 @@ function jsonp(action, params = {}) {
         script.src = `${API_URL}?${urlParams.toString()}`;
 
         let settled = false;
+        let loadingStateReleased = false;
 
         const cleanup = ({ keepNoopCallback = false } = {}) => {
             if (timeoutId) clearTimeout(timeoutId);
             try { script.remove(); } catch (_) { }
+
+            if (!loadingStateReleased) {
+                loadingStateReleased = true;
+                setApiLoadingState(false);
+            }
 
             if (keepNoopCallback) {
                 window[callbackName] = function () { };
@@ -31,6 +46,7 @@ function jsonp(action, params = {}) {
             if (settled) return;
             settled = true;
             cleanup();
+            window.activityLog?.finish(activityContext, response);
             resolve(response);
         };
 
@@ -38,14 +54,18 @@ function jsonp(action, params = {}) {
             if (settled) return;
             settled = true;
             cleanup();
-            reject(new Error("JSONP hiba (script betöltés sikertelen)"));
+            const error = new Error("JSONP hiba (script betöltés sikertelen)");
+            window.activityLog?.fail(activityContext, error);
+            reject(error);
         };
 
         const timeoutId = setTimeout(() => {
             if (settled) return;
             settled = true;
             cleanup({ keepNoopCallback: true });
-            reject(new Error("JSONP timeout: a szerver nem válaszolt időben."));
+            const error = new Error("JSONP timeout: a szerver nem válaszolt időben.");
+            window.activityLog?.fail(activityContext, error);
+            reject(error);
 
             setTimeout(() => {
                 try { delete window[callbackName]; } catch (_) {
@@ -87,14 +107,23 @@ const api = {
     getHouseCosts() {
         return jsonp("getHouseCosts");
     },
+    refreshHouseCosts() {
+        return jsonp("refreshHouseCosts");
+    },
+    updateHouseCostSettled(id, settled) {
+        return jsonp("updateHouseCostSettled", { id, settled: settled ? "x" : "" });
+    },
     getBankTransactions() {
         return jsonp("getBankTransactions");
     },
     setBankTransactionMatchStatus(id, status) {
         return jsonp("setBankTransactionMatchStatus", { id, status });
     },
-    updateTransaction(data) {
-        return jsonp("updateTransaction", data);
+    updateTransaction(data, previousData = null) {
+        return jsonp("updateTransaction", data, {
+            before: previousData,
+            after: data
+        });
     },
     bulkMatchTransactions(items) {
         return jsonp("bulkMatchTransactions", { items: JSON.stringify(items || []) });
@@ -116,6 +145,9 @@ const api = {
     },
     getSharedExpenses() {
         return jsonp("getSharedExpenses");
+    },
+    refreshSharedExpenses() {
+        return jsonp("refreshSharedExpenses");
     },
     // --- ÚJ: Shared Expense mező módosítása ---
     updateSharedExpense(id, field, value) {

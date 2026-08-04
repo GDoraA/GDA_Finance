@@ -37,7 +37,7 @@ function openBankItemModal(item) {
 const fields = [
     ["id", "ID"],
     ["bank_reference", "Banki azonosító"],
-    ["matched_transaction_ids", "TR ID"],
+    ["matched_transaction_ids", "Kapcsolt tranzakció ID"],
     ["month", "Hó"],
     ["transaction_date", "Tr.dátum"],
         ["posting_date", "Könyvelés"],
@@ -76,6 +76,7 @@ const fields = [
 
     const isAlreadyMatched = matchedIds !== "";
     const isIgnored = matchStatus === "ignored";
+    const canCreateTransaction = hasPermission("tx_create", "write");
 
     const isAtmCashWithdrawalType =
         typeText === "atm készpénz felvétel" ||
@@ -96,12 +97,14 @@ const fields = [
         isAtmCashDepositType;
 
     const createCashTxDisabled =
-        (!bankId || isAlreadyMatched || isIgnored || !isCashWithdrawal) ? "disabled" : "";
+        (!canCreateTransaction || !bankId || isAlreadyMatched || isIgnored || !isCashWithdrawal) ? "disabled" : "";
 
     const createCashDepositTxDisabled =
-        (!bankId || isAlreadyMatched || isIgnored || !isCashDeposit) ? "disabled" : "";
+        (!canCreateTransaction || !bankId || isAlreadyMatched || isIgnored || !isCashDeposit) ? "disabled" : "";
 
-    const createCashTxHint = !bankId
+    const createCashTxHint = !canCreateTransaction
+        ? "Nincs jogosultság tranzakció létrehozására."
+        : !bankId
         ? "Hiányzó banki tétel ID."
         : isAlreadyMatched
             ? "Ehhez a banki tételhez már tartozik tranzakció."
@@ -111,7 +114,9 @@ const fields = [
                     ? "Ez a banki tétel nem tűnik készpénzfelvételnek."
                     : "A tranzakció létrehozása a következő lépésben történik.";
 
-    const createCashDepositTxHint = !bankId
+    const createCashDepositTxHint = !canCreateTransaction
+        ? "Nincs jogosultság tranzakció létrehozására."
+        : !bankId
         ? "Hiányzó banki tétel ID."
         : isAlreadyMatched
             ? "Ehhez a banki tételhez már tartozik tranzakció."
@@ -653,7 +658,7 @@ const renderBankPreview = (items) => {
     const visibleCols = (typeIdx > -1) ? cols.slice(0, typeIdx) : cols;
     const labels = {
         id: "ID",
-        matched_transaction_ids: "TR ID",
+        matched_transaction_ids: "Kapcsolt tranzakció ID",
         month: "Hó",
         transaction_date: "Tr.dátum",
         posting_date: "Könyvelés",
@@ -711,8 +716,12 @@ const renderBankPreview = (items) => {
             const td = document.createElement("td");
             if (c === "matched_transaction_ids") {
                 const bankId = String(it?.id ?? "").trim();
-                const txIds = bankToTxMap.get(bankId) || [];
-                td.textContent = txIds.join(", ");
+                const linkedTransactionIds = String(it?.matched_transaction_ids ?? "").trim();
+                const cachedTransactionIds =
+                    (typeof bankToTxMap !== "undefined" && bankToTxMap instanceof Map)
+                        ? (bankToTxMap.get(bankId) || [])
+                        : [];
+                td.textContent = linkedTransactionIds || cachedTransactionIds.join(", ");
                 tr.appendChild(td);
                 return;
             }
@@ -939,6 +948,7 @@ bankFileInput?.addEventListener("change", async (e) => {
     setBankStatus(`Beolvasva: ${bankImportItems.length} sor. Mentéshez kattints az Import gombra.`);
 });
 bankUploadBtn?.addEventListener("click", async () => {
+    if (!hasPermission("tx_import", "write")) return;
     if (bankUploadBtn?.disabled) return;
 
     let importCompleted = false;

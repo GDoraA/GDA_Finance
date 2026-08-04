@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="hu">
+<head>
+    <meta charset="utf-8">
+    <title>Jogosultsági tesztek</title>
+</head>
+<body>
+    <h1>Jogosultsági tesztek</h1>
+    <pre id="results">Futtatás...</pre>
+
+    <script src="../utils/permissions.js"></script>
+    <script>
+        (function runPermissionTests() {
+            const lines = [];
+            let failed = 0;
+
+            function test(name, assertion) {
+                try {
+                    if (!assertion()) throw new Error("Az állítás hamis.");
+                    lines.push(`PASS: ${name}`);
+                } catch (error) {
+                    failed++;
+                    lines.push(`FAIL: ${name} – ${error.message}`);
+                }
+            }
+
+            function setPermissions(permissions, isAdmin = false) {
+                window.myPermissions = permissions;
+                window.myIsAdmin = isAdmin;
+            }
+
+            setPermissions({});
+            test("Hiányzó jogosultság nem ad olvasást", () =>
+                hasPermission("tx_read", "read") === false
+            );
+
+            setPermissions({ tx_create: "read" });
+            test("A read nem elegendő write művelethez", () =>
+                hasPermission("tx_create", "write") === false
+            );
+            test("A read elegendő read művelethez", () =>
+                hasPermission("tx_create", "read") === true
+            );
+
+            setPermissions({ tx_create: "write" });
+            test("A write magában foglalja a read szintet", () =>
+                hasPermission("tx_create", "read") === true
+            );
+
+            setPermissions({ tx_read: "hibás" });
+            test("Az ismeretlen szint none-ként viselkedik", () =>
+                hasPermission("tx_read", "read") === false
+            );
+
+            setPermissions({}, true);
+            test("Az admin minden jogosultsági ellenőrzésen átmegy", () =>
+                hasPermission("bármilyen_kulcs", "write") === true
+            );
+
+            setPermissions({ reports_house_costs: "read" });
+            test("A Házköltségek oldal saját kulccsal nyitható", () =>
+                canOpenPage("reports-house-costs") === true
+            );
+            test("A Házköltségek joga nem nyitja meg a Tranzakciókat", () =>
+                canOpenPage("transactions") === false
+            );
+            test("A Házköltségek lehet az első elérhető oldal", () =>
+                getFirstAccessiblePage() === "reports-house-costs"
+            );
+
+            setPermissions({ tx_import: "read" });
+            test("A banki riport read szinten megnyitható", () =>
+                canOpenPage("bank-matching") === true
+            );
+            test("A banki módosítás write szintet igényel", () =>
+                hasPermission("tx_import", "write") === false
+            );
+
+            document.getElementById("results").textContent =
+                `${lines.join("\n")}\n\n${failed === 0 ? "ALL TESTS PASSED" : `${failed} TEST(S) FAILED`}`;
+            document.body.dataset.testStatus = failed === 0 ? "passed" : "failed";
+        })();
+    </script>
+</body>
+</html>

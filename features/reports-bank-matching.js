@@ -431,11 +431,11 @@ function renderBankMatchingPageFromCache() {
             <td title="${escapeHtml(memo)}">${escapeHtml(memo)}</td>
             <td>${escapeHtml(statusLabel)}</td>
             <td>
-                <button type="button"
+                ${hasPermission("tx_import", "write") ? `<button type="button"
                         class="${currentView === "ignored" ? "bank-matching-restore-btn" : "bank-matching-ignore-btn"}"
                         data-bank-id="${escapeHtml(bankId)}">
                     ${currentView === "ignored" ? "Visszaállítás" : "Nem kell párosítani"}
-                </button>
+                </button>` : ""}
             </td>
         </tr>
     `;
@@ -452,6 +452,8 @@ function renderBankMatchingPageFromCache() {
 }
 
 function bindBankMatchingRowActions(tableBody) {
+    if (!hasPermission("tx_import", "write")) return;
+
     tableBody.querySelectorAll(".bank-matching-ignore-btn").forEach((btn) => {
         btn.addEventListener("click", async () => {
             const bankId = String(btn.dataset.bankId || "").trim();

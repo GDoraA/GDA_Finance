@@ -1,8 +1,8 @@
-const CACHE_NAME = "gda-finance-cache-v44";
+const CACHE_NAME = "gda-finance-cache-v49";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=44",
+  "./styles.css?v=49",
   "./app.js?v=44",
   "./scripts/activity-log.js?v=44",
   "./scripts/api.js?v=44",
@@ -16,7 +16,8 @@ const ASSETS = [
   "./features/transactions-category-chart.js?v=44",
   "./features/bank-import.js?v=44",
   "./features/auth.js?v=44",
-  "./features/sharedExp.js?v=44",
+  "./features/shared-expense-running-balance.js?v=45",
+  "./features/sharedExp.js?v=48",
   "./features/value-sets.js?v=44",
   "./features/admin.js?v=44",
   "./features/reports-monthly-summary.js?v=44",

@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
     <title>GDA Finance</title>
 
-    <link rel="stylesheet" href="styles.css?v=44" />
+    <link rel="stylesheet" href="styles.css?v=49" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script>
         if (/^https?:$/i.test(window.location.protocol)) {
@@ -665,6 +665,9 @@
                 </div>
 
             </div>
+            <div class="result-count shared-running-balance-help">
+                A rekord hatása és a göngyölített egyenleg időrendben számolódik, a táblázat aktuális rendezésétől függetlenül.
+            </div>
             <div class="table-wrapper">
                 <table id="sharedExpensesTable" class="tx-table">
                     <thead>
@@ -680,8 +683,9 @@
                             <th data-sort="remaining_amount">Maradék</th>
                             <th data-sort="Zsolti_balance">Zsolti egyenleg</th>
                             <th data-sort="Dori_balance">Dóri egyenleg</th>
-                            <th data-sort="balance_display">Egyenleg</th>
                             <th data-sort="notes">Megjegyzés</th>
+                            <th>Rekord hatása</th>
+                            <th>Göngyölített egyenleg – ki tartozik kinek</th>
                         </tr>
                     </thead>
                     <tbody id="sharedExpensesBody"></tbody>
@@ -830,7 +834,8 @@
         <script src="features/transactions-category-chart.js?v=44"></script>
         <script src="features/bank-import.js?v=44"></script>
         <script src="features/auth.js?v=44"></script>
-        <script src="features/sharedExp.js?v=44"></script>
+        <script src="features/shared-expense-running-balance.js?v=45"></script>
+        <script src="features/sharedExp.js?v=48"></script>
         <script src="features/value-sets.js?v=44"></script>
         <script src="features/admin.js?v=44"></script>
         <script src="features/reports-monthly-summary.js?v=44"></script>
@@ -841,7 +846,7 @@
         <script>
             if ("serviceWorker" in navigator && /^https?:$/i.test(window.location.protocol)) {
                 window.addEventListener("load", () => {
-                    navigator.serviceWorker.register("./service-worker.js?v=44").catch((err) => {
+                    navigator.serviceWorker.register("./service-worker.js?v=49").catch((err) => {
                         console.error("Service worker regisztráció sikertelen:", err);
                     });
                 });

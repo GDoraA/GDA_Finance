@@ -24,6 +24,32 @@ function renderSharedLoadError(tbody, colspan, errorLike, fallbackMessage) {
         tbody.innerHTML = `<tr><td colspan="${colspan}">${escapeHtml(message)}</td></tr>`;
     }
 }
+
+function formatSharedRecordEffect(effect) {
+    if (!effect || effect.kind === "none") return "Nincs egyenleghatás";
+    const amount = `${formatAmount(effect.amount)} Ft`;
+    if (effect.kind === "settlement") return `Zsolti tartozása −${amount}`;
+    if (effect.kind === "zsolti-debt") return `Zsolti tartozása +${amount}`;
+    if (effect.kind === "dori-debt") return `Dóri tartozása +${amount}`;
+    return "Nincs egyenleghatás";
+}
+
+function getSharedEffectClass(effect) {
+    if (!effect) return "effect-none";
+    return `effect-${effect.kind}`;
+}
+
+function formatSharedRunningBalance(net) {
+    if (net > 0) return `Dóri tartozik Zsoltinak ${formatAmount(net)} Ft`;
+    if (net < 0) return `Zsolti tartozik Dórinak ${formatAmount(Math.abs(net))} Ft`;
+    return "Kiegyenlített";
+}
+
+function getSharedRunningBalanceClass(net) {
+    if (net !== 0) return "shared-running-balance";
+    return "shared-running-balance is-zero";
+}
+
 async function loadSharedExpenses() {
     try {
         // ===== SORT ICONS RESET (SHARED EXPENSES) =====
@@ -43,7 +69,7 @@ async function loadSharedExpenses() {
         } catch (err) {
             renderSharedLoadError(
                 tbody,
-                13,
+                14,
                 err,
                 "Hiba a megosztott költségek betöltésekor."
             );
@@ -56,7 +82,7 @@ async function loadSharedExpenses() {
         } catch (err) {
             renderSharedLoadError(
                 tbody,
-                13,
+                14,
                 err,
                 "Hiba a segédlisták betöltésekor."
             );
@@ -66,7 +92,7 @@ async function loadSharedExpenses() {
         if (!result || !result.success) {
             renderSharedLoadError(
                 tbody,
-                13,
+                14,
                 result,
                 "Hiba a megosztott költségek betöltésekor."
             );
@@ -76,7 +102,7 @@ async function loadSharedExpenses() {
         if (!valueSetsResponse || !valueSetsResponse.success) {
             renderSharedLoadError(
                 tbody,
-                13,
+                14,
                 valueSetsResponse,
                 "Hiba a segédlisták betöltésekor."
             );
@@ -86,6 +112,8 @@ async function loadSharedExpenses() {
         const valueSets = valueSetsResponse.sets || {};
         tbody.innerHTML = "";
         seRowsById = new Map();
+        const sharedRows = Array.isArray(result.data) ? result.data : [];
+        const runningBalances = window.sharedExpenseRunningBalance.calculate(sharedRows);
         // ===== DÁTUM SZERINTI RENDEZÉS (ÚJ FELÜL) =====
         // 1) Rendezés: legrégebbi → legújabb
         // ===== RENDEZÉS (fejlécre kattintás alapján) =====
@@ -98,7 +126,7 @@ async function loadSharedExpenses() {
             const t = new Date(v).getTime();
             return isNaN(t) ? null : t;
         };
-        (result.data || []).sort((a, b) => {
+        sharedRows.sort((a, b) => {
             const va = a?.[seSortField];
             const vb = b?.[seSortField];
             // null/undefined a végére
@@ -141,12 +169,8 @@ async function loadSharedExpenses() {
         let blueTotal = 0;    // kék: Zsolti tartozása (paid_by = Dóri)
         let redTotal = 0;    // piros: Dóri tartozása  (paid_by = Zsolti)
         let purpleTotal = 0;  // lila: törlesztés tételek összege
-        const isSettlementRow = (r) => {
-            const t = String(r.title || "").trim().toLowerCase();
-            // Stabil, egyszerű szabály: "törleszt" szó alapján
-            return t.includes("törleszt");
-        };
-        for (const row of (result.data || [])) {
+        const isSettlementRow = window.sharedExpenseRunningBalance.isSettlement;
+        for (const row of sharedRows) {
             const paidBy = String(row.paid_by || "").trim().toLowerCase();
             if (isSettlementRow(row)) {
                 purpleTotal += Math.abs(Number(row.amount) || 0);
@@ -158,7 +182,7 @@ async function loadSharedExpenses() {
                 redTotal += Math.abs(Number(row.Dori_balance) || 0);
             }
         }
-        const headerNet = (redTotal - blueTotal) + purpleTotal;
+        const headerNet = runningBalances.finalNet;
         // ====== EGYENLEG KIÍRÁSA A FEJLÉC ALATTI DOBOZBA ======
         const box = document.getElementById("sharedBalanceValue");
         const label = document.getElementById("sharedBalanceLabel");
@@ -183,11 +207,21 @@ async function loadSharedExpenses() {
                 label.className = "";
             }
         }
-        result.data.forEach(row => {
+        sharedRows.forEach(row => {
             const tr = document.createElement("tr");
             seRowsById.set(String(row.id), row);
             tr.setAttribute("data-id", row.id);
-            const isSettlement = String(row.title || "").trim().toLowerCase().includes("törleszt");
+            const running = runningBalances.byRow.get(row) || {
+                effect: { kind: "none", amount: 0 },
+                net: 0,
+                doriDebt: 0,
+                zsoltiDebt: 0
+            };
+            const effectText = formatSharedRecordEffect(running.effect);
+            const effectClass = getSharedEffectClass(running.effect);
+            const runningBalanceText = formatSharedRunningBalance(running.net);
+            const runningBalanceClass = getSharedRunningBalanceClass(running.net);
+            const isSettlement = isSettlementRow(row);
             if (isSettlement) {
                 tr.classList.add("settlement-row");
                 tr.innerHTML = `
@@ -203,11 +237,9 @@ async function loadSharedExpenses() {
                 <td class="settlement-hidden-cell"></td>
                 <td class="settlement-hidden-cell"></td>
                 <td class="settlement-hidden-cell"></td>
-                <!-- Egyenleg lila -->
-                <td class="balance-settlement">${formatAmount(row.amount)}</td>
-                <td>
-                    ${row.notes || ""}
-                </td>
+                <td>${row.notes || ""}</td>
+                <td class="shared-record-effect ${effectClass}">${effectText}</td>
+                <td class="${runningBalanceClass}">${runningBalanceText}</td>
             `;
                 tbody.appendChild(tr);
                 return;
@@ -251,26 +283,11 @@ async function loadSharedExpenses() {
                     <td class="text-right se-dori-balance">${formatAmount(row.Dori_balance)}</td>
                 `;
                 })()}
-            ${(() => {
-                    const paidBy = String(row.paid_by || "").trim().toLowerCase();
-                    const paidByDori = paidBy.includes("dóri") || paidBy === "dori";
-                    const paidByZsolti = paidBy.includes("zsolti");
-                    let value = "";
-                    let cls = "";
-                    if (paidByDori) {
-                        value = row.Zsolti_balance;
-                        cls = "balance-zsolti";
-                    } else if (paidByZsolti) {
-                        value = row.Dori_balance;
-                        cls = "balance-dori";
-                    }
-
-                    return `<td class="text-right se-balance">${formatAmount(value)}</td>`;
-                })()}
-
         <td>
             ${row.notes || ""}
         </td>
+            <td class="shared-record-effect ${effectClass}">${effectText}</td>
+            <td class="${runningBalanceClass}">${runningBalanceText}</td>
 
         `;
             tbody.appendChild(tr);
@@ -814,6 +831,7 @@ function createInlineSettlementRow() {
         <td>
             <input type="text" class="set-title" value="Törlesztés" list="titlesList">
         </td>
+        <td class="settlement-hidden-cell"></td>
         <td>
             <input type="number" class="set-amount" inputmode="decimal" step="any" placeholder="Összeg">
         </td>
@@ -826,8 +844,6 @@ function createInlineSettlementRow() {
         <td class="settlement-hidden-cell"></td>
         <td class="settlement-hidden-cell"></td>
         <td class="settlement-hidden-cell"></td>
-        <!-- Egyenleg (lila) -->
-        <td class="balance-settlement set-balance-preview">0</td>
         <!-- Megjegyzés + gombok -->
         <td>
             <input type="text" class="set-notes" placeholder="Megjegyzés" style="margin-bottom:10px;">
@@ -836,14 +852,17 @@ function createInlineSettlementRow() {
                 <button type="button" class="btn-secondary cancel-settlement">Mégse</button>
             </div>
         </td>
+        <!-- Rekord hatása; a göngyölített értékek mentés és újratöltés után jelennek meg -->
+        <td class="shared-record-effect effect-settlement set-balance-preview">Zsolti tartozása −0 Ft</td>
+        <td class="shared-running-balance is-zero">Mentés után számolható</td>
     `;
     tbody.prepend(tr);
-    // Élő előnézet az Egyenleg cellában
+    // Élő előnézet a rekord hatása cellában
     const amountInput = tr.querySelector(".set-amount");
     const previewCell = tr.querySelector(".set-balance-preview");
     amountInput.addEventListener("input", () => {
         const n = Math.abs(Number(amountInput.value) || 0);
-        previewCell.textContent = formatAmount(n);
+        previewCell.textContent = `Zsolti tartozása −${formatAmount(n)} Ft`;
     });
     tr.querySelector(".cancel-settlement").addEventListener("click", () => tr.remove());
     tr.querySelector(".save-settlement").addEventListener("click", saveInlineSettlement);

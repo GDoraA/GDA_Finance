@@ -633,6 +633,60 @@ button.secondary {
     -webkit-overflow-scrolling: touch;
 }
 
+/* A sokoszlopos Megosztott költségek tábla mindig a képernyőn belül görgessen. */
+#page-shared-expenses {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+
+#page-shared-expenses .table-wrapper {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    max-height: 65vh;
+    overflow: auto;
+    scrollbar-gutter: stable;
+    scrollbar-color: #7b8da1 #e5e7eb;
+    scrollbar-width: auto;
+    border: 1px solid #d8dee6;
+    border-radius: var(--radius);
+}
+
+#page-shared-expenses .table-wrapper::-webkit-scrollbar {
+    width: 14px;
+    height: 14px;
+}
+
+#page-shared-expenses .table-wrapper::-webkit-scrollbar-track {
+    background: #e5e7eb;
+    border-radius: 8px;
+}
+
+#page-shared-expenses .table-wrapper::-webkit-scrollbar-thumb {
+    background: #7b8da1;
+    border: 3px solid #e5e7eb;
+    border-radius: 8px;
+}
+
+#page-shared-expenses #sharedExpensesTable {
+    width: max-content;
+    min-width: 100%;
+}
+
+@media (max-width: 600px) {
+    #page-shared-expenses .table-wrapper {
+        max-height: none;
+        overflow-x: auto;
+    }
+
+    #page-shared-expenses #sharedExpensesTable {
+        width: 100%;
+        min-width: 0;
+    }
+}
+
 /* Hosszú szövegek törése, hogy ne kényszerítse szélesre a táblát */
 .tx-table th,
 .tx-table td {
@@ -748,7 +802,9 @@ button.secondary {
 
 .tx-table th[data-sort] {
     cursor: pointer;
-    position: relative;
+    position: sticky;
+    top: 0;
+    z-index: 5;
     padding-right: 26px;
 }
 
@@ -995,39 +1051,47 @@ button.secondary {
     }
 
     #sharedExpensesTable td:nth-child(4)::before {
-        content: "Összeg";
+        content: "Kategória";
     }
 
     #sharedExpensesTable td:nth-child(5)::before {
-        content: "Fizette";
+        content: "Összeg";
     }
 
     #sharedExpensesTable td:nth-child(6)::before {
-        content: "Zsolti része";
+        content: "Fizette";
     }
 
     #sharedExpensesTable td:nth-child(7)::before {
-        content: "Dóri része";
+        content: "Zsolti része";
     }
 
     #sharedExpensesTable td:nth-child(8)::before {
-        content: "Maradék";
+        content: "Dóri része";
     }
 
     #sharedExpensesTable td:nth-child(9)::before {
-        content: "Zsolti egyenleg";
+        content: "Maradék";
     }
 
     #sharedExpensesTable td:nth-child(10)::before {
-        content: "Dóri egyenleg";
+        content: "Zsolti egyenleg";
     }
 
     #sharedExpensesTable td:nth-child(11)::before {
-        content: "Egyenleg";
+        content: "Dóri egyenleg";
     }
 
     #sharedExpensesTable td:nth-child(12)::before {
         content: "Megjegyzés";
+    }
+
+    #sharedExpensesTable td:nth-child(13)::before {
+        content: "Rekord hatása";
+    }
+
+    #sharedExpensesTable td:nth-child(14)::before {
+        content: "Göngyölített egyenleg – ki tartozik kinek";
     }
 
 }
@@ -1701,8 +1765,8 @@ body.sidebar-collapsed .hamburger-btn {
    SHARED EXPENSES – SETTLEMENT ALIGN
    ============================ */
 
-/* Törlesztés (megjelenített sor): Összeg oszlop (4.) jobbra */
-#sharedExpensesTable tr.settlement-row td:nth-child(4) {
+/* Törlesztés (megjelenített sor): Összeg oszlop (5.) jobbra */
+#sharedExpensesTable tr.settlement-row td:nth-child(5) {
     text-align: right;
 }
 
@@ -1712,7 +1776,7 @@ body.sidebar-collapsed .hamburger-btn {
 }
 
 /* Inline új törlesztés sor: Összeg cella jobbra */
-#sharedExpensesTable tr.new-settlement-row td:nth-child(4) {
+#sharedExpensesTable tr.new-settlement-row td:nth-child(5) {
     text-align: right;
 }
 
@@ -1724,6 +1788,35 @@ body.sidebar-collapsed .hamburger-btn {
 /* Inline új törlesztés sor: összeg input jobbra (gépelés közben is) */
 #sharedExpensesTable tr.new-settlement-row input.set-amount {
     text-align: right;
+}
+
+.shared-running-balance-help {
+    margin: 8px 0 12px;
+}
+
+#sharedExpensesTable .shared-record-effect,
+#sharedExpensesTable .shared-running-balance {
+    color: inherit;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+#sharedExpensesTable .effect-dori-debt {
+    color: inherit;
+}
+
+#sharedExpensesTable .effect-zsolti-debt {
+    color: inherit;
+}
+
+#sharedExpensesTable .effect-settlement {
+    color: inherit;
+}
+
+#sharedExpensesTable .effect-none,
+#sharedExpensesTable .shared-running-balance.is-zero {
+    color: inherit;
+    font-weight: 400;
 }
 
 .input-like {

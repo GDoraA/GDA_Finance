@@ -835,18 +835,18 @@
         <script src="features/bank-import.js?v=44"></script>
         <script src="features/auth.js?v=44"></script>
         <script src="features/shared-expense-running-balance.js?v=45"></script>
-        <script src="features/sharedExp.js?v=48"></script>
+        <script src="features/sharedExp.js?v=51"></script>
         <script src="features/value-sets.js?v=44"></script>
         <script src="features/admin.js?v=44"></script>
         <script src="features/reports-monthly-summary.js?v=44"></script>
         <script src="features/reports-house-costs.js?v=44"></script>
         <script src="features/reports-bank-matching.js?v=44"></script>
         <script src="ui/page-bootstrap.js?v=44"></script>
-        <script src="app.js?v=44"></script>
+        <script src="app.js?v=51"></script>
         <script>
             if ("serviceWorker" in navigator && /^https?:$/i.test(window.location.protocol)) {
                 window.addEventListener("load", () => {
-                    navigator.serviceWorker.register("./service-worker.js?v=49").catch((err) => {
+                    navigator.serviceWorker.register("./service-worker.js?v=51").catch((err) => {
                         console.error("Service worker regisztráció sikertelen:", err);
                     });
                 });

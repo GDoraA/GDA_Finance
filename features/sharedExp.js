@@ -114,8 +114,10 @@ async function loadSharedExpenses() {
         seRowsById = new Map();
         const sharedRows = Array.isArray(result.data) ? result.data : [];
         const runningBalances = window.sharedExpenseRunningBalance.calculate(sharedRows);
-        // ===== DÁTUM SZERINTI RENDEZÉS (ÚJ FELÜL) =====
-        // 1) Rendezés: legrégebbi → legújabb
+        const chronologicalIndex = new Map(
+            runningBalances.chronologicalRows.map((row, index) => [row, index])
+        );
+        // ===== DÁTUM SZERINTI RENDEZÉS (ALAPÉRTELMEZETTEN ÚJ FELÜL) =====
         // ===== RENDEZÉS (fejlécre kattintás alapján) =====
         const seDir = (seSortDirection === "asc") ? 1 : -1;
         const seToNum = (v) => {
@@ -153,12 +155,9 @@ async function loadSharedExpenses() {
             }
             // dátum mező
             if (seSortField === "date") {
-                const ta = seToTime(va);
-                const tb = seToTime(vb);
-                if (ta == null && tb == null) return 0;
-                if (ta == null) return 1;
-                if (tb == null) return -1;
-                return (ta - tb) * seDir;
+                // Ugyanaz a teljes sorrend, mint a göngyölített egyenlegnél:
+                // dátum, létrehozási idő, majd stabil rekordazonosító.
+                return (chronologicalIndex.get(a) - chronologicalIndex.get(b)) * seDir;
             }
             // minden más: szöveg
             const sa = String(va).toLowerCase();
@@ -328,10 +327,10 @@ document.getElementById("refreshSharedExpensesBtn")?.addEventListener("click", a
     }
 });
 
-// ===== SHARED EXPENSES – FEJLÉCRE KATTINTVA RENDEZÉS (CSAK STATE) =====
+// ===== SHARED EXPENSES – FEJLÉCRE KATTINTVA RENDEZÉS ÉS ÚJRARAJZOLÁS =====
 document.querySelectorAll("#sharedExpensesTable thead th[data-sort]").forEach(th => {
     th.style.cursor = "pointer";
-    th.addEventListener("click", () => {
+    th.addEventListener("click", async () => {
         const field = th.getAttribute("data-sort");
         if (!field) return;
         if (seSortField === field) {
@@ -340,6 +339,7 @@ document.querySelectorAll("#sharedExpensesTable thead th[data-sort]").forEach(th
             seSortField = field;
             seSortDirection = "asc";
         }
+        await loadSharedExpenses();
     });
 });
 
